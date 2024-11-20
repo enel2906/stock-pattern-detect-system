@@ -1,0 +1,1 @@
+# stock-pattern-detect-system
