@@ -94,6 +94,48 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
         return hangingManCandles;
     }
 
+    @Override
+    public List<CandleStick> getBearishMarubozuPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<CandleStick> bearishMarubozuPatterns = new ArrayList<>();
+
+        for (CandleStick candle : candles) {
+            // Kiểm tra Bearish Marubozu (Nến giảm Marubozu)
+            boolean isBearishMarubozu = candle.getClose() < candle.getOpen() && // Nến giảm
+                    candle.getHigh() <= candle.getOpen() && // Không có bóng trên (hoặc rất ngắn)
+                    candle.getLow() >= candle.getClose() && // Không có bóng dưới (hoặc rất ngắn)
+                    ((candle.getOpen() - candle.getClose()) / (candle.getHigh() - candle.getLow())) > 0.96; // Thân nến lớn (lớn hơn 70% phạm vi giá)
+
+            // Nếu là Bearish Marubozu, thêm vào danh sách
+            if (isBearishMarubozu) {
+                bearishMarubozuPatterns.add(candle);
+            }
+        }
+        return bearishMarubozuPatterns;
+    }
+
+
+    @Override
+    public List<CandleStick> getBullishMarubozuPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<CandleStick> bullishMarubozuPatterns = new ArrayList<>();
+
+        for (CandleStick candle : candles) {
+            // Kiểm tra Bullish Marubozu (Nến tăng Marubozu)
+            boolean isBullishMarubozu = candle.getClose() > candle.getOpen() && // Nến tăng
+                    candle.getLow() >= candle.getOpen() && // Không có bóng dưới (hoặc rất ngắn)
+                    candle.getHigh() <= candle.getClose() && // Không có bóng trên (hoặc rất ngắn)
+                    ((candle.getClose() - candle.getOpen()) / (candle.getHigh() - candle.getLow())) > 0.96; // Thân nến lớn (lớn hơn 70% phạm vi giá)
+
+            // Nếu là Bullish Marubozu, thêm vào danh sách
+            if (isBullishMarubozu) {
+                bullishMarubozuPatterns.add(candle);
+            }
+        }
+        return bullishMarubozuPatterns;
+    }
+
+
 
     @Override
     public List<List<CandleStick>> getBullishEngulfingPatterns(String stockId) {
@@ -250,6 +292,36 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
         }
         return haramiPatterns;
     }
+
+    @Override
+    public List<List<CandleStick>> getPiercingLinePatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> piercingLinePatterns = new ArrayList<>();
+
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 1);
+            CandleStick secondCandle = candles.get(i);
+
+            // Kiểm tra nến đầu tiên là nến giảm mạnh (Bearish)
+            boolean firstCandleBearish = firstCandle.getClose() < firstCandle.getOpen();
+
+            // Kiểm tra nến thứ hai là nến tăng (Bullish)
+            boolean secondCandleBullish = secondCandle.getClose() > secondCandle.getOpen();
+
+            // Kiểm tra khoảng trống giữa nến thứ nhất và thứ hai
+            boolean isGap = secondCandle.getOpen() < firstCandle.getClose();
+
+            // Kiểm tra nến thứ hai đóng cửa trên mức giữa thân nến đầu tiên
+            boolean closesAboveHalfFirstCandle = secondCandle.getClose() > (firstCandle.getOpen() + firstCandle.getClose()) / 2;
+
+            // Điều kiện tạo ra mẫu Piercing Line
+            if (firstCandleBearish && secondCandleBullish && isGap && closesAboveHalfFirstCandle) {
+                piercingLinePatterns.add(List.of(firstCandle, secondCandle));
+            }
+        }
+        return piercingLinePatterns;
+    }
+
 
     @Override
     public List<List<CandleStick>> getThreeWhiteSoldiers(String stockId) {
@@ -487,6 +559,33 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
     }
 
     @Override
+    public List<List<CandleStick>> getBullishKickerPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> bullishKickerPatterns = new ArrayList<>();
+
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 1);
+            CandleStick secondCandle = candles.get(i);
+
+            // Kiểm tra nến đầu tiên là nến giảm mạnh (Bearish)
+            boolean firstCandleBearish = firstCandle.getClose() < firstCandle.getOpen();
+
+            // Kiểm tra nến thứ hai là nến tăng mạnh (Bullish)
+            boolean secondCandleBullish = secondCandle.getClose() > secondCandle.getOpen();
+
+            // Kiểm tra khoảng trống giữa nến thứ nhất và thứ hai (Gap)
+            boolean isGapUp = secondCandle.getOpen() > firstCandle.getClose();
+
+            // Điều kiện để nhận diện mẫu Bullish Kicker
+            if (firstCandleBearish && secondCandleBullish && isGapUp) {
+                bullishKickerPatterns.add(List.of(firstCandle, secondCandle));
+            }
+        }
+        return bullishKickerPatterns;
+    }
+
+
+    @Override
     public List<List<CandleStick>> getFallingThreePatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
@@ -556,6 +655,202 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             }
         }
         return risingThreePatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getDownsideTasukiGapPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+
+        List<List<CandleStick>> downsideTasukiGapPatterns = new ArrayList<>();
+
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            // Kiểm tra khoảng trống giảm giá
+            boolean isGapDown = secondCandle.getOpen() < firstCandle.getClose();
+
+            // Hai nến đầu tiên phải là nến giảm
+            boolean firstCandleBearish = firstCandle.getClose() < firstCandle.getOpen();
+            boolean secondCandleBearish = secondCandle.getClose() < secondCandle.getOpen();
+
+            // Nến thứ ba tăng giá, cố gắng lấp đầy khoảng trống nhưng không vượt qua mức mở cửa nến thứ hai
+            boolean thirdCandleBullish = thirdCandle.getClose() > thirdCandle.getOpen() &&
+                    thirdCandle.getClose() < secondCandle.getOpen();
+
+            if (isGapDown && firstCandleBearish && secondCandleBearish && thirdCandleBullish) {
+                downsideTasukiGapPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return downsideTasukiGapPatterns;
+    }
+
+
+    @Override
+    public List<List<CandleStick>> getUpsideTasukiGapPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+
+        List<List<CandleStick>> upsideTasukiGapPatterns = new ArrayList<>();
+
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            // Kiểm tra khoảng trống tăng giá
+            boolean isGapUp = secondCandle.getOpen() > firstCandle.getClose();
+
+            // Hai nến đầu tiên phải là nến tăng
+            boolean firstCandleBullish = firstCandle.getClose() > firstCandle.getOpen();
+            boolean secondCandleBullish = secondCandle.getClose() > secondCandle.getOpen();
+
+            // Nến thứ ba giảm giá, cố gắng lấp đầy khoảng trống nhưng không vượt qua mức mở cửa nến thứ hai
+            boolean thirdCandleBearish = thirdCandle.getClose() < thirdCandle.getOpen() &&
+                    thirdCandle.getClose() > secondCandle.getOpen();
+
+            if (isGapUp && firstCandleBullish && secondCandleBullish && thirdCandleBearish) {
+                upsideTasukiGapPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return upsideTasukiGapPatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getEveningStarDojiPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> eveningStarDojiPatterns = new ArrayList<>();
+
+        for (int i = 3; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i-2);
+            CandleStick secondCandle = candles.get(i-1);
+            CandleStick thirdCandle = candles.get(i);
+
+            // Kiểm tra nến thứ nhất là nến tăng mạnh
+            boolean firstCandleBullish = firstCandle.getClose() > firstCandle.getOpen();
+
+            // Kiểm tra nến thứ hai là Doji
+            double secondCandleBodySize = Math.abs(secondCandle.getClose() - secondCandle.getOpen());
+            double secondCandleTotalRange = secondCandle.getHigh() - secondCandle.getLow();
+            boolean secondCandleDoji = secondCandleBodySize <= 0.1 * secondCandleTotalRange;
+
+            // Kiểm tra nến thứ ba là nến giảm mạnh, đóng cửa thấp hơn 50% thân nến thứ nhất
+            boolean thirdCandleBearish = thirdCandle.getClose() < thirdCandle.getOpen();
+            boolean closesBelowHalfFirstCandle = thirdCandle.getClose() <
+                    (firstCandle.getOpen() + (firstCandle.getClose() - firstCandle.getOpen()) / 2);
+
+            // Kiểm tra bối cảnh: Xuất hiện sau một xu hướng tăng
+            CandleStick prevCandle = candles.get(i - 3);
+            boolean isUptrend = prevCandle.getClose() > prevCandle.getOpen() && firstCandleBullish;
+
+            if (isUptrend && secondCandleDoji && thirdCandleBearish && closesBelowHalfFirstCandle) {
+                eveningStarDojiPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return eveningStarDojiPatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getMorningStarDojiPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> morningStarDojiPatterns = new ArrayList<>();
+
+        for (int i = 3; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            // Kiểm tra nến đầu tiên là nến giảm mạnh (Bearish)
+            boolean firstCandleBearish = firstCandle.getClose() < firstCandle.getOpen();
+
+            // Kiểm tra nến thứ hai là Doji
+            double secondCandleBodySize = Math.abs(secondCandle.getClose() - secondCandle.getOpen());
+            double secondCandleTotalRange = secondCandle.getHigh() - secondCandle.getLow();
+            boolean secondCandleDoji = secondCandleBodySize <= 0.1 * secondCandleTotalRange;
+
+            // Kiểm tra nến thứ ba là nến tăng mạnh, đóng cửa cao hơn nến đầu tiên
+            boolean thirdCandleBullish = thirdCandle.getClose() > thirdCandle.getOpen();
+            boolean closesAboveFirstCandle = thirdCandle.getClose() > firstCandle.getClose();
+
+            // Kiểm tra bối cảnh: Xuất hiện sau một xu hướng giảm
+            CandleStick prevCandle = candles.get(i - 3);
+            boolean isDowntrend = prevCandle.getClose() > prevCandle.getOpen() && firstCandleBearish;
+
+            // Điều kiện để nhận diện mẫu Morning Star Doji
+            if (isDowntrend && firstCandleBearish && secondCandleDoji && thirdCandleBullish && closesAboveFirstCandle) {
+                morningStarDojiPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return morningStarDojiPatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getBearishTriStarPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> bearishTriStarPatterns = new ArrayList<>();
+
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            // Kiểm tra nến đầu tiên là nến tăng mạnh (Bullish)
+            boolean firstCandleBullish = firstCandle.getClose() > firstCandle.getOpen();
+
+            // Kiểm tra nến thứ hai là Doji
+            double secondCandleBodySize = Math.abs(secondCandle.getClose() - secondCandle.getOpen());
+            double secondCandleTotalRange = secondCandle.getHigh() - secondCandle.getLow();
+            boolean secondCandleDoji = secondCandleBodySize <= 0.1 * secondCandleTotalRange;
+
+            // Kiểm tra nến thứ ba là nến giảm mạnh, đóng cửa thấp hơn nến đầu tiên
+            boolean thirdCandleBearish = thirdCandle.getClose() < thirdCandle.getOpen();
+            boolean closesBelowFirstCandle = thirdCandle.getClose() < firstCandle.getClose();
+
+            // Kiểm tra bối cảnh: Xuất hiện sau một xu hướng tăng
+            CandleStick prevCandle = candles.get(i - 3);
+            boolean isUptrend = prevCandle.getClose() < prevCandle.getOpen() && firstCandleBullish;
+
+            // Điều kiện để nhận diện mẫu Bearish Tri-Star
+            if (isUptrend && firstCandleBullish && secondCandleDoji && thirdCandleBearish && closesBelowFirstCandle) {
+                bearishTriStarPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return bearishTriStarPatterns;
+    }
+
+
+    @Override
+    public List<List<CandleStick>> getBullishTriStarPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> bullishTriStarPatterns = new ArrayList<>();
+
+        for (int i = 3; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            // Kiểm tra nến đầu tiên là nến giảm mạnh (Bearish)
+            boolean firstCandleBearish = firstCandle.getClose() < firstCandle.getOpen();
+
+            // Kiểm tra nến thứ hai là Doji
+            double secondCandleBodySize = Math.abs(secondCandle.getClose() - secondCandle.getOpen());
+            double secondCandleTotalRange = secondCandle.getHigh() - secondCandle.getLow();
+            boolean secondCandleDoji = secondCandleBodySize <= 0.1 * secondCandleTotalRange;
+
+            // Kiểm tra nến thứ ba là nến tăng mạnh, đóng cửa cao hơn nến đầu tiên
+            boolean thirdCandleBullish = thirdCandle.getClose() > thirdCandle.getOpen();
+            boolean closesAboveFirstCandle = thirdCandle.getClose() > firstCandle.getClose();
+
+            // Kiểm tra bối cảnh: Xuất hiện sau một xu hướng giảm
+            CandleStick prevCandle = candles.get(i - 3);
+            boolean isDowntrend = prevCandle.getClose() > prevCandle.getOpen() && firstCandleBearish;
+
+            // Điều kiện để nhận diện mẫu Bullish Tri-Star
+            if (isDowntrend && firstCandleBearish && secondCandleDoji && thirdCandleBullish && closesAboveFirstCandle) {
+                bullishTriStarPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return bullishTriStarPatterns;
     }
 
 
