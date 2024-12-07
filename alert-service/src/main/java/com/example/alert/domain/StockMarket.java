@@ -8,12 +8,12 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-@Document(collection = "stock")
+@Document(collection = "stocks")
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Stock {
+public class StockMarket {
     public static final String ID = "_id";
     public static final String NAME = "name";
     public static final String SYMBOL = "symbol";

@@ -25,7 +25,6 @@ def fetch_and_store_stock_data(symbol, start_date, end_date):
             "symbol": symbol,
             "name": stock_info.get("longName", "Unknown"),
             "market": stock_info.get("market", "Unknown"),
-            "created_at": datetime.utcnow(),
         }
         stock_id = db.stocks.insert_one(stock_data).inserted_id
     else:
@@ -36,14 +35,13 @@ def fetch_and_store_stock_data(symbol, start_date, end_date):
     candlestick_data = []
     for _, row in history.iterrows():
         candlestick = {
-            "stock_id": stock_id,
-            "date_time": row["Date"].to_pydatetime(),
-            "open_price": row["Open"],
-            "high_price": row["High"],
-            "low_price": row["Low"],
-            "close_price": row["Close"],
+            "stock_id": str(stock_id),
+            "date": row["Date"].timestamp(),
+            "open": row["Open"],
+            "high": row["High"],
+            "low": row["Low"],
+            "close": row["Close"],
             "volume": row["Volume"],
-            "created_at": datetime.utcnow(),
         }
         candlestick_data.append(candlestick)
 
@@ -54,4 +52,6 @@ def fetch_and_store_stock_data(symbol, start_date, end_date):
     print(f"Data for {symbol} has been successfully stored.")
 
 # Example usage
-fetch_and_store_stock_data("AAPL", "2023-01-01", "2023-12-31")
+fetch_and_store_stock_data("AAPL", "2024-01-01", "2024-12-01")
+fetch_and_store_stock_data("GOOG", "2024-01-01", "2024-12-01")
+fetch_and_store_stock_data("AMZN", "2024-01-01", "2024-12-01")

@@ -1,8 +1,6 @@
 package com.example.alert.service.impl;
 
-import com.example.alert.constant.SimplePatternSize;
 import com.example.alert.domain.CandleStick;
-import com.example.alert.domain.Stock;
 import com.example.alert.repository.CandleStickRepository;
 import com.example.alert.service.DetectCandlePatternService;
 import lombok.AllArgsConstructor;
