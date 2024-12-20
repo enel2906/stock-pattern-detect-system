@@ -20,6 +20,8 @@ public class CandleNames {
     public static final String TWEEZER_TOP = "tweezer_top";
     public static final String HARAMI = "harami";
     public static final String DARK_CLOUD_COVER = "dark_cloud_cover";
+    public static final String MATCHING_LOW = "matching_low";
+    public static final String MATCHING_HIGH = "matching_high";
 
     // Three candle patterns
     public static final String THREE_WHITE_SOLDIERS = "three_white_soldiers";
@@ -39,4 +41,6 @@ public class CandleNames {
     // Many candle patterns
     public static final String FALLING_THREE = "falling_three";
     public static final String RISING_THREE = "rising_three";
+    public static final String BEARISH_THREE_LINE_STRIKE = "bearish_three_line_strike";
+    public static final String BULLISH_THREE_LINE_STRIKE = "bullish_three_line_strike";
 }

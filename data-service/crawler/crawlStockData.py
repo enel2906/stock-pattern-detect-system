@@ -52,6 +52,6 @@ def fetch_and_store_stock_data(symbol, start_date, end_date):
     print(f"Data for {symbol} has been successfully stored.")
 
 # Example usage
-fetch_and_store_stock_data("AAPL", "2024-01-01", "2024-12-01")
-fetch_and_store_stock_data("GOOG", "2024-01-01", "2024-12-01")
-fetch_and_store_stock_data("AMZN", "2024-01-01", "2024-12-01")
+fetch_and_store_stock_data("JBL", "1999-01-01", "1999-12-01")
+# fetch_and_store_stock_data("GOOG", "2024-01-01", "2024-12-01")
+# fetch_and_store_stock_data("AMZN", "2024-01-01", "2024-12-01")

@@ -24,6 +24,8 @@ public interface DetectCandlePatternService {
     List<List<CandleStick>> getTweezerTopPatterns(String stockId);
     List<List<CandleStick>> getHaramiPatterns(String stockId);
     List<List<CandleStick>> getDarkCloudCoverPatterns(String stockId);
+    List<List<CandleStick>> getMatchingLowPatterns(String stockId);
+    List<List<CandleStick>> getMatchingHighPatterns(String stockId);
 
     //Three candle patterns
     List<List<CandleStick>> getThreeWhiteSoldiers(String stockId);
@@ -43,5 +45,7 @@ public interface DetectCandlePatternService {
     //Many candle patterns
     List<List<CandleStick>> getFallingThreePatterns(String stockId);
     List<List<CandleStick>> getRisingThreePatterns(String stockId);
+    List<List<CandleStick>> getBullishThreeLineStrikePatterns(String stockId);
+    List<List<CandleStick>> getBearishThreeLineStrikePatterns(String stockId);
 }
 

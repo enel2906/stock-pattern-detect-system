@@ -55,6 +55,10 @@ public class AlterController {
             case CandleNames.HARAMI -> new Response(detectCandlePatternService.getHaramiPatterns(stockId));
             case CandleNames.DARK_CLOUD_COVER ->
                     new Response(detectCandlePatternService.getDarkCloudCoverPatterns(stockId));
+            case CandleNames.MATCHING_LOW ->
+                    new Response(detectCandlePatternService.getMatchingLowPatterns(stockId));
+            case CandleNames.MATCHING_HIGH ->
+                    new Response(detectCandlePatternService.getMatchingHighPatterns(stockId));
 
             // Three candle patterns
             case CandleNames.THREE_WHITE_SOLDIERS ->
@@ -84,6 +88,10 @@ public class AlterController {
             // Many candle patterns
             case CandleNames.FALLING_THREE -> new Response(detectCandlePatternService.getFallingThreePatterns(stockId));
             case CandleNames.RISING_THREE -> new Response(detectCandlePatternService.getRisingThreePatterns(stockId));
+            case CandleNames.BEARISH_THREE_LINE_STRIKE
+                    -> new Response(detectCandlePatternService.getBearishThreeLineStrikePatterns(stockId));
+            case CandleNames.BULLISH_THREE_LINE_STRIKE ->
+                    new Response(detectCandlePatternService.getBullishThreeLineStrikePatterns(stockId));
 
             // Default case for unknown patterns
             default -> new Response(ResponseCode.UNKNOWN_ERROR);
