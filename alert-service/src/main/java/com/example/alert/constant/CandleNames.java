@@ -37,6 +37,7 @@ public class CandleNames {
     public static final String MORNING_STAR_DOJI = "morning_star_doji";
     public static final String BEARISH_TRI_STAR = "bearish_tri_star";
     public static final String BULLISH_TRI_STAR = "bullish_tri_star";
+    public static final String THRUSTING = "thrusting";
 
     // Many candle patterns
     public static final String FALLING_THREE = "falling_three";

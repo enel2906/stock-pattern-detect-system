@@ -59,6 +59,7 @@ public class AlterController {
                     new Response(detectCandlePatternService.getMatchingLowPatterns(stockId));
             case CandleNames.MATCHING_HIGH ->
                     new Response(detectCandlePatternService.getMatchingHighPatterns(stockId));
+            case CandleNames.THRUSTING -> new Response(detectCandlePatternService.getThrustingPatterns(stockId));
 
             // Three candle patterns
             case CandleNames.THREE_WHITE_SOLDIERS ->
