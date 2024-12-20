@@ -292,6 +292,40 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
     }
 
     @Override
+    public List<List<CandleStick>> getThrustingPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> thrustingPatterns = new ArrayList<>();
+
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 1);
+            CandleStick secondCandle = candles.get(i);
+
+            // Kiểm tra nến đầu tiên là nến giảm mạnh
+            boolean isFirstBearish = firstCandle.getClose() < firstCandle.getOpen();
+
+            // Kiểm tra nến thứ hai là nến tăng
+            boolean isSecondBullish = secondCandle.getClose() > secondCandle.getOpen();
+
+            // Kiểm tra khoảng trống giảm (gap) giữa giá mở cửa của nến thứ hai và giá đóng cửa của nến đầu tiên
+            boolean hasGapDown = secondCandle.getOpen() < firstCandle.getClose();
+
+            // Kiểm tra giá đóng cửa của nến thứ hai nằm dưới mức giữa thân nến đầu tiên
+            boolean closeBelowMidpoint = secondCandle.getClose() <
+                    (firstCandle.getOpen() + firstCandle.getClose()) / 2;
+
+            // Kiểm tra bối cảnh xu hướng giảm trước đó
+            boolean isDowntrend = (i >= 2 && candles.get(i - 2).getClose() > firstCandle.getClose());
+
+            if (isFirstBearish && isSecondBullish && hasGapDown && closeBelowMidpoint && isDowntrend) {
+                thrustingPatterns.add(List.of(firstCandle, secondCandle));
+            }
+        }
+
+        return thrustingPatterns;
+    }
+
+
+    @Override
     public List<List<CandleStick>> getPiercingLinePatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
         List<List<CandleStick>> piercingLinePatterns = new ArrayList<>();
