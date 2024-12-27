@@ -38,6 +38,8 @@ public class CandleNames {
     public static final String BEARISH_TRI_STAR = "bearish_tri_star";
     public static final String BULLISH_TRI_STAR = "bullish_tri_star";
     public static final String THRUSTING = "thrusting";
+    public static final String UPSIDE_GAP_TWO_CROWS = "upside_gap_two_crows";
+    public static final String THREE_STAR_IN_THE_SOUTH = "three_star_in_the_south";
 
     // Many candle patterns
     public static final String FALLING_THREE = "falling_three";

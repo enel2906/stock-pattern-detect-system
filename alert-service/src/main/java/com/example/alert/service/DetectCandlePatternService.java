@@ -42,6 +42,8 @@ public interface DetectCandlePatternService {
     List<List<CandleStick>> getBearishTriStarPatterns(String stockId);
     List<List<CandleStick>> getBullishTriStarPatterns(String stockId);
     List<List<CandleStick>> getThrustingPatterns(String stockId);
+    List<List<CandleStick>> getUpsideGapTwoCrowsPatterns(String stockId);
+    List<List<CandleStick>> getThreeStarsInTheSouthPatterns(String stockId);
 
     //Many candle patterns
     List<List<CandleStick>> getFallingThreePatterns(String stockId);

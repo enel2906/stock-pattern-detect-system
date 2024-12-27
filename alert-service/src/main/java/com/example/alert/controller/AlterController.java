@@ -85,6 +85,10 @@ public class AlterController {
                     new Response(detectCandlePatternService.getBearishTriStarPatterns(stockId));
             case CandleNames.BULLISH_TRI_STAR ->
                     new Response(detectCandlePatternService.getBullishTriStarPatterns(stockId));
+            case CandleNames.UPSIDE_GAP_TWO_CROWS ->
+                    new Response(detectCandlePatternService.getUpsideGapTwoCrowsPatterns(stockId));
+            case CandleNames.THREE_STAR_IN_THE_SOUTH ->
+                    new Response(detectCandlePatternService.getThreeStarsInTheSouthPatterns(stockId))
 
             // Many candle patterns
             case CandleNames.FALLING_THREE -> new Response(detectCandlePatternService.getFallingThreePatterns(stockId));
