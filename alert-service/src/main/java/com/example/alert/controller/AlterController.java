@@ -88,7 +88,7 @@ public class AlterController {
             case CandleNames.UPSIDE_GAP_TWO_CROWS ->
                     new Response(detectCandlePatternService.getUpsideGapTwoCrowsPatterns(stockId));
             case CandleNames.THREE_STAR_IN_THE_SOUTH ->
-                    new Response(detectCandlePatternService.getThreeStarsInTheSouthPatterns(stockId))
+                    new Response(detectCandlePatternService.getThreeStarsInTheSouthPatterns(stockId));
 
             // Many candle patterns
             case CandleNames.FALLING_THREE -> new Response(detectCandlePatternService.getFallingThreePatterns(stockId));
