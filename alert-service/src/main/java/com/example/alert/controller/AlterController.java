@@ -2,13 +2,20 @@ package com.example.alert.controller;
 
 import com.example.alert.constant.CandleNames;
 import com.example.alert.constant.ResponseCode;
+import com.example.alert.domain.CandleStick;
 import com.example.alert.domain.StockMarket;
+import com.example.alert.model.CupWithHandle;
 import com.example.alert.response.Response;
+import com.example.alert.service.CandleStickService;
+import com.example.alert.service.ComplexPatternDetectorService;
 import com.example.alert.service.DetectCandlePatternService;
 import com.example.alert.service.StockMarketService;
+import com.example.alert.util.Indicator;
 import lombok.AllArgsConstructor;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/alter/candle-stick")
@@ -16,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 public class AlterController {
     private StockMarketService stockMarketService;
     private DetectCandlePatternService detectCandlePatternService;
+    private CandleStickService candleStickService;
+    private ComplexPatternDetectorService complexPatternDetectorService;
 
     @GetMapping("{stockSymbol}")
     public Response alterCandleStick(@PathVariable String stockSymbol,
@@ -29,7 +38,9 @@ public class AlterController {
         return switch (candlePattern) {
             // One candle patterns
             case CandleNames.HAMMER -> new Response(detectCandlePatternService.getHammerCandles(stockId));
-            case CandleNames.DOJI -> new Response(detectCandlePatternService.getDojiCandles(stockId));
+            case CandleNames.LONG_LEGGED_DOJI -> new Response(detectCandlePatternService.getLongLeggedDoji(stockId));
+            case CandleNames.GRAVESTONE_DOJI -> new Response(detectCandlePatternService.getGravestoneDoji(stockId));
+            case CandleNames.DRAGONFLY_DOJI -> new Response(detectCandlePatternService.getDragonflyDoji(stockId));
             case CandleNames.INVERTED_HAMMER ->
                     new Response(detectCandlePatternService.getInvertedHammerCandles(stockId));
             case CandleNames.HANGING_MAN -> new Response(detectCandlePatternService.getHangingManCandles(stockId));
@@ -38,6 +49,8 @@ public class AlterController {
                     new Response(detectCandlePatternService.getBearishMarubozuPatterns(stockId));
             case CandleNames.BULLISH_MARUBOZU ->
                     new Response(detectCandlePatternService.getBullishMarubozuPatterns(stockId));
+            case CandleNames.BEARISH_BELT_HOLD -> new Response(detectCandlePatternService.getBearishBeltHold(stockId));
+            case CandleNames.BULLISH_BELT_HOLD -> new Response(detectCandlePatternService.getBullishBeltHold(stockId));
 
             // Two candle patterns
             case CandleNames.BULLISH_ENGULFING ->
@@ -60,6 +73,14 @@ public class AlterController {
             case CandleNames.MATCHING_HIGH ->
                     new Response(detectCandlePatternService.getMatchingHighPatterns(stockId));
             case CandleNames.THRUSTING -> new Response(detectCandlePatternService.getThrustingPatterns(stockId));
+            case CandleNames.BEARISH_HARAMI_CROSS
+                    -> new Response(detectCandlePatternService.getBearishHaramiCrossPatterns(stockId));
+            case CandleNames.BULLISH_HARAMI_CROSS
+                    -> new Response(detectCandlePatternService.getBullishHaramiCrossPatterns(stockId));
+            case CandleNames.BEARISH_COUNTERATTACK
+                    -> new Response(detectCandlePatternService.getBearishCounterattackPatterns(stockId));
+            case CandleNames.BULLISH_COUNTERATTACK
+                    -> new Response(detectCandlePatternService.getBullishCounterattackPatterns(stockId));
 
             // Three candle patterns
             case CandleNames.THREE_WHITE_SOLDIERS ->
@@ -89,6 +110,10 @@ public class AlterController {
                     new Response(detectCandlePatternService.getUpsideGapTwoCrowsPatterns(stockId));
             case CandleNames.THREE_STAR_IN_THE_SOUTH ->
                     new Response(detectCandlePatternService.getThreeStarsInTheSouthPatterns(stockId));
+            case CandleNames.DESCENDING_HAWK
+                    -> new Response(detectCandlePatternService.getDescendingHawkPatterns(stockId));
+            case CandleNames.ADVANCE_BLOCK -> new Response(detectCandlePatternService.getAdvanceBlockPatterns(stockId));
+            case CandleNames.DELIBERATION -> new Response(detectCandlePatternService.getDeliberationPatterns(stockId));
 
             // Many candle patterns
             case CandleNames.FALLING_THREE -> new Response(detectCandlePatternService.getFallingThreePatterns(stockId));
@@ -97,6 +122,15 @@ public class AlterController {
                     -> new Response(detectCandlePatternService.getBearishThreeLineStrikePatterns(stockId));
             case CandleNames.BULLISH_THREE_LINE_STRIKE ->
                     new Response(detectCandlePatternService.getBullishThreeLineStrikePatterns(stockId));
+            case CandleNames.LADDER_TOP -> new Response(detectCandlePatternService.getLadderTopPatterns(stockId));
+
+            //Complex candle patterns
+            case CandleNames.CUP_WITH_HANDLE -> {
+                List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+                List<Double> smaValues = Indicator.calculateSMA(candleSticks, 20);
+                CupWithHandle cupWithHandle = complexPatternDetectorService.getNearestCupWithHandle(smaValues);
+                yield new Response(cupWithHandle);
+            }
 
             // Default case for unknown patterns
             default -> new Response(ResponseCode.UNKNOWN_ERROR);

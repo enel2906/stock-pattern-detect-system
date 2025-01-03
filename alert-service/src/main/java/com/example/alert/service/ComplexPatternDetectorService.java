@@ -1,5 +1,9 @@
 package com.example.alert.service;
 
-public interface ComplexPatternDetectorService {
+import com.example.alert.model.CupWithHandle;
 
+import java.util.List;
+
+public interface ComplexPatternDetectorService {
+    CupWithHandle getNearestCupWithHandle(List<Double> smaValues);
 }

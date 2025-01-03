@@ -124,7 +124,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean isBullishMarubozu = candle.getClose() > candle.getOpen() && // Nến tăng
                     candle.getLow() >= candle.getOpen() && // Không có bóng dưới (hoặc rất ngắn)
                     candle.getHigh() <= candle.getClose() && // Không có bóng trên (hoặc rất ngắn)
-                    ((candle.getClose() - candle.getOpen()) / (candle.getHigh() - candle.getLow())) > 0.96; // Thân nến lớn (lớn hơn 70% phạm vi giá)
+                    ((candle.getClose() - candle.getOpen()) / (candle.getHigh() - candle.getLow())) > 0.96; // Thân nến lớn (lớn hơn 80% phạm vi giá)
 
             // Nếu là Bullish Marubozu, thêm vào danh sách
             if (isBullishMarubozu) {
@@ -227,20 +227,62 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
     }
 
     @Override
-    public List<CandleStick> getDojiCandles(String stockId) {
+    public List<CandleStick> getDragonflyDoji(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<CandleStick> dragonflyDojiCandles = new ArrayList<>();
 
-        List<CandleStick> dojiCandles = new ArrayList<>();
         for (CandleStick candle : candles) {
-            double bodySize = Math.abs(candle.getClose() - candle.getOpen());
+            double openCloseDiff = Math.abs(candle.getOpen() - candle.getClose());
             double totalRange = candle.getHigh() - candle.getLow();
 
-            if (bodySize <= 0.1 * totalRange) { // Thân nến cực nhỏ
-                dojiCandles.add(candle);
+            // Điều kiện Dragonfly Doji
+            if (openCloseDiff <= 0.1 * totalRange &&
+                    candle.getHigh() - Math.max(candle.getOpen(), candle.getClose()) <= 0.1 * totalRange) {
+                dragonflyDojiCandles.add(candle);
             }
         }
-        return dojiCandles;
+        return dragonflyDojiCandles;
     }
+
+    @Override
+    public List<CandleStick> getGravestoneDoji(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<CandleStick> gravestoneDojiCandles = new ArrayList<>();
+
+        for (CandleStick candle : candles) {
+            double openCloseDiff = Math.abs(candle.getOpen() - candle.getClose());
+            double totalRange = candle.getHigh() - candle.getLow();
+
+            // Điều kiện Gravestone Doji
+            if (openCloseDiff <= 0.1 * totalRange &&
+                    Math.min(candle.getOpen(), candle.getClose()) - candle.getLow() <= 0.1 * totalRange) {
+                gravestoneDojiCandles.add(candle);
+            }
+        }
+        return gravestoneDojiCandles;
+    }
+
+    @Override
+    public List<CandleStick> getLongLeggedDoji(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<CandleStick> longLeggedDojiCandles = new ArrayList<>();
+
+        for (CandleStick candle : candles) {
+            double openCloseDiff = Math.abs(candle.getOpen() - candle.getClose());
+            double upperShadow = candle.getHigh() - Math.max(candle.getOpen(), candle.getClose());
+            double lowerShadow = Math.min(candle.getOpen(), candle.getClose()) - candle.getLow();
+            double totalRange = candle.getHigh() - candle.getLow();
+
+            // Điều kiện Long-legged Doji
+            if (openCloseDiff <= 0.1 * totalRange &&
+                    upperShadow >= 0.3 * totalRange &&
+                    lowerShadow >= 0.3 * totalRange) {
+                longLeggedDojiCandles.add(candle);
+            }
+        }
+        return longLeggedDojiCandles;
+    }
+
 
     @Override
     public List<CandleStick> getShootingStarCandles(String stockId) {
@@ -537,6 +579,86 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
         return patterns;
     }
 
+    @Override
+    public List<List<CandleStick>> getAdvanceBlockPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> advanceBlockPatterns = new ArrayList<>();
+
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            boolean firstBullish = firstCandle.getClose() > firstCandle.getOpen();
+            boolean secondBullish = secondCandle.getClose() > secondCandle.getOpen();
+            boolean thirdBullish = thirdCandle.getClose() > thirdCandle.getOpen();
+
+            boolean decreasingBodySize = (firstCandle.getClose() - firstCandle.getOpen()) >
+                    (secondCandle.getClose() - secondCandle.getOpen()) &&
+                    (secondCandle.getClose() - secondCandle.getOpen()) >
+                            (thirdCandle.getClose() - thirdCandle.getOpen());
+
+            boolean increasingUpperShadow = (firstCandle.getHigh() - firstCandle.getClose()) <
+                    (secondCandle.getHigh() - secondCandle.getClose()) &&
+                    (secondCandle.getHigh() - secondCandle.getClose()) <
+                            (thirdCandle.getHigh() - thirdCandle.getClose());
+
+            if (firstBullish && secondBullish && thirdBullish && decreasingBodySize && increasingUpperShadow) {
+                advanceBlockPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return advanceBlockPatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getDescendingHawkPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> descendingHawkPatterns = new ArrayList<>();
+
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            boolean firstBullish = firstCandle.getClose() > firstCandle.getOpen();
+            boolean secondBullish = secondCandle.getClose() > secondCandle.getOpen();
+            boolean thirdBearish = thirdCandle.getClose() < thirdCandle.getOpen();
+
+            boolean thirdSmallBody = (thirdCandle.getOpen() - thirdCandle.getClose()) <
+                    (firstCandle.getClose() - firstCandle.getOpen()) * 0.5;
+
+            if (firstBullish && secondBullish && thirdBearish && thirdSmallBody) {
+                descendingHawkPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return descendingHawkPatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getDeliberationPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> deliberationPatterns = new ArrayList<>();
+
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            boolean firstBullish = firstCandle.getClose() > firstCandle.getOpen();
+            boolean secondBullish = secondCandle.getClose() > secondCandle.getOpen();
+            boolean thirdBullish = thirdCandle.getClose() > thirdCandle.getOpen();
+
+            boolean thirdSmallBody = (thirdCandle.getClose() - thirdCandle.getOpen()) <
+                    (secondCandle.getClose() - secondCandle.getOpen()) * 0.5;
+            boolean thirdLongUpperShadow = (thirdCandle.getHigh() - thirdCandle.getClose()) >
+                    (thirdCandle.getClose() - thirdCandle.getOpen());
+
+            if (firstBullish && secondBullish && thirdBullish && thirdSmallBody && thirdLongUpperShadow) {
+                deliberationPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+            }
+        }
+        return deliberationPatterns;
+    }
 
 
     @Override
@@ -1017,6 +1139,45 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
     }
 
     @Override
+    public List<CandleStick> getBearishBeltHold(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<CandleStick> bearishBeltHoldCandles = new ArrayList<>();
+
+        for (CandleStick candle : candles) {
+            double bodySize = candle.getOpen() - candle.getClose();
+            double totalRange = candle.getHigh() - candle.getLow();
+
+            // Điều kiện Bearish Belt Hold
+            // Thân nến lớn (giảm), bóng trên rất ngắn hoặc không có
+            if (bodySize >= 0.7 * totalRange &&
+                    (candle.getHigh() - candle.getOpen()) <= 0.1 * totalRange) {
+                bearishBeltHoldCandles.add(candle);
+            }
+        }
+        return bearishBeltHoldCandles;
+    }
+
+    @Override
+    public List<CandleStick> getBullishBeltHold(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<CandleStick> bullishBeltHoldCandles = new ArrayList<>();
+
+        for (CandleStick candle : candles) {
+            double bodySize = candle.getClose() - candle.getOpen();
+            double totalRange = candle.getHigh() - candle.getLow();
+
+            // Điều kiện Bullish Belt Hold
+            // Thân nến lớn (tăng), bóng dưới rất ngắn hoặc không có
+            if (bodySize >= 0.7 * totalRange &&
+                    (candle.getOpen() - candle.getLow()) <= 0.1 * totalRange) {
+                bullishBeltHoldCandles.add(candle);
+            }
+        }
+        return bullishBeltHoldCandles;
+    }
+
+
+    @Override
     public List<List<CandleStick>> getBearishThreeLineStrikePatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
         List<List<CandleStick>> bearishThreeLineStrikePatterns = new ArrayList<>();
@@ -1047,6 +1208,105 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
         return bearishThreeLineStrikePatterns;
     }
+
+    @Override
+    public List<List<CandleStick>> getBearishHaramiCrossPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> bearishHaramiCrossPatterns = new ArrayList<>();
+
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 1);
+            CandleStick secondCandle = candles.get(i);
+
+            // Điều kiện Bearish Harami Cross
+            // Cây nến đầu tiên tăng mạnh
+            boolean firstCandleBullish = firstCandle.getClose() > firstCandle.getOpen();
+            // Cây nến thứ hai là Doji
+            boolean secondCandleDoji = Math.abs(secondCandle.getClose() - secondCandle.getOpen()) <= 0.1 * (secondCandle.getHigh() - secondCandle.getLow());
+            // Doji nằm hoàn toàn trong thân nến đầu tiên
+            boolean withinFirstBody = secondCandle.getOpen() <= firstCandle.getClose() &&
+                    secondCandle.getClose() >= firstCandle.getOpen();
+
+            if (firstCandleBullish && secondCandleDoji && withinFirstBody) {
+                bearishHaramiCrossPatterns.add(List.of(firstCandle, secondCandle));
+            }
+        }
+        return bearishHaramiCrossPatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getBullishHaramiCrossPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> bullishHaramiCrossPatterns = new ArrayList<>();
+
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 1);
+            CandleStick secondCandle = candles.get(i);
+
+            // Điều kiện Bullish Harami Cross
+            // Cây nến đầu tiên giảm mạnh
+            boolean firstCandleBearish = firstCandle.getClose() < firstCandle.getOpen();
+            // Cây nến thứ hai là Doji
+            boolean secondCandleDoji = Math.abs(secondCandle.getClose() - secondCandle.getOpen()) <= 0.1 * (secondCandle.getHigh() - secondCandle.getLow());
+            // Doji nằm hoàn toàn trong thân nến đầu tiên
+            boolean withinFirstBody = secondCandle.getOpen() >= firstCandle.getClose() &&
+                    secondCandle.getClose() <= firstCandle.getOpen();
+
+            if (firstCandleBearish && secondCandleDoji && withinFirstBody) {
+                bullishHaramiCrossPatterns.add(List.of(firstCandle, secondCandle));
+            }
+        }
+        return bullishHaramiCrossPatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getBearishCounterattackPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> bearishCounterattackPatterns = new ArrayList<>();
+
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 1);
+            CandleStick secondCandle = candles.get(i);
+
+            // Điều kiện Bearish Counterattack
+            // Cây nến đầu tiên là nến tăng
+            boolean firstCandleBullish = firstCandle.getClose() > firstCandle.getOpen();
+            // Cây nến thứ hai là nến giảm
+            boolean secondCandleBearish = secondCandle.getClose() < secondCandle.getOpen();
+            // Giá đóng cửa của cây nến thứ hai gần bằng giá đóng cửa của cây nến đầu tiên
+            boolean closeProximity = Math.abs(secondCandle.getClose() - firstCandle.getClose()) <= 0.05 * (firstCandle.getHigh() - firstCandle.getLow());
+
+            if (firstCandleBullish && secondCandleBearish && closeProximity) {
+                bearishCounterattackPatterns.add(List.of(firstCandle, secondCandle));
+            }
+        }
+        return bearishCounterattackPatterns;
+    }
+
+    @Override
+    public List<List<CandleStick>> getBullishCounterattackPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> bullishCounterattackPatterns = new ArrayList<>();
+
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 1);
+            CandleStick secondCandle = candles.get(i);
+
+            // Điều kiện Bullish Counterattack
+            // Cây nến đầu tiên là nến giảm
+            boolean firstCandleBearish = firstCandle.getClose() < firstCandle.getOpen();
+            // Cây nến thứ hai là nến tăng
+            boolean secondCandleBullish = secondCandle.getClose() > secondCandle.getOpen();
+            // Giá đóng cửa của cây nến thứ hai gần bằng giá đóng cửa của cây nến đầu tiên
+            boolean closeProximity = Math.abs(secondCandle.getClose() - firstCandle.getClose()) <= 0.05 * (firstCandle.getHigh() - firstCandle.getLow());
+
+            if (firstCandleBearish && secondCandleBullish && closeProximity) {
+                bullishCounterattackPatterns.add(List.of(firstCandle, secondCandle));
+            }
+        }
+        return bullishCounterattackPatterns;
+    }
+
 
     @Override
     public List<List<CandleStick>> getBullishThreeLineStrikePatterns(String stockId) {
@@ -1080,6 +1340,39 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
         return bullishThreeLineStrikePatterns;
     }
 
+    @Override
+    public List<List<CandleStick>> getLadderTopPatterns(String stockId) {
+        List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
+        List<List<CandleStick>> ladderTopPatterns = new ArrayList<>();
+
+        for (int i = 4; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 4);
+            CandleStick secondCandle = candles.get(i - 3);
+            CandleStick thirdCandle = candles.get(i - 2);
+            CandleStick fourthCandle = candles.get(i - 1);
+            CandleStick fifthCandle = candles.get(i);
+
+            // Điều kiện nến 1, 2, 3: Nến tăng
+            boolean firstThreeBullish = firstCandle.getClose() > firstCandle.getOpen() &&
+                    secondCandle.getClose() > secondCandle.getOpen() &&
+                    thirdCandle.getClose() > thirdCandle.getOpen();
+
+            // Điều kiện nến 4: Nến tăng yếu hoặc Doji
+            boolean fourthCandleWeak = fourthCandle.getClose() > fourthCandle.getOpen() &&
+                    (fourthCandle.getClose() - fourthCandle.getOpen()) <
+                            (secondCandle.getClose() - secondCandle.getOpen()) * 0.5;
+
+            // Điều kiện nến 5: Nến giảm mạnh
+            boolean fifthCandleBearish = fifthCandle.getClose() < fifthCandle.getOpen() &&
+                    fifthCandle.getClose() < fourthCandle.getOpen();
+
+            if (firstThreeBullish && fourthCandleWeak && fifthCandleBearish) {
+                ladderTopPatterns.add(List.of(firstCandle, secondCandle, thirdCandle, fourthCandle, fifthCandle));
+            }
+        }
+
+        return ladderTopPatterns;
+    }
 
 
 }

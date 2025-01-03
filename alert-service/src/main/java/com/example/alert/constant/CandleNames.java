@@ -1,14 +1,18 @@
 package com.example.alert.constant;
 
-public class CandleNames {
+public class  CandleNames {
     // One candle patterns
     public static final String HAMMER = "hammer";
-    public static final String DOJI = "doji";
+    public static final String LONG_LEGGED_DOJI = "long_legged_doji";
+    public static final String GRAVESTONE_DOJI = "gravestone_doji";
+    public static final String DRAGONFLY_DOJI = "dragonfly_doji";
     public static final String INVERTED_HAMMER = "inverted_hammer";
     public static final String HANGING_MAN = "hanging_man";
     public static final String SHOOTING_STAR = "shooting_star";
     public static final String BEARISH_MARUBOZU = "bearish_marubozu";
     public static final String BULLISH_MARUBOZU = "bullish_marubozu";
+    public static final String BEARISH_BELT_HOLD = "bearish_belt_hold";
+    public static final String BULLISH_BELT_HOLD = "bullish_belt_hold";
 
     // Two candle patterns
     public static final String BULLISH_ENGULFING = "bullish_engulfing";
@@ -22,6 +26,10 @@ public class CandleNames {
     public static final String DARK_CLOUD_COVER = "dark_cloud_cover";
     public static final String MATCHING_LOW = "matching_low";
     public static final String MATCHING_HIGH = "matching_high";
+    public static final String BEARISH_HARAMI_CROSS = "bearish_harami_cross";
+    public static final String BULLISH_HARAMI_CROSS = "bullish_harami_cross";
+    public static final String BEARISH_COUNTERATTACK = "bearish_counterattack";
+    public static final String BULLISH_COUNTERATTACK = "bullish_counterattack";
 
     // Three candle patterns
     public static final String THREE_WHITE_SOLDIERS = "three_white_soldiers";
@@ -40,10 +48,17 @@ public class CandleNames {
     public static final String THRUSTING = "thrusting";
     public static final String UPSIDE_GAP_TWO_CROWS = "upside_gap_two_crows";
     public static final String THREE_STAR_IN_THE_SOUTH = "three_star_in_the_south";
+    public static final String ADVANCE_BLOCK = "advance_block";
+    public static final String DESCENDING_HAWK = "descending_hawk";
+    public static final String DELIBERATION = "deliberation";
 
     // Many candle patterns
     public static final String FALLING_THREE = "falling_three";
     public static final String RISING_THREE = "rising_three";
     public static final String BEARISH_THREE_LINE_STRIKE = "bearish_three_line_strike";
     public static final String BULLISH_THREE_LINE_STRIKE = "bullish_three_line_strike";
+    public static final String LADDER_TOP = "ladder_top";
+
+    //Complex candle patterns
+    public static final String CUP_WITH_HANDLE = "cup_with_handle";
 }
