@@ -20,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/alter/candle-stick")
 @AllArgsConstructor
+@CrossOrigin(origins = "*")
 public class AlterController {
     private StockMarketService stockMarketService;
     private DetectCandlePatternService detectCandlePatternService;
