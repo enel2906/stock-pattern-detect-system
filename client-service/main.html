@@ -1,657 +1,668 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Candlestick</title>
-  <!-- Include the Lightweight Charts library -->
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-</head>
-<style>
-  body {
-    font-family: 'Arial', sans-serif;
-    background-color: #fff;
-    margin: 0;
-    padding: 0;
-  }
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candlestick</title>
+    <!-- Include the Lightweight Charts library -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  </head>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #fff;
+      margin: 0;
+      padding: 0;
+    }
 
 
-  #patternSelector {
-    padding: 10px;
-    font-size: 16px;
-    width: 250px;
-    border: 2px solid #0066CC;
-    border-radius: 5px;
-    cursor: pointer;
-    background-color: #fff;
-    color: #0066CC;
+    #patternSelector {
+      padding: 10px;
+      font-size: 16px;
+      width: 250px;
+      border: 2px solid #0066CC;
+      border-radius: 5px;
+      cursor: pointer;
+      background-color: #fff;
+      color: #0066CC;
 
-    position: relative;
-    left: 620px;
-  }
+      position: relative;
+      left: 620px;
+    }
 
-  #patternSelector:hover {
-    background-color: #fff;
-    color: #003366;
-  }
+    #patternSelector:hover {
+      background-color: #fff;
+      color: #003366;
+    }
 
-  #selectText{
-    position: relative;
-    left: 600px;
-  }
-
-  #annotationTable {
-      margin-top: 20px;
-      width: 480px;
-      border-collapse: collapse;
-
-      align-items: center;
-
+    #selectText{
       position: relative;
       left: 600px;
     }
 
-    #annotationTable th, #annotationTable td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: center;
-    }
+    #annotationTable {
+        margin-top: 20px;
+        width: 480px;
+        border-collapse: collapse;
 
-    #annotationTable th {
-      background-color: #003366;
-      color: #fff;
-    }
-</style>
-<body>
-  <!-- Placeholder div for the chart -->
+        align-items: center;
 
-  <label id = "selectText" for="patternSelector">Select Candlestick Patterns:</label>
-  <select id="patternSelector" onchange="checkSelectedPattern()">
-    <option value="hammer">Hammer</option>
-    <option value="bullishEngulfing">Bullish Engulfing</option>
-    <option value="harami">Harami</option>
-    <option value="threeBlackCrows">Three Black Crows</option>
-    <option value="threeWhiteSoldiers">Three White Soldiers </option>
-    <option value="reset">Reset</option>
-
-    <!-- Add more options as needed -->
-  </select>
-  <!-- Include your JavaScript file that contains the chart-drawing logic -->
-
-
-  <div id="tvchart" ></div>
-
-  <table id="annotationTable">
-    <thead>
-      <tr>
-        <th>Candle Stick Pattern</th>
-        <th>Color</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Hammer</td>
-        <td  style="background-color: #FF8000;"></td>
-      </tr>
-      <tr>
-        <td>Bullish Engulfing</td>
-        <td style="background-color: #9933FF;"></td>
-      </tr>
-      <tr>
-        <td>Harami</td>
-        <td style="background-color: #FF99CC;"></td>
-      </tr>
-      <tr>
-        <td>Three Black Crows</td>
-        <td style="background-color: #003366;"></td>
-      </tr>
-      <tr>
-        <td>Three White Soldiers</td>
-        <td style="background-color: white;"></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <script>
-     const checkSelectedPattern = async () => {
-       const selectedPattern = document.getElementById("patternSelector").value;
-
-       // Call the appropriate function based on the selected pattern
-       switch (selectedPattern) {
-         case "hammer":
-           await checkHammerPatterns();
-           break;
-         case "bullishEngulfing":
-           checkBullishEngulfingPatterns();
-           break;
-         case "harami":
-           checkHaramiPatterns();
-           break;
-         case "threeBlackCrows":
-           checkThreeBlackCrowsPatterns();
-           break;
-         case "threeWhiteSoldiers":
-           checkThreeWhiteSoldiersPatterns();
-           break;
-         case "reset":
-           resetPatterns();
-           break;
-         default:
-           console.error("Invalid pattern selected");
-       }
-     };
-
-    let chart;
-    let lineSeries;
-    let candleseries;  // Declare candleseries in the global scope
-    let originalData;  // Store the original data separately
-
-
-
-     const getData = async () => {
-       try {
-         const res = await fetch('http://localhost:60/stock?stockSymbol=AAPL');
-         if (!res.ok) {
-           throw new Error('Failed to fetch data');
-         }
-
-         const response = await res.json();
-         if (response.code !== 0 || !response.data) {
-           throw new Error('Invalid data format');
-         }
-
-         const cdata = response.data.map(item => ({
-           time: new Date(item.date * 1000).toISOString().split('T')[0],
-           open: item.open,
-           high: item.high,
-           low: item.low,
-           close: item.close,
-         }));
-
-         return cdata;
-       } catch (error) {
-         console.error('Error fetching data:', error.message);
-         return [];
-       }
-     };
-
-
-     const displayChart = async () => {
-      try {
-        const chartProperties = {
-          width: 1600,
-          height: 600,
-          timeScale: {
-            timeVisible: true,
-            secondsVisible: true,
-          },
-          layout: {
-            backgroundColor: 'black', // Dark background color
-          },
-        };
-
-        const domElement = document.getElementById('tvchart');
-        if (!domElement) {
-          console.error('Element with id "tvchart" not found.');
-          return;
-        }
-
-        chart = LightweightCharts.createChart(domElement, chartProperties);
-        candleseries = chart.addCandlestickSeries();  // Assign candleseries in the global scope
-
-        // Set color options for bullish (up) and bearish (down) candlesticks
-        candleseries.applyOptions({
-          upColor: 'green',   // Color for bullish (up) candlesticks
-          downColor: 'red',   // Color for bearish (down) candlesticks
-          borderVisible: true, // Show border around candlesticks
-          wickVisible: true,   // Show candle wicks
-          borderColor: 'black' // Color of the candlestick borders
-        });
-
-        originalData = await getData();
-
-        if (originalData.length > 0) {
-          candleseries.setData(originalData);
-        } else {
-          console.warn('No valid data to display.');
-        }
-      } catch (error) {
-        console.error('Error displaying chart:', error.message);
+        position: relative;
+        left: 600px;
       }
-    };
 
-    const checkHammerPatterns = async () => {
-      try {
-        if (!candleseries) {
-          console.error('Candleseries is not initialized.');
-          return;
+      #annotationTable th, #annotationTable td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+      }
+
+      #annotationTable th {
+        background-color: #003366;
+        color: #fff;
+      }
+  </style>
+  <body>
+    <!-- Placeholder div for the chart -->
+
+    <label id = "selectText" for="patternSelector">Select Candlestick Patterns:</label>
+    <select id="patternSelector" onchange="checkSelectedPattern()">
+      <option value="hammer">Hammer</option>
+      <option value="bullishEngulfing">Bullish Engulfing</option>
+      <option value="harami">Harami</option>
+      <option value="threeBlackCrows">Three Black Crows</option>
+      <option value="threeWhiteSoldiers">Three White Soldiers </option>
+      <option value="reset">Reset</option>
+
+      <!-- Add more options as needed -->
+    </select>
+    <!-- Include your JavaScript file that contains the chart-drawing logic -->
+
+
+    <div id="tvchart" ></div>
+
+    <table id="annotationTable">
+      <thead>
+        <tr>
+          <th>Candle Stick Pattern</th>
+          <th>Color</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Hammer</td>
+          <td  style="background-color: #FF8000;"></td>
+        </tr>
+        <tr>
+          <td>Bullish Engulfing</td>
+          <td style="background-color: #9933FF;"></td>
+        </tr>
+        <tr>
+          <td>Harami</td>
+          <td style="background-color: #FF99CC;"></td>
+        </tr>
+        <tr>
+          <td>Three Black Crows</td>
+          <td style="background-color: #003366;"></td>
+        </tr>
+        <tr>
+          <td>Three White Soldiers</td>
+          <td style="background-color: white;"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <script>
+      const checkSelectedPattern = async () => {
+        const selectedPattern = document.getElementById("patternSelector").value;
+
+        // Call the appropriate function based on the selected pattern
+        switch (selectedPattern) {
+          case "hammer":
+            await checkHammerPatterns();
+            break;
+          case "bullishEngulfing":
+            checkBullishEngulfingPatterns();
+            break;
+          case "harami":
+            checkHaramiPatterns();
+            break;
+          case "threeBlackCrows":
+            checkThreeBlackCrowsPatterns();
+            break;
+          case "threeWhiteSoldiers":
+            checkThreeWhiteSoldiersPatterns();
+            break;
+          case "reset":
+            resetPatterns();
+            break;
+          default:
+            console.error("Invalid pattern selected");
         }
+      };
 
-        lineSeries = chart.addLineSeries();
+      let chart;
+      let lineSeries;
+      let candleseries;  // Declare candleseries in the global scope
+      let originalData;  // Store the original data separately
 
-        const candles = [...originalData];  // Use a copy of the original data
 
-        const hammerPatterns = await findHammerPatterns(candles);
 
-        if (hammerPatterns.length > 0) {
+      const getData = async () => {
+        try {
+          const res = await fetch('http://localhost:60/stock?stockSymbol=AAPL');
+          if (!res.ok) {
+            throw new Error('Failed to fetch data');
+          }
 
-          console.log("%cList of hammer patterns: ", 'font-size: 16px; color: #FF8000 ; font-weight: bold;')
-          // Update the chart with the modified data (including color)
-          candles.forEach((candle, index) => {
-            const isHammer = hammerPatterns.some((pattern) =>
-                    pattern.time === candle.time &&
-                    pattern.open === candle.open &&
-                    pattern.high === candle.high &&
-                    pattern.low === candle.low &&
-                    pattern.close === candle.close
-            );
-            if (isHammer) {
-              console.log("%c " + candles[index].time, "color:#FF8000");
-              candles[index].color = '#FF8000';
-            }
+          const response = await res.json();
+          if (response.code !== 0 || !response.data) {
+            throw new Error('Invalid data format');
+          }
+
+          const cdata = response.data.map(item => ({
+            time: new Date(item.date * 1000).toISOString().split('T')[0],
+            open: item.open,
+            high: item.high,
+            low: item.low,
+            close: item.close,
+          }));
+
+          return cdata;
+        } catch (error) {
+          console.error('Error fetching data:', error.message);
+          return [];
+        }
+      };
+
+
+      const displayChart = async () => {
+        try {
+          const chartProperties = {
+            width: 1600,
+            height: 600,
+            timeScale: {
+              timeVisible: true,
+              secondsVisible: true,
+            },
+            layout: {
+              backgroundColor: 'black', // Dark background color
+            },
+          };
+
+          const domElement = document.getElementById('tvchart');
+          if (!domElement) {
+            console.error('Element with id "tvchart" not found.');
+            return;
+          }
+
+          chart = LightweightCharts.createChart(domElement, chartProperties);
+          candleseries = chart.addCandlestickSeries();  // Assign candleseries in the global scope
+
+          // Set color options for bullish (up) and bearish (down) candlesticks
+          candleseries.applyOptions({
+            upColor: 'green',   // Color for bullish (up) candlesticks
+            downColor: 'red',   // Color for bearish (down) candlesticks
+            borderVisible: true, // Show border around candlesticks
+            wickVisible: true,   // Show candle wicks
+            borderColor: 'black' // Color of the candlestick borders
           });
 
-          // Update the entire data series with the modified data
-          candleseries.setData(candles);
+          originalData = await getData();
 
-        } else {
-          console.log('No hammer patterns found.');
+          if (originalData.length > 0) {
+            candleseries.setData(originalData);
+          } else {
+            console.warn('No valid data to display.');
+          }
+        } catch (error) {
+          console.error('Error displaying chart:', error.message);
         }
-      } catch (error) {
-        console.error('Error checking hammer patterns:', error.message);
+      };
+
+      const checkHammerPatterns = async () => {
+        try {
+          if (!candleseries) {
+            console.error('Candleseries is not initialized.');
+            return;
+          }
+
+          lineSeries = chart.addLineSeries();
+
+          const candles = [...originalData];  // Use a copy of the original data
+
+          const hammerPatterns = await findHammerPatterns(candles);
+
+          if (hammerPatterns.length > 0) {
+
+            console.log("%cList of hammer patterns: ", 'font-size: 16px; color: #FF8000 ; font-weight: bold;')
+            // Update the chart with the modified data (including color)
+            candles.forEach((candle, index) => {
+              const isHammer = hammerPatterns.some((pattern) =>
+                      pattern.time === candle.time &&
+                      pattern.open === candle.open &&
+                      pattern.high === candle.high &&
+                      pattern.low === candle.low &&
+                      pattern.close === candle.close
+              );
+              if (isHammer) {
+                console.log("%c " + candles[index].time, "color:#FF8000");
+                candles[index].color = '#FF8000';
+              }
+            });
+
+            // Update the entire data series with the modified data
+            candleseries.setData(candles);
+
+          } else {
+            console.log('No hammer patterns found.');
+          }
+        } catch (error) {
+          console.error('Error checking hammer patterns:', error.message);
+        }
+      };
+
+  const findHammerPatterns = async () => {
+    try {
+      const res = await fetch('http://localhost:60/alter/candle-stick/AAPL?candlePattern=hammer');
+      if (!res.ok) {
+        throw new Error('Failed to fetch data');
       }
-    };
 
-const findHammerPatterns = async () => {
-  try {
-    const res = await fetch('http://localhost:60/alter/candle-stick/AAPL?candlePattern=hammer');
-    if (!res.ok) {
-      throw new Error('Failed to fetch data');
-    }
-
-    const response = await res.json();
-    if (response.code !== 0 || !response.data) {
-      throw new Error('Invalid data format');
-    }
-
-    const cdata = response.data.map(item => ({
-      time: new Date(item.date * 1000).toISOString().split('T')[0],
-      open: item.open,
-      high: item.high,
-      low: item.low,
-      close: item.close,
-    }));
-
-    return cdata;
-  } catch (error) {
-    console.error('Error fetching data:', error.message);
-    return [];
-  }
-};
-
-const checkBullishEngulfingPatterns = () => {
-      try {
-        if (!candleseries) {
-          console.error('Candleseries is not initialized.');
-          return;
-        }
-
-        // Clear previous line series (if any)
-        if (lineSeries) {
-          chart.removeSeries(lineSeries);
-        }
-
-        lineSeries = chart.addLineSeries();
-
-        const candles = [...originalData];
-
-        const engulfingPatterns = findBullishEngulfingPatterns(candles);
-
-        if (engulfingPatterns.length > 0) {
-          console.log("%cList of Bullish Engulfing patterns: ", 'font-size: 16px; color: #9933FF ; font-weight: bold;');
-
-          candles.forEach((candle, index) => {
-            const isEngulfing = engulfingPatterns.some((pattern) =>
-              pattern.time === candle.time &&
-              pattern.open === candle.open &&
-              pattern.high === candle.high &&
-              pattern.low === candle.low &&
-              pattern.close === candle.close
-            );
-            if (isEngulfing) {
-              console.log("%c " + candles[index].time, 'color: #9933FF');
-              candles[index-1].color = '#9933FF';
-              candles[index].color = '#9933FF';  // Change color for Bullish Engulfing
-            }
-          });
-
-          candleseries.setData(candles);
-        } else {
-          console.log('No Bullish Engulfing patterns found.');
-        }
-      } catch (error) {
-        console.error('Error checking Bullish Engulfing patterns:', error.message);
+      const response = await res.json();
+      if (response.code !== 0 || !response.data) {
+        throw new Error('Invalid data format');
       }
-    };
 
-    const findBullishEngulfingPatterns = (candles) => {
-      const engulfingPatterns = [];
+      const cdata = response.data.map(item => ({
+        time: new Date(item.date * 1000).toISOString().split('T')[0],
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+      }));
 
-      for (let i = 1; i < candles.length; i++) {
-        const currentCandle = candles[i];
-        const previousCandle = candles[i - 1];
+      return cdata;
+    } catch (error) {
+      console.error('Error fetching data:', error.message);
+      return [];
+    }
+  };
 
-        if (currentCandle.close < currentCandle.open || previousCandle.open < previousCandle.close) {
+  const checkBullishEngulfingPatterns = () => {
+        try {
+          if (!candleseries) {
+            console.error('Candleseries is not initialized.');
+            return;
+          }
+
+          // Clear previous line series (if any)
+          if (lineSeries) {
+            chart.removeSeries(lineSeries);
+          }
+
+          lineSeries = chart.addLineSeries();
+
+          const candles = [...originalData];
+
+          const engulfingPatterns = findBullishEngulfingPatterns(candles);
+
+          if (engulfingPatterns.length > 0) {
+            console.log("%cList of Bullish Engulfing patterns: ", 'font-size: 16px; color: #9933FF; font-weight: bold;');
+
+            const markers = [];
+
+            candles.forEach((candle, index) => {
+              const isEngulfing = engulfingPatterns.some((pattern) =>
+                pattern.time === candle.time &&
+                pattern.open === candle.open &&
+                pattern.high === candle.high &&
+                pattern.low === candle.low &&
+                pattern.close === candle.close
+              );
+              if (isEngulfing) {  
+                console.log("%c " + candles[index].time, 'color: #9933FF');
+                candles[index].color = '#9933FF';
+
+                // Thêm marker để khoanh tròn nến
+                markers.push({
+                  time: candles[index].time,
+                  position: 'aboveBar', // Hoặc 'belowBar'
+                  color: '#FF0000',
+                  shape: 'circle',
+                  text: 'Bullish Engulfing',
+                });
+              }
+            });
+
+            candleseries.setMarkers(markers);
+            candleseries.setData(candles);
+          } else {
+            console.log('No Bullish Engulfing patterns found.');
+          }
+        } catch (error) {
+          console.error('Error checking Bullish Engulfing patterns:', error.message);
+        }
+      };
+
+      const findBullishEngulfingPatterns = (candles) => {
+        const engulfingPatterns = [];
+
+        for (let i = 1; i < candles.length; i++) {
+          const currentCandle = candles[i];
+          const previousCandle = candles[i - 1];
+
+          if (currentCandle.close < currentCandle.open || previousCandle.open < previousCandle.close) {
+              continue;
+          }
+
+          const previousBodySize = Math.abs(previousCandle.close - previousCandle.open);
+          const currentBodySize = Math.abs(currentCandle.close - currentCandle.open);
+
+          // Check conditions for a Bullish Engulfing pattern
+          if (
+            currentBodySize >= 1 &&
+            previousBodySize >= 1 &&
+            currentBodySize >= previousBodySize &&
+            currentCandle.close >= previousCandle.open &&
+            currentCandle.open <= previousCandle.close &&
+            currentCandle.low <= previousCandle.low &&
+            currentCandle.high >= previousCandle.high
+          ) {
+            engulfingPatterns.push(currentCandle);
+          }
+        }
+
+        return engulfingPatterns;
+      };
+
+      const checkHaramiPatterns = () => {
+        try {
+          if (!candleseries) {
+            console.error('Candleseries is not initialized.');
+            return;
+          }
+
+          const candles = [...originalData];
+
+          const haramis = findHaramiPatterns(candles);
+
+          if (haramis.length > 0) {
+            console.log("%cList of Harami patterns: ", 'font-size: 16px; color: #CC0066 ; font-weight: bold;');
+
+            candles.forEach((candle, index) => {
+              const isHarami = haramis.some((pattern) =>
+                pattern.time === candle.time &&
+                pattern.open === candle.open &&
+                pattern.high === candle.high &&
+                pattern.low === candle.low &&
+                pattern.close === candle.close
+              );
+              if (isHarami) {
+                console.log("%c " + candles[index].time, 'color: #CC0066');
+                candles[index-1].color = '#FF99CC';
+                candles[index].color = '#FF99CC';  // Change color for Bullish Engulfing
+              }
+            });
+
+            candleseries.setData(candles);
+          } else {
+            console.log('No Harami patterns found.');
+          }
+        } catch (error) {
+          console.error('Error checking Bullish Engulfing patterns:', error.message);
+        }
+      };
+
+      const findHaramiPatterns = (candles) => {
+        const haramiPatterns = [];
+
+        for (let i = 1; i < candles.length; i+=2) {
+          const currentCandle = candles[i];
+          const previousCandle = candles[i - 1];
+
+          if(Math.abs(currentCandle.close - currentCandle.open) <= 0.2){
             continue;
+          }
+
+          const previousBodySize = Math.abs(previousCandle.close - previousCandle.open);
+          const currentBodySize = Math.abs(currentCandle.close - currentCandle.open);
+
+          const sizeCurrent = currentCandle.high - currentCandle.low;
+          const sizePrevious = previousCandle.high - previousCandle.low;
+
+
+          // Calculate the range of the previous candle
+          const rangePrevious = Math.abs(previousCandle.close - previousCandle.open);
+
+          // Check if the current candle is smaller than the previous one
+          const isSmaller = Math.abs(currentCandle.close - currentCandle.open) < rangePrevious;
+
+          // Check if the current candle is inside the range of the previous one
+          const isInside =
+            currentCandle.low > Math.min(previousCandle.close, previousCandle.open) &&
+            currentCandle.low < Math.max(previousCandle.close, previousCandle.open) &&
+            currentCandle.high > Math.min(previousCandle.close, previousCandle.open) &&
+            currentCandle.high < Math.max(previousCandle.close, previousCandle.open);
+
+          // Define conditions for a Harami pattern
+          const isBearishEngulfing =
+            previousCandle.close > previousCandle.open && currentCandle.close < currentCandle.open;
+          const isBullishEngulfing =
+            previousCandle.close < previousCandle.open && currentCandle.close > currentCandle.open;
+
+          if((isBearishEngulfing || isBullishEngulfing) && isSmaller && isInside){
+            haramiPatterns.push(currentCandle);
+          }
         }
 
-        const previousBodySize = Math.abs(previousCandle.close - previousCandle.open);
-        const currentBodySize = Math.abs(currentCandle.close - currentCandle.open);
+        return haramiPatterns;
+      };
 
-        // Check conditions for a Bullish Engulfing pattern
-        if (
-          currentBodySize >= 1 &&
-          previousBodySize >= 1 &&
-          currentBodySize >= previousBodySize &&
-          currentCandle.close >= previousCandle.open &&
-          currentCandle.open <= previousCandle.close &&
-          currentCandle.low <= previousCandle.low &&
-          currentCandle.high >= previousCandle.high
-        ) {
-          engulfingPatterns.push(currentCandle);
+
+      const checkThreeBlackCrowsPatterns = () => {
+        try {
+          if (!candleseries) {
+            console.error('Candleseries is not initialized.');
+            return;
+          }
+
+          // Clear previous line series (if any)
+          if (lineSeries) {
+            chart.removeSeries(lineSeries);
+          }
+
+          lineSeries = chart.addLineSeries();
+
+          const candles = [...originalData];
+
+          const threeBlackCrowsPatterns = findThreeBlackCrowsPatterns(candles);
+
+          if (threeBlackCrowsPatterns.length > 0) {
+            console.log("%cThree BlackCrows Patterns: ", 'font-size: 16px; color: #003366 ; font-weight: bold;');
+
+            candles.forEach((candle, index) => {
+              const isThreeBlackCrows = threeBlackCrowsPatterns.some((pattern) =>
+                pattern.time === candle.time &&
+                pattern.open === candle.open &&
+                pattern.high === candle.high &&
+                pattern.low === candle.low &&
+                pattern.close === candle.close
+              );
+              if (isThreeBlackCrows) {
+                console.log("%c " + candles[index].time, "color: #003366;");
+                candles[index-2].color = '#003366';
+                candles[index-1].color = '#003366';
+                candles[index].color =  '#003366' // Change color for Bullish Engulfing
+              }
+            });
+
+            candleseries.setData(candles);
+          } else {
+            console.log('No Three BlackCrows Patterns found.');
+          }
+        } catch (error) {
+          console.error('Error checking Three BlackCrows Patterns:', error.message);
         }
-      }
+      };
 
-      return engulfingPatterns;
-    };
+      const findThreeBlackCrowsPatterns = (candles) => {
+        const threeBlackCrowsPatterns = [];
 
-    const checkHaramiPatterns = () => {
-      try {
-        if (!candleseries) {
-          console.error('Candleseries is not initialized.');
-          return;
+        for(let i = 2; i < candles.length; i += 3) {
+          const currentCandle = candles[i];
+          const previousCandle = candles[i - 1];
+          const secondPreviousCandle = candles[i-2];
+
+          if(currentCandle.open - currentCandle.close <= 0.6){
+            continue;
+          }
+
+          // Check conditions for Three Black Crows pattern
+          if (
+            currentCandle.open < currentCandle.close ||
+            previousCandle.open < previousCandle.close ||
+            secondPreviousCandle.open < secondPreviousCandle.close
+          ) {
+            continue;
+          }
+
+          if (
+            currentCandle.open - currentCandle.close <= 0.5||
+            previousCandle.open - previousCandle.close <= 0.5||
+            secondPreviousCandle.open - secondPreviousCandle.close <= 0.5
+          ) {
+            continue;
+          }
+
+          // Check if each candle closes lower than the previous candle
+          if (
+            currentCandle.close >= previousCandle.close ||
+            currentCandle.close - previousCandle.open >= 1||
+            previousCandle.close >= secondPreviousCandle.close ||
+            previousCandle.close - secondPreviousCandle.open >= 1 ||
+            currentCandle.open >= previousCandle.open ||
+            previousCandle.open >= secondPreviousCandle.open
+          ) {
+            continue;
+          }
+
+          threeBlackCrowsPatterns.push(currentCandle);
         }
 
-        const candles = [...originalData];
+        return threeBlackCrowsPatterns;
+      };
 
-        const haramis = findHaramiPatterns(candles);
+      const checkThreeWhiteSoldiersPatterns = () => {
+        try {
+          if (!candleseries) {
+            console.error('Candleseries is not initialized.');
+            return;
+          }
 
-        if (haramis.length > 0) {
-          console.log("%cList of Harami patterns: ", 'font-size: 16px; color: #CC0066 ; font-weight: bold;');
+          const candles = [...originalData];
+
+          const threeWhiteSoldiersPatterns = findThreeWhiteSoldiersPatterns(candles);
+
+          if (threeWhiteSoldiersPatterns.length > 0) {
+            console.log("%cThree WhiteSoldiers Pattern: ",  'font-size: 16px; color: green; font-weight: bold;');
+
+            candles.forEach((candle, index) => {
+              const isThreeWhiteSoldiersPatterns = threeWhiteSoldiersPatterns.some((pattern) =>
+                pattern.time === candle.time &&
+                pattern.open === candle.open &&
+                pattern.high === candle.high &&
+                pattern.low === candle.low &&
+                pattern.close === candle.close
+              );
+              if (isThreeWhiteSoldiersPatterns) {
+                console.log("%c " + candles[index].time, 'color: green;');
+                candles[index-2].color = 'white';
+                candles[index-1].color = 'white';
+                candles[index].color =  'white' // Change color for Bullish Engulfing
+              }
+            });
+
+            candleseries.setData(candles);
+          } else {
+            console.log('No Three White Soldier found.');
+          }
+        } catch (error) {
+          console.error('Error checking Three White Soldiers Patterns:', error.message);
+        }
+      };
+
+      const findThreeWhiteSoldiersPatterns = (candles) => {
+        const threeWhiteSoldiersPatterns = [];
+
+        for(let i = 2; i < candles.length; i += 3) {
+          const currentCandle = candles[i];
+          const previousCandle = candles[i - 1];
+          const secondPreviousCandle = candles[i-2];
+
+          if(currentCandle.close - currentCandle.open <= 0.6){
+            continue;
+          }
+
+          // Check conditions for Three Black Crows pattern
+          if (
+            currentCandle.open > currentCandle.close ||
+            previousCandle.open > previousCandle.close ||
+            secondPreviousCandle.open > secondPreviousCandle.close
+          ) {
+            continue;
+          }
+
+
+          // Check if each candle closes lower than the previous candle
+          if (
+            currentCandle.open <= previousCandle.open ||
+            currentCandle.open - previousCandle.close >= 2||
+            previousCandle.open <= secondPreviousCandle.open ||
+            previousCandle.open - secondPreviousCandle.close >= 2 ||
+            currentCandle.close <= previousCandle.close ||
+            previousCandle.close <= secondPreviousCandle.close
+          ) {
+            continue;
+          }
+
+          threeWhiteSoldiersPatterns.push(currentCandle);
+        }
+
+        return threeWhiteSoldiersPatterns;
+      };
+
+      const resetPatterns = () => {
+        try {
+          if (!candleseries) {
+            console.error('Candleseries is not initialized.');
+            return;
+          }
+
+          const candles = [...originalData];
 
           candles.forEach((candle, index) => {
-            const isHarami = haramis.some((pattern) =>
-              pattern.time === candle.time &&
-              pattern.open === candle.open &&
-              pattern.high === candle.high &&
-              pattern.low === candle.low &&
-              pattern.close === candle.close
-            );
-            if (isHarami) {
-              console.log("%c " + candles[index].time, 'color: #CC0066');
-              candles[index-1].color = '#FF99CC';
-              candles[index].color = '#FF99CC';  // Change color for Bullish Engulfing
-            }
-          });
+              if(candle.open > candle.close){
+                candle.color = 'red';
+              }
+              else{
+                candle.color = 'green';
+              }
+            });
 
-          candleseries.setData(candles);
-        } else {
-          console.log('No Harami patterns found.');
+            candleseries.setData(candles);
+            console.clear();
+
+        } catch (error) {
+          console.error('Error checking Three White Soldiers Patterns:', error.message);
         }
-      } catch (error) {
-        console.error('Error checking Bullish Engulfing patterns:', error.message);
-      }
-    };
-
-    const findHaramiPatterns = (candles) => {
-      const haramiPatterns = [];
-
-      for (let i = 1; i < candles.length; i+=2) {
-        const currentCandle = candles[i];
-        const previousCandle = candles[i - 1];
-
-        if(Math.abs(currentCandle.close - currentCandle.open) <= 0.2){
-          continue;
-        }
-
-        const previousBodySize = Math.abs(previousCandle.close - previousCandle.open);
-        const currentBodySize = Math.abs(currentCandle.close - currentCandle.open);
-
-        const sizeCurrent = currentCandle.high - currentCandle.low;
-        const sizePrevious = previousCandle.high - previousCandle.low;
+      };
 
 
-        // Calculate the range of the previous candle
-        const rangePrevious = Math.abs(previousCandle.close - previousCandle.open);
+      // Gọi hàm displayChart từ sự kiện tải trang hoặc khi dữ liệu đã sẵn sàng.
+      // window.addEventListener('DOMContentLoaded', displayChart);
 
-        // Check if the current candle is smaller than the previous one
-        const isSmaller = Math.abs(currentCandle.close - currentCandle.open) < rangePrevious;
-
-        // Check if the current candle is inside the range of the previous one
-        const isInside =
-          currentCandle.low > Math.min(previousCandle.close, previousCandle.open) &&
-          currentCandle.low < Math.max(previousCandle.close, previousCandle.open) &&
-          currentCandle.high > Math.min(previousCandle.close, previousCandle.open) &&
-          currentCandle.high < Math.max(previousCandle.close, previousCandle.open);
-
-        // Define conditions for a Harami pattern
-        const isBearishEngulfing =
-          previousCandle.close > previousCandle.open && currentCandle.close < currentCandle.open;
-        const isBullishEngulfing =
-          previousCandle.close < previousCandle.open && currentCandle.close > currentCandle.open;
-
-        if((isBearishEngulfing || isBullishEngulfing) && isSmaller && isInside){
-          haramiPatterns.push(currentCandle);
-        }
-      }
-
-      return haramiPatterns;
-    };
-
-
-    const checkThreeBlackCrowsPatterns = () => {
-      try {
-        if (!candleseries) {
-          console.error('Candleseries is not initialized.');
-          return;
-        }
-
-        // Clear previous line series (if any)
-        if (lineSeries) {
-          chart.removeSeries(lineSeries);
-        }
-
-        lineSeries = chart.addLineSeries();
-
-        const candles = [...originalData];
-
-        const threeBlackCrowsPatterns = findThreeBlackCrowsPatterns(candles);
-
-        if (threeBlackCrowsPatterns.length > 0) {
-          console.log("%cThree BlackCrows Patterns: ", 'font-size: 16px; color: #003366 ; font-weight: bold;');
-
-          candles.forEach((candle, index) => {
-            const isThreeBlackCrows = threeBlackCrowsPatterns.some((pattern) =>
-              pattern.time === candle.time &&
-              pattern.open === candle.open &&
-              pattern.high === candle.high &&
-              pattern.low === candle.low &&
-              pattern.close === candle.close
-            );
-            if (isThreeBlackCrows) {
-              console.log("%c " + candles[index].time, "color: #003366;");
-              candles[index-2].color = '#003366';
-              candles[index-1].color = '#003366';
-              candles[index].color =  '#003366' // Change color for Bullish Engulfing
-            }
-          });
-
-          candleseries.setData(candles);
-        } else {
-          console.log('No Three BlackCrows Patterns found.');
-        }
-      } catch (error) {
-        console.error('Error checking Three BlackCrows Patterns:', error.message);
-      }
-    };
-
-    const findThreeBlackCrowsPatterns = (candles) => {
-      const threeBlackCrowsPatterns = [];
-
-      for(let i = 2; i < candles.length; i += 3) {
-        const currentCandle = candles[i];
-        const previousCandle = candles[i - 1];
-        const secondPreviousCandle = candles[i-2];
-
-        if(currentCandle.open - currentCandle.close <= 0.6){
-          continue;
-        }
-
-         // Check conditions for Three Black Crows pattern
-        if (
-          currentCandle.open < currentCandle.close ||
-          previousCandle.open < previousCandle.close ||
-          secondPreviousCandle.open < secondPreviousCandle.close
-        ) {
-          continue;
-        }
-
-        if (
-          currentCandle.open - currentCandle.close <= 0.5||
-          previousCandle.open - previousCandle.close <= 0.5||
-          secondPreviousCandle.open - secondPreviousCandle.close <= 0.5
-        ) {
-          continue;
-        }
-
-        // Check if each candle closes lower than the previous candle
-        if (
-          currentCandle.close >= previousCandle.close ||
-          currentCandle.close - previousCandle.open >= 1||
-          previousCandle.close >= secondPreviousCandle.close ||
-          previousCandle.close - secondPreviousCandle.open >= 1 ||
-          currentCandle.open >= previousCandle.open ||
-          previousCandle.open >= secondPreviousCandle.open
-        ) {
-          continue;
-        }
-
-        threeBlackCrowsPatterns.push(currentCandle);
-      }
-
-      return threeBlackCrowsPatterns;
-    };
-
-    const checkThreeWhiteSoldiersPatterns = () => {
-      try {
-        if (!candleseries) {
-          console.error('Candleseries is not initialized.');
-          return;
-        }
-
-        const candles = [...originalData];
-
-        const threeWhiteSoldiersPatterns = findThreeWhiteSoldiersPatterns(candles);
-
-        if (threeWhiteSoldiersPatterns.length > 0) {
-          console.log("%cThree WhiteSoldiers Pattern: ",  'font-size: 16px; color: green; font-weight: bold;');
-
-          candles.forEach((candle, index) => {
-            const isThreeWhiteSoldiersPatterns = threeWhiteSoldiersPatterns.some((pattern) =>
-              pattern.time === candle.time &&
-              pattern.open === candle.open &&
-              pattern.high === candle.high &&
-              pattern.low === candle.low &&
-              pattern.close === candle.close
-            );
-            if (isThreeWhiteSoldiersPatterns) {
-              console.log("%c " + candles[index].time, 'color: green;');
-              candles[index-2].color = 'white';
-              candles[index-1].color = 'white';
-              candles[index].color =  'white' // Change color for Bullish Engulfing
-            }
-          });
-
-          candleseries.setData(candles);
-        } else {
-          console.log('No Three White Soldier found.');
-        }
-      } catch (error) {
-        console.error('Error checking Three White Soldiers Patterns:', error.message);
-      }
-    };
-
-    const findThreeWhiteSoldiersPatterns = (candles) => {
-      const threeWhiteSoldiersPatterns = [];
-
-      for(let i = 2; i < candles.length; i += 3) {
-        const currentCandle = candles[i];
-        const previousCandle = candles[i - 1];
-        const secondPreviousCandle = candles[i-2];
-
-        if(currentCandle.close - currentCandle.open <= 0.6){
-          continue;
-        }
-
-         // Check conditions for Three Black Crows pattern
-        if (
-          currentCandle.open > currentCandle.close ||
-          previousCandle.open > previousCandle.close ||
-          secondPreviousCandle.open > secondPreviousCandle.close
-        ) {
-          continue;
-        }
-
-
-        // Check if each candle closes lower than the previous candle
-        if (
-          currentCandle.open <= previousCandle.open ||
-          currentCandle.open - previousCandle.close >= 2||
-          previousCandle.open <= secondPreviousCandle.open ||
-          previousCandle.open - secondPreviousCandle.close >= 2 ||
-          currentCandle.close <= previousCandle.close ||
-          previousCandle.close <= secondPreviousCandle.close
-        ) {
-          continue;
-        }
-
-        threeWhiteSoldiersPatterns.push(currentCandle);
-      }
-
-      return threeWhiteSoldiersPatterns;
-    };
-
-    const resetPatterns = () => {
-      try {
-        if (!candleseries) {
-          console.error('Candleseries is not initialized.');
-          return;
-        }
-
-        const candles = [...originalData];
-
-        candles.forEach((candle, index) => {
-            if(candle.open > candle.close){
-              candle.color = 'red';
-            }
-            else{
-              candle.color = 'green';
-            }
-          });
-
-          candleseries.setData(candles);
-          console.clear();
-
-      } catch (error) {
-        console.error('Error checking Three White Soldiers Patterns:', error.message);
-      }
-    };
-
-
-    // Gọi hàm displayChart từ sự kiện tải trang hoặc khi dữ liệu đã sẵn sàng.
-    // window.addEventListener('DOMContentLoaded', displayChart);
-
-    displayChart();
-  </script>
-</body>
-</html>
+      displayChart();
+    </script>
+  </body>
+  </html>
