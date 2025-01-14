@@ -61,9 +61,35 @@
         background-color: #003366;
         color: #fff;
       }
+
+      #stockSelector, #patternSelector {
+        padding: 10px;
+        font-size: 16px;
+        width: 250px;
+        border: 2px solid #0066CC;
+        border-radius: 5px;
+        cursor: pointer;
+        background-color: #fff;
+        color: #0066CC;
+        margin-bottom: 10px;
+      }
+
+      #stockSelector:hover, #patternSelector:hover {
+        background-color: #fff;
+        color: #003366;
+      }
   </style>
   <body>
     <!-- Placeholder div for the chart -->
+     <!-- Dropdown for selecting stock symbol -->
+    <label for="stockSelector">Select Stock Symbol:</label>
+    <select id="stockSelector" onchange="refreshChart()">
+      <option value="AAPL">AAPL</option>
+      <option value="GOOG">GOOG</option>
+      <option value="AMZN">AMZN</option>
+      <option value="JBL">JBL</option>
+    </select>
+
 
     <label id = "selectText" for="patternSelector">Select Candlestick Patterns:</label>
     <select id="patternSelector" onchange="checkSelectedPattern()">
@@ -80,6 +106,7 @@
 
 
     <div id="tvchart" ></div>
+    <canvas id="overlayCanvas" style="position: absolute; top: 0; left: 0;"></canvas>
 
     <table id="annotationTable">
       <thead>
@@ -146,11 +173,19 @@
       let candleseries;  // Declare candleseries in the global scope
       let originalData;  // Store the original data separately
 
+      const refreshChart = async () => {
+        const stockSymbol = document.getElementById('stockSelector').value;
+        const data = await getData(stockSymbol);
+        if (data.length > 0) {
+          candleseries.setData(data);
+        } else {
+          console.warn('No valid data to display.');
+        }
+      };
 
-
-      const getData = async () => {
+      const getData = async (stockSymbol) => {
         try {
-          const res = await fetch('http://localhost:60/stock?stockSymbol=AAPL');
+          const res = await fetch(`http://localhost:60/stock?stockSymbol=${stockSymbol}`);
           if (!res.ok) {
             throw new Error('Failed to fetch data');
           }
@@ -174,7 +209,6 @@
           return [];
         }
       };
-
 
       const displayChart = async () => {
         try {
@@ -208,7 +242,8 @@
             borderColor: 'black' // Color of the candlestick borders
           });
 
-          originalData = await getData();
+          const stockSymbol = document.getElementById('stockSelector').value || "AAPL";
+          originalData = await getData(stockSymbol);
 
           if (originalData.length > 0) {
             candleseries.setData(originalData);
@@ -236,6 +271,7 @@
           if (hammerPatterns.length > 0) {
 
             console.log("%cList of hammer patterns: ", 'font-size: 16px; color: #FF8000 ; font-weight: bold;')
+            const markers = [];
             // Update the chart with the modified data (including color)
             candles.forEach((candle, index) => {
               const isHammer = hammerPatterns.some((pattern) =>
@@ -246,12 +282,18 @@
                       pattern.close === candle.close
               );
               if (isHammer) {
-                console.log("%c " + candles[index].time, "color:#FF8000");
-                candles[index].color = '#FF8000';
+                markers.push({
+                  time: candles[index].time,
+                  position: 'aboveBar', // Hoặc 'belowBar'
+                  color: '#FF0000',
+                  shape: 'circle',
+                  text: 'Hammer',
+                });
               }
             });
 
             // Update the entire data series with the modified data
+            candleseries.setMarkers(markers);
             candleseries.setData(candles);
 
           } else {
@@ -323,6 +365,9 @@
               if (isEngulfing) {  
                 console.log("%c " + candles[index].time, 'color: #9933FF');
                 candles[index].color = '#9933FF';
+
+                const patternList = [candles[index-1], candles[index]];
+                highlightCandles(patternList);
 
                 // Thêm marker để khoanh tròn nến
                 markers.push({
@@ -652,6 +697,8 @@
 
             candleseries.setData(candles);
             console.clear();
+
+            candleseries.setMarkers([]);
 
         } catch (error) {
           console.error('Error checking Three White Soldiers Patterns:', error.message);
