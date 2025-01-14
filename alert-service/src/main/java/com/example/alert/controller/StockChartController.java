@@ -9,7 +9,6 @@ import com.example.alert.service.StockMarketService;
 import lombok.AllArgsConstructor;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-import yahoofinance.Stock;
 
 import java.util.List;
 import java.util.Objects;
@@ -18,18 +17,18 @@ import java.util.Objects;
 @RequestMapping("/stock")
 @AllArgsConstructor
 @CrossOrigin(origins = "*")
-public class StockController {
+public class StockChartController {
     private final CandleStickService candleStickService;
     private final StockMarketService stockMarketService;
 
     @GetMapping()
-    public Response getCandleStickChartByStockSymbol(@RequestParam String stockSymbol) {
-        StockMarket stock = stockMarketService.getStockBySymbol(stockSymbol);
-        if (Objects.isNull(stock) || StringUtils.isEmpty(stock.getId())) {
+    public Response getListCandleByStockSymbol(@RequestParam String symbol) {
+        StockMarket stock = stockMarketService.getStockBySymbol(symbol);
+        if (Objects.isNull(stock) || !StringUtils.hasText(stock.getId())) {
             return new Response(ResponseCode.WRONG_DATA_FORMAT);
         }
 
         List<CandleStick> data = candleStickService.getCandlesByStockId(stock.getId());
-        return new Response(ResponseCode.SUCCESS, data);
+        return new Response(data);
     }
 }

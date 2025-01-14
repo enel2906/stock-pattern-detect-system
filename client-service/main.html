@@ -185,7 +185,7 @@
 
       const getData = async (stockSymbol) => {
         try {
-          const res = await fetch(`http://localhost:60/stock?stockSymbol=${stockSymbol}`);
+          const res = await fetch(`http://localhost:60/stock?symbol=${stockSymbol}`);
           if (!res.ok) {
             throw new Error('Failed to fetch data');
           }
@@ -266,7 +266,8 @@
 
           const candles = [...originalData];  // Use a copy of the original data
 
-          const hammerPatterns = await findHammerPatterns(candles);
+          const hammerPatterns = await findPattern("hammer");
+          debugger
 
           if (hammerPatterns.length > 0) {
 
@@ -282,6 +283,7 @@
                       pattern.close === candle.close
               );
               if (isHammer) {
+                console.log("%c " + candles[index].time, 'color: #FF8000');
                 markers.push({
                   time: candles[index].time,
                   position: 'aboveBar', // Hoặc 'belowBar'
@@ -303,33 +305,6 @@
           console.error('Error checking hammer patterns:', error.message);
         }
       };
-
-  const findHammerPatterns = async () => {
-    try {
-      const res = await fetch('http://localhost:60/alter/candle-stick/AAPL?candlePattern=hammer');
-      if (!res.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
-      const response = await res.json();
-      if (response.code !== 0 || !response.data) {
-        throw new Error('Invalid data format');
-      }
-
-      const cdata = response.data.map(item => ({
-        time: new Date(item.date * 1000).toISOString().split('T')[0],
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close,
-      }));
-
-      return cdata;
-    } catch (error) {
-      console.error('Error fetching data:', error.message);
-      return [];
-    }
-  };
 
   const checkBullishEngulfingPatterns = () => {
         try {
@@ -676,6 +651,34 @@
 
         return threeWhiteSoldiersPatterns;
       };
+
+      const findPattern = async (pattern) => {
+        try {
+          const stockSymbol = document.getElementById('stockSelector').value || "AAPL";
+          const res = await fetch(`http://localhost:60/alter/candle-stick/${stockSymbol}?candlePattern=${pattern}`);
+          if (!res.ok) {
+            throw new Error('Failed to fetch data');
+          }
+
+          const response = await res.json();
+          if (response.code !== 0 || !response.data) {
+            throw new Error('Invalid data format');
+          }
+
+          const cdata = response.data.map(item => ({
+            time: new Date(item.date * 1000).toISOString().split('T')[0],
+            open: item.open,
+            high: item.high,
+            low: item.low,
+            close: item.close,
+          }));
+
+          return cdata;
+        } catch (error) {
+          console.error('Error fetching data:', error.message);
+          return [];
+        }
+      }
 
       const resetPatterns = () => {
         try {
