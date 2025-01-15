@@ -78,6 +78,7 @@
         background-color: #fff;
         color: #003366;
       }
+
   </style>
   <body>
     <!-- Placeholder div for the chart -->
@@ -93,6 +94,7 @@
 
     <label id = "selectText" for="patternSelector">Select Candlestick Patterns:</label>
     <select id="patternSelector" onchange="checkSelectedPattern()">
+      <option value="reset">Default</option>
       <option value="hammer">Hammer</option>
       <option value="bullishEngulfing">Bullish Engulfing</option>
       <option value="harami">Harami</option>
@@ -214,7 +216,7 @@
         try {
           const chartProperties = {
             width: 1600,
-            height: 600,
+            height: 800,
             timeScale: {
               timeVisible: true,
               secondsVisible: true,
@@ -286,8 +288,8 @@
                 console.log("%c " + candles[index].time, 'color: #FF8000');
                 markers.push({
                   time: candles[index].time,
-                  position: 'aboveBar', // Hoặc 'belowBar'
-                  color: '#FF0000',
+                  position: 'aboveBar',
+                  color: 'yellow',
                   shape: 'circle',
                   text: 'Hammer',
                 });
@@ -306,64 +308,63 @@
         }
       };
 
-  const checkBullishEngulfingPatterns = () => {
-        try {
-          if (!candleseries) {
-            console.error('Candleseries is not initialized.');
-            return;
-          }
+  const checkBullishEngulfingPatterns = async () => {
+    try {
+      if (!candleseries) {
+        console.error('Candleseries is not initialized.');
+        return;
+      }
 
-          // Clear previous line series (if any)
-          if (lineSeries) {
-            chart.removeSeries(lineSeries);
-          }
+      // Clear previous line series (if any)
+      if (lineSeries) {
+        chart.removeSeries(lineSeries);
+      }
 
-          lineSeries = chart.addLineSeries();
+      lineSeries = chart.addLineSeries();
 
-          const candles = [...originalData];
+      const candles = [...originalData];
 
-          const engulfingPatterns = findBullishEngulfingPatterns(candles);
+      const engulfingPatterns = await findPattern("hammer");
 
-          if (engulfingPatterns.length > 0) {
-            console.log("%cList of Bullish Engulfing patterns: ", 'font-size: 16px; color: #9933FF; font-weight: bold;');
+      if (engulfingPatterns.length > 0) {
+        console.log("%cList of Bullish Engulfing patterns: ", 'font-size: 16px; color: #9933FF; font-weight: bold;');
 
-            const markers = [];
+        const markers = [];
 
-            candles.forEach((candle, index) => {
-              const isEngulfing = engulfingPatterns.some((pattern) =>
-                pattern.time === candle.time &&
-                pattern.open === candle.open &&
-                pattern.high === candle.high &&
-                pattern.low === candle.low &&
-                pattern.close === candle.close
-              );
-              if (isEngulfing) {  
-                console.log("%c " + candles[index].time, 'color: #9933FF');
-                candles[index].color = '#9933FF';
+        candles.forEach((candle, index) => {
+          const isEngulfing = engulfingPatterns.some((pattern) =>
+                  pattern.time === candle.time &&
+                  pattern.open === candle.open &&
+                  pattern.high === candle.high &&
+                  pattern.low === candle.low &&
+                  pattern.close === candle.close
+          );
+          if (isEngulfing) {
+            console.log("%c " + candles[index].time, 'color: #9933FF');
+            candles[index].color = '#9933FF';
 
-                const patternList = [candles[index-1], candles[index]];
-                highlightCandles(patternList);
+            const patternList = [candles[index - 1], candles[index]];
 
-                // Thêm marker để khoanh tròn nến
-                markers.push({
-                  time: candles[index].time,
-                  position: 'aboveBar', // Hoặc 'belowBar'
-                  color: '#FF0000',
-                  shape: 'circle',
-                  text: 'Bullish Engulfing',
-                });
-              }
+            // Thêm marker để khoanh tròn nến
+            markers.push({
+              time: candles[index].time,
+              position: 'aboveBar', // Hoặc 'belowBar'
+              color: 'yellow',
+              shape: 'circle',
+              text: 'Bullish Engulfing',
             });
-
-            candleseries.setMarkers(markers);
-            candleseries.setData(candles);
-          } else {
-            console.log('No Bullish Engulfing patterns found.');
           }
-        } catch (error) {
-          console.error('Error checking Bullish Engulfing patterns:', error.message);
-        }
-      };
+        });
+
+        candleseries.setMarkers(markers);
+        candleseries.setData(candles);
+      } else {
+        console.log('No Bullish Engulfing patterns found.');
+      }
+    } catch (error) {
+      console.error('Error checking Bullish Engulfing patterns:', error.message);
+    }
+  };
 
       const findBullishEngulfingPatterns = (candles) => {
         const engulfingPatterns = [];
