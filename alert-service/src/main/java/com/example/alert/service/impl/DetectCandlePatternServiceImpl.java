@@ -137,10 +137,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getBullishEngulfingPatterns(String stockId) {
+    public List<CandleStick> getBullishEngulfingPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> bullishPatterns = new ArrayList<>();
+        List<CandleStick> bullishPatterns = new ArrayList<>();
         for (int i = 1; i < candles.size(); i++) {
             CandleStick prev = candles.get(i - 1);
             CandleStick curr = candles.get(i);
@@ -149,17 +149,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     curr.getClose() > curr.getOpen() && // Nến hiện tại tăng giá
                     curr.getOpen() <= prev.getClose() && // Mở cửa của nến hiện tại <= đóng cửa của nến trước
                     curr.getClose() >= prev.getOpen()) { // Đóng cửa của nến hiện tại >= mở cửa của nến trước
-                bullishPatterns.add(List.of(prev, curr));
+                bullishPatterns.add(curr);
             }
         }
         return bullishPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getBearishEngulfingPatterns(String stockId) {
+    public List<CandleStick> getBearishEngulfingPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> bearishPatterns = new ArrayList<>();
+        List<CandleStick> bearishPatterns = new ArrayList<>();
         for (int i = 1; i < candles.size(); i++) {
             CandleStick prev = candles.get(i - 1);
             CandleStick curr = candles.get(i);
@@ -168,17 +168,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     curr.getClose() < curr.getOpen() && // Nến hiện tại giảm giá
                     curr.getOpen() >= prev.getClose() && // Mở cửa của nến hiện tại >= đóng cửa của nến trước
                     curr.getClose() <= prev.getOpen()) { // Đóng cửa của nến hiện tại <= mở cửa của nến trước
-                bearishPatterns.add(List.of(prev, curr));
+                bearishPatterns.add(curr);
             }
         }
         return bearishPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getTweezerBottomPatterns(String stockId) {
+    public List<CandleStick> getTweezerBottomPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> tweezerBottomPatterns = new ArrayList<>();
+        List<CandleStick> tweezerBottomPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -194,17 +194,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean secondCandleBullishOrNeutral = secondCandle.getClose() >= secondCandle.getOpen();
 
             if (sameLow && firstCandleBearish && secondCandleBullishOrNeutral) {
-                tweezerBottomPatterns.add(List.of(firstCandle, secondCandle));
+                tweezerBottomPatterns.add(secondCandle);
             }
         }
         return tweezerBottomPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getTweezerTopPatterns(String stockId) {
+    public List<CandleStick> getTweezerTopPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> tweezerTopPatterns = new ArrayList<>();
+        List<CandleStick> tweezerTopPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -220,7 +220,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean secondCandleBearishOrNeutral = secondCandle.getClose() <= secondCandle.getOpen();
 
             if (sameHigh && firstCandleBullish && secondCandleBearishOrNeutral) {
-                tweezerTopPatterns.add(List.of(firstCandle, secondCandle));
+                tweezerTopPatterns.add(secondCandle);
             }
         }
         return tweezerTopPatterns;
@@ -317,10 +317,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getHaramiPatterns(String stockId) {
+    public List<CandleStick> getHaramiPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> haramiPatterns = new ArrayList<>();
+        List<CandleStick> haramiPatterns = new ArrayList<>();
         for (int i = 1; i < candles.size(); i++) {
             CandleStick prev = candles.get(i - 1);
             CandleStick curr = candles.get(i);
@@ -328,16 +328,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             if (Math.abs(curr.getClose() - curr.getOpen()) <= Math.abs(prev.getClose() - prev.getOpen()) && // Nến hiện tại nhỏ hơn nến trước
                     curr.getLow() >= Math.min(prev.getClose(), prev.getOpen()) && // Nến hiện tại nằm trong phạm vi nến trước
                     curr.getHigh() <= Math.max(prev.getClose(), prev.getOpen())) {
-                haramiPatterns.add(List.of(prev, curr));
+                haramiPatterns.add(curr);
             }
         }
         return haramiPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getThrustingPatterns(String stockId) {
+    public List<CandleStick> getThrustingPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> thrustingPatterns = new ArrayList<>();
+        List<CandleStick> thrustingPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -360,7 +360,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean isDowntrend = (i >= 2 && candles.get(i - 2).getClose() > firstCandle.getClose());
 
             if (isFirstBearish && isSecondBullish && hasGapDown && closeBelowMidpoint && isDowntrend) {
-                thrustingPatterns.add(List.of(firstCandle, secondCandle));
+                thrustingPatterns.add(secondCandle);
             }
         }
 
@@ -369,9 +369,9 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getPiercingLinePatterns(String stockId) {
+    public List<CandleStick> getPiercingLinePatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> piercingLinePatterns = new ArrayList<>();
+        List<CandleStick> piercingLinePatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -391,7 +391,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
             // Điều kiện tạo ra mẫu Piercing Line
             if (firstCandleBearish && secondCandleBullish && isGap && closesAboveHalfFirstCandle) {
-                piercingLinePatterns.add(List.of(firstCandle, secondCandle));
+                piercingLinePatterns.add(secondCandle);
             }
         }
         return piercingLinePatterns;
@@ -399,10 +399,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getThreeWhiteSoldiers(String stockId) {
+    public List<CandleStick> getThreeWhiteSoldiers(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> patterns = new ArrayList<>();
+        List<CandleStick> patterns = new ArrayList<>();
         for (int i = 2; i < candles.size(); i++) {
             CandleStick first = candles.get(i - 2);
             CandleStick second = candles.get(i - 1);
@@ -413,17 +413,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     third.getClose() > third.getOpen() && // Nến thứ ba tăng
                     second.getOpen() > first.getClose() && // Mở cửa nến thứ hai cao hơn đóng cửa nến đầu
                     third.getOpen() > second.getClose()) { // Mở cửa nến thứ ba cao hơn đóng cửa nến thứ hai
-                patterns.add(List.of(first, second, third));
+                patterns.add(third);
             }
         }
         return patterns;
     }
 
     @Override
-    public List<List<CandleStick>> getThreeBlackCrows(String stockId) {
+    public List<CandleStick> getThreeBlackCrows(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> patterns = new ArrayList<>();
+        List<CandleStick> patterns = new ArrayList<>();
         for (int i = 2; i < candles.size(); i++) {
             CandleStick first = candles.get(i - 2);
             CandleStick second = candles.get(i - 1);
@@ -434,17 +434,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     third.getClose() < third.getOpen() && // Nến thứ ba giảm
                     second.getOpen() < first.getClose() && // Mở cửa nến thứ hai thấp hơn đóng cửa nến đầu
                     third.getOpen() < second.getClose()) { // Mở cửa nến thứ ba thấp hơn đóng cửa nến thứ hai
-                patterns.add(List.of(first, second, third));
+                patterns.add(third);
             }
         }
         return patterns;
     }
 
     @Override
-    public List<List<CandleStick>> getEveningStarPatterns(String stockId) {
+    public List<CandleStick> getEveningStarPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> eveningStarPatterns = new ArrayList<>();
+        List<CandleStick> eveningStarPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -459,7 +459,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     (firstCandle.getOpen() - firstCandle.getClose()) * 0.5);
 
             if (firstBullish && secondSmallBody && thirdBearish && strongDrop) {
-                eveningStarPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                eveningStarPatterns.add(thirdCandle);
             }
         }
         return eveningStarPatterns;
@@ -467,10 +467,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getMorningStarPatterns(String stockId) {
+    public List<CandleStick> getMorningStarPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> morningStarPatterns = new ArrayList<>();
+        List<CandleStick> morningStarPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -485,17 +485,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     (firstCandle.getClose() - firstCandle.getOpen()) * 0.5);
 
             if (firstBearish && secondSmallBody && thirdBullish && strongRecovery) {
-                morningStarPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                morningStarPatterns.add(thirdCandle);
             }
         }
         return morningStarPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getDarkCloudCoverPatterns(String stockId) {
+    public List<CandleStick> getDarkCloudCoverPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> darkCloudCoverPatterns = new ArrayList<>();
+        List<CandleStick> darkCloudCoverPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -510,17 +510,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                             (firstCandle.getClose() - firstCandle.getOpen()) / 2;
 
             if (firstCandleBullish && secondCandleBearish) {
-                darkCloudCoverPatterns.add(List.of(firstCandle, secondCandle));
+                darkCloudCoverPatterns.add(secondCandle);
             }
         }
         return darkCloudCoverPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getThreeOutsideUpPatterns(String stockId) {
+    public List<CandleStick> getThreeOutsideUpPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> threeOutsideUpPatterns = new ArrayList<>();
+        List<CandleStick> threeOutsideUpPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -540,17 +540,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     thirdCandle.getClose() > secondCandle.getClose();
 
             if (firstCandleBearish && secondCandleBullish && thirdCandleBullish) {
-                threeOutsideUpPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                threeOutsideUpPatterns.add(thirdCandle);
             }
         }
         return threeOutsideUpPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getThreeStarsInTheSouthPatterns(String stockId) {
+    public List<CandleStick> getThreeStarsInTheSouthPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> patterns = new ArrayList<>();
+        List<CandleStick> patterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -573,16 +573,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     thirdCandle.getClose() > secondCandle.getClose();
 
             if (firstCondition && secondCondition && thirdCondition) {
-                patterns.add(Arrays.asList(firstCandle, secondCandle, thirdCandle));
+                patterns.add(thirdCandle);
             }
         }
         return patterns;
     }
 
     @Override
-    public List<List<CandleStick>> getAdvanceBlockPatterns(String stockId) {
+    public List<CandleStick> getAdvanceBlockPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> advanceBlockPatterns = new ArrayList<>();
+        List<CandleStick> advanceBlockPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -604,16 +604,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                             (thirdCandle.getHigh() - thirdCandle.getClose());
 
             if (firstBullish && secondBullish && thirdBullish && decreasingBodySize && increasingUpperShadow) {
-                advanceBlockPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                advanceBlockPatterns.add(thirdCandle);
             }
         }
         return advanceBlockPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getDescendingHawkPatterns(String stockId) {
+    public List<CandleStick> getDescendingHawkPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> descendingHawkPatterns = new ArrayList<>();
+        List<CandleStick> descendingHawkPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -628,16 +628,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     (firstCandle.getClose() - firstCandle.getOpen()) * 0.5;
 
             if (firstBullish && secondBullish && thirdBearish && thirdSmallBody) {
-                descendingHawkPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                descendingHawkPatterns.add(thirdCandle);
             }
         }
         return descendingHawkPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getDeliberationPatterns(String stockId) {
+    public List<CandleStick> getDeliberationPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> deliberationPatterns = new ArrayList<>();
+        List<CandleStick> deliberationPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -654,7 +654,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     (thirdCandle.getClose() - thirdCandle.getOpen());
 
             if (firstBullish && secondBullish && thirdBullish && thirdSmallBody && thirdLongUpperShadow) {
-                deliberationPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                deliberationPatterns.add(thirdCandle);
             }
         }
         return deliberationPatterns;
@@ -662,10 +662,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getThreeInsideUpPatterns(String stockId) {
+    public List<CandleStick> getThreeInsideUpPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> threeInsideUpPatterns = new ArrayList<>();
+        List<CandleStick> threeInsideUpPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -685,7 +685,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     thirdCandle.getClose() > secondCandle.getClose();
 
             if (firstCandleBearish && secondCandleBullishHarami && thirdCandleBullish) {
-                threeInsideUpPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                threeInsideUpPatterns.add(thirdCandle);
             }
         }
         return threeInsideUpPatterns;
@@ -693,10 +693,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getBearishAbandonedBabyPatterns(String stockId) {
+    public List<CandleStick> getBearishAbandonedBabyPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> bearishAbandonedBabyPatterns = new ArrayList<>();
+        List<CandleStick> bearishAbandonedBabyPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -718,17 +718,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
             if (firstCandleBullish && secondCandleDoji && secondCandleGapUp &&
                     thirdCandleBearish && thirdCandleGapDown && thirdCandleClosesBelowFirst) {
-                bearishAbandonedBabyPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                bearishAbandonedBabyPatterns.add(thirdCandle);
             }
         }
         return bearishAbandonedBabyPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getBearishKickerPatterns(String stockId) {
+    public List<CandleStick> getBearishKickerPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> bearishKickerPatterns = new ArrayList<>();
+        List<CandleStick> bearishKickerPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -742,16 +742,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     secondCandle.getOpen() < firstCandle.getClose();
 
             if (firstCandleBullish && secondCandleBearish) {
-                bearishKickerPatterns.add(List.of(firstCandle, secondCandle));
+                bearishKickerPatterns.add(secondCandle);
             }
         }
         return bearishKickerPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getBullishKickerPatterns(String stockId) {
+    public List<CandleStick> getBullishKickerPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bullishKickerPatterns = new ArrayList<>();
+        List<CandleStick> bullishKickerPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -768,7 +768,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
             // Điều kiện để nhận diện mẫu Bullish Kicker
             if (firstCandleBearish && secondCandleBullish && isGapUp) {
-                bullishKickerPatterns.add(List.of(firstCandle, secondCandle));
+                bullishKickerPatterns.add(secondCandle);
             }
         }
         return bullishKickerPatterns;
@@ -776,10 +776,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getFallingThreePatterns(String stockId) {
+    public List<CandleStick> getFallingThreePatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> fallingThreePatterns = new ArrayList<>();
+        List<CandleStick> fallingThreePatterns = new ArrayList<>();
 
         for (int i = 4; i < candles.size(); i++) { // Bắt đầu từ nến thứ 5
             CandleStick firstCandle = candles.get(i - 4);
@@ -804,7 +804,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     fifthCandle.getClose() < firstCandle.getClose();
 
             if (firstCandleBearish && middleCandlesInsideRange && fifthCandleBearish) {
-                fallingThreePatterns.add(List.of(firstCandle, secondCandle, thirdCandle, fourthCandle, fifthCandle));
+                fallingThreePatterns.add(fifthCandle);
             }
         }
         return fallingThreePatterns;
@@ -812,10 +812,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getRisingThreePatterns(String stockId) {
+    public List<CandleStick> getRisingThreePatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> risingThreePatterns = new ArrayList<>();
+        List<CandleStick> risingThreePatterns = new ArrayList<>();
 
         for (int i = 4; i < candles.size(); i++) { // Bắt đầu từ nến thứ 5
             CandleStick firstCandle = candles.get(i - 4);
@@ -841,17 +841,17 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     fifthCandle.getOpen() > firstCandle.getOpen();
 
             if (firstCandleBullish && middleCandlesInsideRange && fifthCandleBullish) {
-                risingThreePatterns.add(List.of(firstCandle, secondCandle, thirdCandle, fourthCandle, fifthCandle));
+                risingThreePatterns.add(fifthCandle);
             }
         }
         return risingThreePatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getDownsideTasukiGapPatterns(String stockId) {
+    public List<CandleStick> getDownsideTasukiGapPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> downsideTasukiGapPatterns = new ArrayList<>();
+        List<CandleStick> downsideTasukiGapPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -870,16 +870,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     thirdCandle.getClose() < secondCandle.getOpen();
 
             if (isGapDown && firstCandleBearish && secondCandleBearish && thirdCandleBullish) {
-                downsideTasukiGapPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                downsideTasukiGapPatterns.add(thirdCandle);
             }
         }
         return downsideTasukiGapPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getUpsideGapTwoCrowsPatterns(String stockId) {
+    public List<CandleStick> getUpsideGapTwoCrowsPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> upsideGapTwoCrowsPatterns = new ArrayList<>();
+        List<CandleStick> upsideGapTwoCrowsPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -911,7 +911,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
             if (isFirstBullish && isSecondBearish && isGapUp && isThirdBearish &&
                     closesBelowSecond && closesAboveFirst && isUptrend) {
-                upsideGapTwoCrowsPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                upsideGapTwoCrowsPatterns.add(thirdCandle);
             }
         }
 
@@ -919,10 +919,10 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
     }
 
     @Override
-    public List<List<CandleStick>> getUpsideTasukiGapPatterns(String stockId) {
+    public List<CandleStick> getUpsideTasukiGapPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
 
-        List<List<CandleStick>> upsideTasukiGapPatterns = new ArrayList<>();
+        List<CandleStick> upsideTasukiGapPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -941,16 +941,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     thirdCandle.getClose() > secondCandle.getOpen();
 
             if (isGapUp && firstCandleBullish && secondCandleBullish && thirdCandleBearish) {
-                upsideTasukiGapPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                upsideTasukiGapPatterns.add(thirdCandle);
             }
         }
         return upsideTasukiGapPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getEveningStarDojiPatterns(String stockId) {
+    public List<CandleStick> getEveningStarDojiPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> eveningStarDojiPatterns = new ArrayList<>();
+        List<CandleStick> eveningStarDojiPatterns = new ArrayList<>();
 
         for (int i = 3; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i-2);
@@ -975,16 +975,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean isUptrend = prevCandle.getClose() > prevCandle.getOpen() && firstCandleBullish;
 
             if (isUptrend && secondCandleDoji && thirdCandleBearish && closesBelowHalfFirstCandle) {
-                eveningStarDojiPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                eveningStarDojiPatterns.add(thirdCandle);
             }
         }
         return eveningStarDojiPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getMorningStarDojiPatterns(String stockId) {
+    public List<CandleStick> getMorningStarDojiPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> morningStarDojiPatterns = new ArrayList<>();
+        List<CandleStick> morningStarDojiPatterns = new ArrayList<>();
 
         for (int i = 3; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -1009,16 +1009,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
             // Điều kiện để nhận diện mẫu Morning Star Doji
             if (isDowntrend && firstCandleBearish && secondCandleDoji && thirdCandleBullish && closesAboveFirstCandle) {
-                morningStarDojiPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                morningStarDojiPatterns.add(thirdCandle);
             }
         }
         return morningStarDojiPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getBearishTriStarPatterns(String stockId) {
+    public List<CandleStick> getBearishTriStarPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bearishTriStarPatterns = new ArrayList<>();
+        List<CandleStick> bearishTriStarPatterns = new ArrayList<>();
 
         for (int i = 2; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -1043,7 +1043,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
             // Điều kiện để nhận diện mẫu Bearish Tri-Star
             if (isUptrend && firstCandleBullish && secondCandleDoji && thirdCandleBearish && closesBelowFirstCandle) {
-                bearishTriStarPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                bearishTriStarPatterns.add(thirdCandle);
             }
         }
         return bearishTriStarPatterns;
@@ -1051,9 +1051,9 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getBullishTriStarPatterns(String stockId) {
+    public List<CandleStick> getBullishTriStarPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bullishTriStarPatterns = new ArrayList<>();
+        List<CandleStick> bullishTriStarPatterns = new ArrayList<>();
 
         for (int i = 3; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 2);
@@ -1078,16 +1078,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
             // Điều kiện để nhận diện mẫu Bullish Tri-Star
             if (isDowntrend && firstCandleBearish && secondCandleDoji && thirdCandleBullish && closesAboveFirstCandle) {
-                bullishTriStarPatterns.add(List.of(firstCandle, secondCandle, thirdCandle));
+                bullishTriStarPatterns.add(thirdCandle);
             }
         }
         return bullishTriStarPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getMatchingLowPatterns(String stockId) {
+    public List<CandleStick> getMatchingLowPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> matchingLowPatterns = new ArrayList<>();
+        List<CandleStick> matchingLowPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -1104,7 +1104,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean isDowntrend = (i >= 2 && candles.get(i - 2).getClose() > firstCandle.getClose());
 
             if (isFirstBearish && isMatchingLow && isDowntrend) {
-                matchingLowPatterns.add(List.of(firstCandle, secondCandle));
+                matchingLowPatterns.add(secondCandle);
             }
         }
 
@@ -1112,9 +1112,9 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
     }
 
     @Override
-    public List<List<CandleStick>> getMatchingHighPatterns(String stockId) {
+    public List<CandleStick> getMatchingHighPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> matchingHighPatterns = new ArrayList<>();
+        List<CandleStick> matchingHighPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -1131,7 +1131,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean isUptrend = (i >= 2 && candles.get(i - 2).getClose() < firstCandle.getClose());
 
             if (isFirstBullish && isMatchingHigh && isUptrend) {
-                matchingHighPatterns.add(List.of(firstCandle, secondCandle));
+                matchingHighPatterns.add(secondCandle);
             }
         }
 
@@ -1178,9 +1178,9 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getBearishThreeLineStrikePatterns(String stockId) {
+    public List<CandleStick> getBearishThreeLineStrikePatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bearishThreeLineStrikePatterns = new ArrayList<>();
+        List<CandleStick> bearishThreeLineStrikePatterns = new ArrayList<>();
 
         for (int i = 3; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 3);
@@ -1202,7 +1202,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     fourthCandle.getClose() < firstCandle.getOpen();
 
             if (firstThreeBullish && consecutiveHigherCloses && fourthBearish) {
-                bearishThreeLineStrikePatterns.add(List.of(firstCandle, secondCandle, thirdCandle, fourthCandle));
+                bearishThreeLineStrikePatterns.add(fourthCandle);
             }
         }
 
@@ -1210,9 +1210,9 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
     }
 
     @Override
-    public List<List<CandleStick>> getBearishHaramiCrossPatterns(String stockId) {
+    public List<CandleStick> getBearishHaramiCrossPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bearishHaramiCrossPatterns = new ArrayList<>();
+        List<CandleStick> bearishHaramiCrossPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -1228,16 +1228,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     secondCandle.getClose() >= firstCandle.getOpen();
 
             if (firstCandleBullish && secondCandleDoji && withinFirstBody) {
-                bearishHaramiCrossPatterns.add(List.of(firstCandle, secondCandle));
+                bearishHaramiCrossPatterns.add(secondCandle);
             }
         }
         return bearishHaramiCrossPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getBullishHaramiCrossPatterns(String stockId) {
+    public List<CandleStick> getBullishHaramiCrossPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bullishHaramiCrossPatterns = new ArrayList<>();
+        List<CandleStick> bullishHaramiCrossPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -1253,16 +1253,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     secondCandle.getClose() <= firstCandle.getOpen();
 
             if (firstCandleBearish && secondCandleDoji && withinFirstBody) {
-                bullishHaramiCrossPatterns.add(List.of(firstCandle, secondCandle));
+                bullishHaramiCrossPatterns.add(secondCandle);
             }
         }
         return bullishHaramiCrossPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getBearishCounterattackPatterns(String stockId) {
+    public List<CandleStick> getBearishCounterattackPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bearishCounterattackPatterns = new ArrayList<>();
+        List<CandleStick> bearishCounterattackPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -1277,16 +1277,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean closeProximity = Math.abs(secondCandle.getClose() - firstCandle.getClose()) <= 0.05 * (firstCandle.getHigh() - firstCandle.getLow());
 
             if (firstCandleBullish && secondCandleBearish && closeProximity) {
-                bearishCounterattackPatterns.add(List.of(firstCandle, secondCandle));
+                bearishCounterattackPatterns.add(secondCandle);
             }
         }
         return bearishCounterattackPatterns;
     }
 
     @Override
-    public List<List<CandleStick>> getBullishCounterattackPatterns(String stockId) {
+    public List<CandleStick> getBullishCounterattackPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bullishCounterattackPatterns = new ArrayList<>();
+        List<CandleStick> bullishCounterattackPatterns = new ArrayList<>();
 
         for (int i = 1; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 1);
@@ -1301,7 +1301,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             boolean closeProximity = Math.abs(secondCandle.getClose() - firstCandle.getClose()) <= 0.05 * (firstCandle.getHigh() - firstCandle.getLow());
 
             if (firstCandleBearish && secondCandleBullish && closeProximity) {
-                bullishCounterattackPatterns.add(List.of(firstCandle, secondCandle));
+                bullishCounterattackPatterns.add(secondCandle);
             }
         }
         return bullishCounterattackPatterns;
@@ -1309,9 +1309,9 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
 
     @Override
-    public List<List<CandleStick>> getBullishThreeLineStrikePatterns(String stockId) {
+    public List<CandleStick> getBullishThreeLineStrikePatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> bullishThreeLineStrikePatterns = new ArrayList<>();
+        List<CandleStick> bullishThreeLineStrikePatterns = new ArrayList<>();
 
         for (int i = 3; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 3);
@@ -1333,7 +1333,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     fourthCandle.getClose() > firstCandle.getOpen();
 
             if (firstThreeBearish && consecutiveLowerCloses && fourthBullish) {
-                bullishThreeLineStrikePatterns.add(List.of(firstCandle, secondCandle, thirdCandle, fourthCandle));
+                bullishThreeLineStrikePatterns.add(fourthCandle);
             }
         }
 
@@ -1341,9 +1341,9 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
     }
 
     @Override
-    public List<List<CandleStick>> getLadderTopPatterns(String stockId) {
+    public List<CandleStick> getLadderTopPatterns(String stockId) {
         List<CandleStick> candles = candleStickRepository.getByStockId(stockId);
-        List<List<CandleStick>> ladderTopPatterns = new ArrayList<>();
+        List<CandleStick> ladderTopPatterns = new ArrayList<>();
 
         for (int i = 4; i < candles.size(); i++) {
             CandleStick firstCandle = candles.get(i - 4);
@@ -1367,7 +1367,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     fifthCandle.getClose() < fourthCandle.getOpen();
 
             if (firstThreeBullish && fourthCandleWeak && fifthCandleBearish) {
-                ladderTopPatterns.add(List.of(firstCandle, secondCandle, thirdCandle, fourthCandle, fifthCandle));
+                ladderTopPatterns.add(fifthCandle);
             }
         }
 

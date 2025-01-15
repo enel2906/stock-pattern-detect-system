@@ -19,48 +19,48 @@ public interface DetectCandlePatternService {
     List<CandleStick> getBullishBeltHold(String stockId);
 
     //Two candle patterns
-    List<List<CandleStick>> getBullishEngulfingPatterns(String stockId);
-    List<List<CandleStick>> getBearishEngulfingPatterns(String stockId);
-    List<List<CandleStick>> getBearishKickerPatterns(String stockId);
-    List<List<CandleStick>> getBullishKickerPatterns(String stockId);
-    List<List<CandleStick>> getPiercingLinePatterns(String stockId);
-    List<List<CandleStick>> getTweezerBottomPatterns(String stockId);
-    List<List<CandleStick>> getTweezerTopPatterns(String stockId);
-    List<List<CandleStick>> getHaramiPatterns(String stockId);
-    List<List<CandleStick>> getDarkCloudCoverPatterns(String stockId);
-    List<List<CandleStick>> getMatchingLowPatterns(String stockId);
-    List<List<CandleStick>> getMatchingHighPatterns(String stockId);
-    List<List<CandleStick>> getBearishHaramiCrossPatterns(String stockId);
-    List<List<CandleStick>> getBullishHaramiCrossPatterns(String stockId);
-    List<List<CandleStick>> getBearishCounterattackPatterns(String stockId);
-    List<List<CandleStick>> getBullishCounterattackPatterns(String stockId);
+    List<CandleStick> getBullishEngulfingPatterns(String stockId);
+    List<CandleStick> getBearishEngulfingPatterns(String stockId);
+    List<CandleStick> getBearishKickerPatterns(String stockId);
+    List<CandleStick> getBullishKickerPatterns(String stockId);
+    List<CandleStick> getPiercingLinePatterns(String stockId);
+    List<CandleStick> getTweezerBottomPatterns(String stockId);
+    List<CandleStick> getTweezerTopPatterns(String stockId);
+    List<CandleStick> getHaramiPatterns(String stockId);
+    List<CandleStick> getDarkCloudCoverPatterns(String stockId);
+    List<CandleStick> getMatchingLowPatterns(String stockId);
+    List<CandleStick> getMatchingHighPatterns(String stockId);
+    List<CandleStick> getBearishHaramiCrossPatterns(String stockId);
+    List<CandleStick> getBullishHaramiCrossPatterns(String stockId);
+    List<CandleStick> getBearishCounterattackPatterns(String stockId);
+    List<CandleStick> getBullishCounterattackPatterns(String stockId);
 
     //Three candle patterns
-    List<List<CandleStick>> getThreeWhiteSoldiers(String stockId);
-    List<List<CandleStick>> getThreeBlackCrows(String stockId);
-    List<List<CandleStick>> getEveningStarPatterns(String stockId);
-    List<List<CandleStick>> getMorningStarPatterns(String stockId);
-    List<List<CandleStick>> getThreeOutsideUpPatterns(String stockId);
-    List<List<CandleStick>> getThreeInsideUpPatterns(String stockId);
-    List<List<CandleStick>> getBearishAbandonedBabyPatterns(String stockId);
-    List<List<CandleStick>> getDownsideTasukiGapPatterns(String stockId);
-    List<List<CandleStick>> getUpsideTasukiGapPatterns(String stockId);
-    List<List<CandleStick>> getEveningStarDojiPatterns(String stockId);
-    List<List<CandleStick>> getMorningStarDojiPatterns(String stockId);
-    List<List<CandleStick>> getBearishTriStarPatterns(String stockId);
-    List<List<CandleStick>> getBullishTriStarPatterns(String stockId);
-    List<List<CandleStick>> getThrustingPatterns(String stockId);
-    List<List<CandleStick>> getUpsideGapTwoCrowsPatterns(String stockId);
-    List<List<CandleStick>> getThreeStarsInTheSouthPatterns(String stockId);
-    List<List<CandleStick>> getAdvanceBlockPatterns(String stockId);
-    List<List<CandleStick>> getDescendingHawkPatterns(String stockId);
-    List<List<CandleStick>> getDeliberationPatterns(String stockId);
+    List<CandleStick> getThreeWhiteSoldiers(String stockId);
+    List<CandleStick> getThreeBlackCrows(String stockId);
+    List<CandleStick> getEveningStarPatterns(String stockId);
+    List<CandleStick> getMorningStarPatterns(String stockId);
+    List<CandleStick> getThreeOutsideUpPatterns(String stockId);
+    List<CandleStick> getThreeInsideUpPatterns(String stockId);
+    List<CandleStick> getBearishAbandonedBabyPatterns(String stockId);
+    List<CandleStick> getDownsideTasukiGapPatterns(String stockId);
+    List<CandleStick> getUpsideTasukiGapPatterns(String stockId);
+    List<CandleStick> getEveningStarDojiPatterns(String stockId);
+    List<CandleStick> getMorningStarDojiPatterns(String stockId);
+    List<CandleStick> getBearishTriStarPatterns(String stockId);
+    List<CandleStick> getBullishTriStarPatterns(String stockId);
+    List<CandleStick> getThrustingPatterns(String stockId);
+    List<CandleStick> getUpsideGapTwoCrowsPatterns(String stockId);
+    List<CandleStick> getThreeStarsInTheSouthPatterns(String stockId);
+    List<CandleStick> getAdvanceBlockPatterns(String stockId);
+    List<CandleStick> getDescendingHawkPatterns(String stockId);
+    List<CandleStick> getDeliberationPatterns(String stockId);
 
     //Many candle patterns
-    List<List<CandleStick>> getFallingThreePatterns(String stockId);
-    List<List<CandleStick>> getRisingThreePatterns(String stockId);
-    List<List<CandleStick>> getBullishThreeLineStrikePatterns(String stockId);
-    List<List<CandleStick>> getBearishThreeLineStrikePatterns(String stockId);
-    List<List<CandleStick>> getLadderTopPatterns(String stockId);
+    List<CandleStick> getFallingThreePatterns(String stockId);
+    List<CandleStick> getRisingThreePatterns(String stockId);
+    List<CandleStick> getBullishThreeLineStrikePatterns(String stockId);
+    List<CandleStick> getBearishThreeLineStrikePatterns(String stockId);
+    List<CandleStick> getLadderTopPatterns(String stockId);
 }
 
