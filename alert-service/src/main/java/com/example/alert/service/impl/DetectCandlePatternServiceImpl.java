@@ -680,9 +680,9 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     secondCandle.getOpen() >= firstCandle.getClose() &&
                     secondCandle.getClose() <= firstCandle.getOpen();
 
-            // Kiểm tra nến thứ ba là nến tăng mạnh, đóng cửa cao hơn nến thứ hai
+            // Kiểm tra nến thứ ba là nến tăng mạnh, giá đóng cửa cao hơn nến thứ hai
             boolean thirdCandleBullish = thirdCandle.getClose() > thirdCandle.getOpen() &&
-                    thirdCandle.getClose() > secondCandle.getClose();
+                    thirdCandle.getClose() > secondCandle.getHigh();
 
             if (firstCandleBearish && secondCandleBullishHarami && thirdCandleBullish) {
                 threeInsideUpPatterns.add(thirdCandle);
@@ -827,7 +827,11 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             // Kiểm tra nến đầu tiên là nến tăng mạnh
             boolean firstCandleBullish = firstCandle.getClose() > firstCandle.getOpen();
 
-            // Kiểm tra 3 nến giữa nằm trong phạm vi thân nến đầu tiên
+            // Kiểm tra 3 nến giữa là nến giảm và nằm trong phạm vi thân nến đầu tiên
+            boolean middleCandlesBearish = secondCandle.getClose() < secondCandle.getOpen() &&
+                    thirdCandle.getClose() < thirdCandle.getOpen() &&
+                    fourthCandle.getClose() < fourthCandle.getOpen();
+
             boolean middleCandlesInsideRange = secondCandle.getHigh() <= firstCandle.getClose() &&
                     secondCandle.getLow() >= firstCandle.getOpen() &&
                     thirdCandle.getHigh() <= firstCandle.getClose() &&
@@ -840,12 +844,14 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
                     fifthCandle.getClose() > firstCandle.getClose() &&
                     fifthCandle.getOpen() > firstCandle.getOpen();
 
-            if (firstCandleBullish && middleCandlesInsideRange && fifthCandleBullish) {
+            // Nếu tất cả các điều kiện đều đúng, thêm nến cuối vào danh sách
+            if (firstCandleBullish && middleCandlesBearish && middleCandlesInsideRange && fifthCandleBullish) {
                 risingThreePatterns.add(fifthCandle);
             }
         }
         return risingThreePatterns;
     }
+
 
     @Override
     public List<CandleStick> getDownsideTasukiGapPatterns(String stockId) {

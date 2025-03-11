@@ -28,7 +28,7 @@ public class AlterController {
     private ComplexPatternDetectorService complexPatternDetectorService;
 
     @GetMapping("{stockSymbol}")
-    public Response alterCandleStick(@PathVariable String stockSymbol,
+        public Response alterCandleStick(@PathVariable String stockSymbol,
                                      @RequestParam String candlePattern) {
         StockMarket stockMarket = stockMarketService.getStockBySymbol(stockSymbol);
         if (stockMarket == null || !StringUtils.hasText(stockMarket.getId())) {

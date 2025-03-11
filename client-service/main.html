@@ -83,24 +83,84 @@
   <body>
     <!-- Placeholder div for the chart -->
      <!-- Dropdown for selecting stock symbol -->
-    <label for="stockSelector">Select Stock Symbol:</label>
+    <label style="margin-left: 20px;" for="stockSelector">Select Stock Symbol:</label>
     <select id="stockSelector" onchange="refreshChart()">
       <option value="AAPL">AAPL</option>
       <option value="GOOG">GOOG</option>
       <option value="AMZN">AMZN</option>
       <option value="JBL">JBL</option>
+      <option value="HNX">HNX</option>
     </select>
 
 
-    <label id = "selectText" for="patternSelector">Select Candlestick Patterns:</label>
-    <select id="patternSelector" onchange="checkSelectedPattern()">
-      <option value="reset">Default</option>
-      <option value="hammer">Hammer</option>
-      <option value="bullishEngulfing">Bullish Engulfing</option>
-      <option value="harami">Harami</option>
-      <option value="threeBlackCrows">Three Black Crows</option>
-      <option value="threeWhiteSoldiers">Three White Soldiers </option>
-      <option value="reset">Reset</option>
+    <label id="selectText" for="patternSelector">Select Candlestick Patterns:</label>
+<select id="patternSelector" onchange="checkSelectedPattern()">
+  <option value="reset">Default</option>
+
+  <!-- One candle patterns -->
+  <option value="hammer">Hammer</option>
+  <option value="long_legged_doji">Long Legged Doji</option>
+  <option value="gravestone_doji">Gravestone Doji</option>
+  <option value="dragonfly_doji">Dragonfly Doji</option>
+  <option value="inverted_hammer">Inverted Hammer</option>
+  <option value="hanging_man">Hanging Man</option>
+  <option value="shooting_star">Shooting Star</option>
+  <option value="bearish_marubozu">Bearish Marubozu</option>
+  <option value="bullish_marubozu">Bullish Marubozu</option>
+  <option value="bearish_belt_hold">Bearish Belt Hold</option>
+  <option value="bullish_belt_hold">Bullish Belt Hold</option>
+
+  <!-- Two candle patterns -->
+  <option value="bullish_engulfing">Bullish Engulfing</option>
+  <option value="bearish_engulfing">Bearish Engulfing</option>
+  <option value="bearish_kicker">Bearish Kicker</option>
+  <option value="bullish_kicker">Bullish Kicker</option>
+  <option value="piercing_line">Piercing Line</option>
+  <option value="tweezer_bottom">Tweezer Bottom</option>
+  <option value="tweezer_top">Tweezer Top</option>
+  <option value="harami">Harami</option>
+  <option value="dark_cloud_cover">Dark Cloud Cover</option>
+  <option value="matching_low">Matching Low</option>
+  <option value="matching_high">Matching High</option>
+  <option value="bearish_harami_cross">Bearish Harami Cross</option>
+  <option value="bullish_harami_cross">Bullish Harami Cross</option>
+  <option value="bearish_counterattack">Bearish Counterattack</option>
+  <option value="bullish_counterattack">Bullish Counterattack</option>
+
+  <!-- Three candle patterns -->
+  <option value="three_white_soldiers">Three White Soldiers</option>
+  <option value="three_black_crows">Three Black Crows</option>
+  <option value="evening_star">Evening Star</option>
+  <option value="morning_star">Morning Star</option>
+  <option value="three_outside_up">Three Outside Up</option>
+  <option value="three_inside_up">Three Inside Up</option>
+  <option value="bearish_abandoned_baby">Bearish Abandoned Baby</option>
+  <option value="downside_tasuki_gap">Downside Tasuki Gap</option>
+  <option value="upside_tasuki_gap">Upside Tasuki Gap</option>
+  <option value="evening_star_doji">Evening Star Doji</option>
+  <option value="morning_star_doji">Morning Star Doji</option>
+  <option value="bearish_tri_star">Bearish Tri Star</option>
+  <option value="bullish_tri_star">Bullish Tri Star</option>
+  <option value="thrusting">Thrusting</option>
+  <option value="upside_gap_two_crows">Upside Gap Two Crows</option>
+  <option value="three_star_in_the_south">Three Star In The South</option>
+  <option value="advance_block">Advance Block</option>
+  <option value="descending_hawk">Descending Hawk</option>
+  <option value="deliberation">Deliberation</option>
+
+  <!-- Many candle patterns -->
+  <option value="falling_three">Falling Three</option>
+  <option value="rising_three">Rising Three</option>
+  <option value="bearish_three_line_strike">Bearish Three Line Strike</option>
+  <option value="bullish_three_line_strike">Bullish Three Line Strike</option>
+  <option value="ladder_top">Ladder Top</option>
+
+  <!-- Complex candle patterns -->
+  <option value="cup_with_handle">Cup With Handle</option>
+
+  <option value="reset">Reset</option>
+</select>
+
 
       <!-- Add more options as needed -->
     </select>
@@ -110,36 +170,36 @@
     <div id="tvchart" ></div>
     <canvas id="overlayCanvas" style="position: absolute; top: 0; left: 0;"></canvas>
 
-    <table id="annotationTable">
-      <thead>
-        <tr>
-          <th>Candle Stick Pattern</th>
-          <th>Color</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Hammer</td>
-          <td  style="background-color: #FF8000;"></td>
-        </tr>
-        <tr>
-          <td>Bullish Engulfing</td>
-          <td style="background-color: #9933FF;"></td>
-        </tr>
-        <tr>
-          <td>Harami</td>
-          <td style="background-color: #FF99CC;"></td>
-        </tr>
-        <tr>
-          <td>Three Black Crows</td>
-          <td style="background-color: #003366;"></td>
-        </tr>
-        <tr>
-          <td>Three White Soldiers</td>
-          <td style="background-color: white;"></td>
-        </tr>
-      </tbody>
-    </table>
+<!--    <table id="annotationTable">-->
+<!--      <thead>-->
+<!--        <tr>-->
+<!--          <th>Candle Stick Pattern</th>-->
+<!--          <th>Color</th>-->
+<!--        </tr>-->
+<!--      </thead>-->
+<!--      <tbody>-->
+<!--        <tr>-->
+<!--          <td>Hammer</td>-->
+<!--          <td  style="background-color: #FF8000;"></td>-->
+<!--        </tr>-->
+<!--        <tr>-->
+<!--          <td>Bullish Engulfing</td>-->
+<!--          <td style="background-color: #9933FF;"></td>-->
+<!--        </tr>-->
+<!--        <tr>-->
+<!--          <td>Harami</td>-->
+<!--          <td style="background-color: #FF99CC;"></td>-->
+<!--        </tr>-->
+<!--        <tr>-->
+<!--          <td>Three Black Crows</td>-->
+<!--          <td style="background-color: #003366;"></td>-->
+<!--        </tr>-->
+<!--        <tr>-->
+<!--          <td>Three White Soldiers</td>-->
+<!--          <td style="background-color: white;"></td>-->
+<!--        </tr>-->
+<!--      </tbody>-->
+<!--    </table>-->
 
     <script>
       const checkSelectedPattern = async () => {
@@ -147,27 +207,177 @@
 
         // Call the appropriate function based on the selected pattern
         switch (selectedPattern) {
+          // One candle patterns
           case "hammer":
-            await checkHammerPatterns();
+            await getPattern("hammer", "Hammer");
             break;
-          case "bullishEngulfing":
-            checkBullishEngulfingPatterns();
+          case "long_legged_doji":
+            await getPattern("long_legged_doji", "Long Legged Doji");
+            break;
+          case "gravestone_doji":
+            await getPattern("gravestone_doji", "Gravestone Doji");
+            break;
+          case "dragonfly_doji":
+            await getPattern("dragonfly_doji", "Dragonfly Doji");
+            break;
+          case "inverted_hammer": 
+            await getPattern("inverted_hammer", "Inverted Hammer");
+            break;
+          case "hanging_man":
+            await getPattern("hanging_man", "Hanging Man");
+            break;
+          case "shooting_star":
+            await getPattern("shooting_star", "Shooting Star");
+            break;
+          case "bearish_marubozu":
+            await getPattern("bearish_marubozu", "Bearish Marubozu");
+            break;
+          case "bullish_marubozu":
+            await getPattern("bullish_marubozu", "Bullish Marubozu");
+            break;
+          case "bearish_belt_hold":
+            await getPattern("bearish_belt_hold", "Bearish Belt Hold");
+            break;
+          case "bullish_belt_hold":
+            await getPattern("bullish_belt_hold", "Bullish Belt Hold");
+            break;
+
+          // Two candle patterns
+          case "bullish_engulfing":
+            await getPattern("bullish_engulfing", "Bullish Engulfing");
+            break;
+          case "bearish_engulfing":
+            await getPattern("bearish_engulfing", "Bearish Engulfing");
+            break;
+          case "bearish_kicker":
+            await getPattern("bearish_kicker", "Bearish Kicker");
+            break;
+          case "bullish_kicker":
+            await getPattern("bullish_kicker", "Bullish Kicker");
+            break;
+          case "piercing_line":
+            await getPattern("piercing_line", "Piercing Line");
+            break;
+          case "tweezer_bottom":
+            await getPattern("tweezer_bottom", "Tweezer Bottom");
+            break;
+          case "tweezer_top":
+            await getPattern("tweezer_top", "Tweezer Top");
             break;
           case "harami":
-            checkHaramiPatterns();
+            await getPattern("harami", "Harami");
             break;
-          case "threeBlackCrows":
-            checkThreeBlackCrowsPatterns();
+          case "dark_cloud_cover":
+            await getPattern("dark_cloud_cover", "Dark Cloud Cover");
             break;
-          case "threeWhiteSoldiers":
-            checkThreeWhiteSoldiersPatterns();
+          case "matching_low":
+            await getPattern("matching_low", "Matching Low");
             break;
+          case "matching_high":
+            await getPattern("matching_high", "Matching High");
+            break;
+          case "bearish_harami_cross":
+            await getPattern("bearish_harami_cross", "Bearish Harami Cross");
+            break;
+          case "bullish_harami_cross":
+            await getPattern("bullish_harami_cross", "Bullish Harami Cross");
+            break;
+          case "bearish_counterattack":
+            await getPattern("bearish_counterattack", "Bearish Counterattack");
+            break;
+          case "bullish_counterattack":
+            await getPattern("bullish_counterattack", "Bullish Counterattack");
+            break;
+
+          // Three candle patterns
+          case "three_white_soldiers":
+            await getPattern("three_white_soldiers", "Three White Soldiers");
+            break;
+          case "three_black_crows":
+            await getPattern("three_black_crows", "Three Black Crows");
+            break;
+          case "evening_star":
+            await getPattern("evening_star", "Evening Star");
+            break;
+          case "morning_star":
+            await getPattern("morning_star", "Morning Star");
+            break;
+          case "three_outside_up":
+            await getPattern("three_outside_up", "Three Outside Up");
+            break;
+          case "three_inside_up":
+            await getPattern("three_inside_up", "Three Inside Up");
+            break;
+          case "bearish_abandoned_baby":
+            await getPattern("bearish_abandoned_baby", "Bearish Abandoned Baby");
+            break;
+          case "downside_tasuki_gap":
+            await getPattern("downside_tasuki_gap", "Downside Tasuki Gap");
+            break;
+          case "upside_tasuki_gap":
+            await getPattern("upside_tasuki_gap", "Upside Tasuki Gap");
+            break;
+          case "evening_star_doji":
+            await getPattern("evening_star_doji", "Evening Star Doji");
+            break;
+          case "morning_star_doji":
+            await getPattern("morning_star_doji", "Morning Star Doji");
+            break;
+          case "bearish_tri_star":
+            await getPattern("bearish_tri_star", "Bearish Tri Star");
+            break;
+          case "bullish_tri_star":
+            await getPattern("bullish_tri_star", "Bullish Tri Star");
+            break;
+          case "thrusting":
+            await getPattern("thrusting", "Thrusting");
+            break;
+          case "upside_gap_two_crows":
+            await getPattern("upside_gap_two_crows", "Upside Gap Two Crows");
+            break;
+          case "three_star_in_the_south":
+            await getPattern("three_star_in_the_south", "Three Star In The South");
+            break;
+          case "advance_block":
+            await getPattern("advance_block", "Advance Block");
+            break;
+          case "descending_hawk":
+            await getPattern("descending_hawk", "Descending Hawk");
+            break;
+          case "deliberation":
+            await getPattern("deliberation", "Deliberation");
+            break;
+
+          // Many candle patterns
+          case "falling_three":
+            await getPattern("falling_three", "Falling Three");
+            break;
+          case "rising_three":
+            await getPattern("rising_three", "Rising Three");
+            break;
+          case "bearish_three_line_strike":
+            await getPattern("bearish_three_line_strike", "Bearish Three Line Strike");
+            break;
+          case "bullish_three_line_strike":
+            await getPattern("bullish_three_line_strike", "Bullish Three Line Strike");
+            break;
+          case "ladder_top":
+            await getPattern("ladder_top", "Ladder Top");
+            break;
+
+          // Complex candle patterns
+          case "cup_with_handle":
+            await getPattern("cup_with_handle", "Cup With Handle");
+            break;
+
           case "reset":
             resetPatterns();
             break;
+
           default:
             console.error("Invalid pattern selected");
-        }
+          }
+
       };
 
       let chart;
@@ -187,6 +397,7 @@
 
       const getData = async (stockSymbol) => {
         try {
+          await resetPatterns();
           const res = await fetch(`http://localhost:60/stock?symbol=${stockSymbol}`);
           if (!res.ok) {
             throw new Error('Failed to fetch data');
@@ -216,7 +427,7 @@
         try {
           const chartProperties = {
             width: 1600,
-            height: 800,
+            height: 600,
             timeScale: {
               timeVisible: true,
               secondsVisible: true,
@@ -256,402 +467,41 @@
           console.error('Error displaying chart:', error.message);
         }
       };
+      
+      const getPattern = async (patternName, patternTitle) => {
+        const allMarkers = [];
 
-      const checkHammerPatterns = async () => {
         try {
           if (!candleseries) {
             console.error('Candleseries is not initialized.');
             return;
           }
 
-          lineSeries = chart.addLineSeries();
-
-          const candles = [...originalData];  // Use a copy of the original data
-
-          const hammerPatterns = await findPattern("hammer");
-          debugger
-
-          if (hammerPatterns.length > 0) {
-
-            console.log("%cList of hammer patterns: ", 'font-size: 16px; color: #FF8000 ; font-weight: bold;')
-            const markers = [];
-            // Update the chart with the modified data (including color)
-            candles.forEach((candle, index) => {
-              const isHammer = hammerPatterns.some((pattern) =>
-                      pattern.time === candle.time &&
-                      pattern.open === candle.open &&
-                      pattern.high === candle.high &&
-                      pattern.low === candle.low &&
-                      pattern.close === candle.close
-              );
-              if (isHammer) {
-                console.log("%c " + candles[index].time, 'color: #FF8000');
-                markers.push({
-                  time: candles[index].time,
-                  position: 'aboveBar',
-                  color: 'yellow',
-                  shape: 'circle',
-                  text: 'Hammer',
-                });
-              }
-            });
-
-            // Update the entire data series with the modified data
-            candleseries.setMarkers(markers);
-            candleseries.setData(candles);
-
-          } else {
-            console.log('No hammer patterns found.');
-          }
-        } catch (error) {
-          console.error('Error checking hammer patterns:', error.message);
-        }
-      };
-
-  const checkBullishEngulfingPatterns = async () => {
-    try {
-      if (!candleseries) {
-        console.error('Candleseries is not initialized.');
-        return;
-      }
-
-      // Clear previous line series (if any)
-      if (lineSeries) {
-        chart.removeSeries(lineSeries);
-      }
-
-      lineSeries = chart.addLineSeries();
-
-      const candles = [...originalData];
-
-      const engulfingPatterns = await findPattern("hammer");
-
-      if (engulfingPatterns.length > 0) {
-        console.log("%cList of Bullish Engulfing patterns: ", 'font-size: 16px; color: #9933FF; font-weight: bold;');
-
-        const markers = [];
-
-        candles.forEach((candle, index) => {
-          const isEngulfing = engulfingPatterns.some((pattern) =>
-                  pattern.time === candle.time &&
-                  pattern.open === candle.open &&
-                  pattern.high === candle.high &&
-                  pattern.low === candle.low &&
-                  pattern.close === candle.close
-          );
-          if (isEngulfing) {
-            console.log("%c " + candles[index].time, 'color: #9933FF');
-            candles[index].color = '#9933FF';
-
-            const patternList = [candles[index - 1], candles[index]];
-
-            // Thêm marker để khoanh tròn nến
-            markers.push({
-              time: candles[index].time,
-              position: 'aboveBar', // Hoặc 'belowBar'
-              color: 'yellow',
-              shape: 'circle',
-              text: 'Bullish Engulfing',
-            });
-          }
-        });
-
-        candleseries.setMarkers(markers);
-        candleseries.setData(candles);
-      } else {
-        console.log('No Bullish Engulfing patterns found.');
-      }
-    } catch (error) {
-      console.error('Error checking Bullish Engulfing patterns:', error.message);
-    }
-  };
-
-      const findBullishEngulfingPatterns = (candles) => {
-        const engulfingPatterns = [];
-
-        for (let i = 1; i < candles.length; i++) {
-          const currentCandle = candles[i];
-          const previousCandle = candles[i - 1];
-
-          if (currentCandle.close < currentCandle.open || previousCandle.open < previousCandle.close) {
-              continue;
-          }
-
-          const previousBodySize = Math.abs(previousCandle.close - previousCandle.open);
-          const currentBodySize = Math.abs(currentCandle.close - currentCandle.open);
-
-          // Check conditions for a Bullish Engulfing pattern
-          if (
-            currentBodySize >= 1 &&
-            previousBodySize >= 1 &&
-            currentBodySize >= previousBodySize &&
-            currentCandle.close >= previousCandle.open &&
-            currentCandle.open <= previousCandle.close &&
-            currentCandle.low <= previousCandle.low &&
-            currentCandle.high >= previousCandle.high
-          ) {
-            engulfingPatterns.push(currentCandle);
-          }
-        }
-
-        return engulfingPatterns;
-      };
-
-      const checkHaramiPatterns = () => {
-        try {
-          if (!candleseries) {
-            console.error('Candleseries is not initialized.');
-            return;
-          }
+          await resetPatterns();
 
           const candles = [...originalData];
+          const patterns = await findPattern(patternName);
 
-          const haramis = findHaramiPatterns(candles);
-
-          if (haramis.length > 0) {
-            console.log("%cList of Harami patterns: ", 'font-size: 16px; color: #CC0066 ; font-weight: bold;');
-
-            candles.forEach((candle, index) => {
-              const isHarami = haramis.some((pattern) =>
-                pattern.time === candle.time &&
-                pattern.open === candle.open &&
-                pattern.high === candle.high &&
-                pattern.low === candle.low &&
-                pattern.close === candle.close
-              );
-              if (isHarami) {
-                console.log("%c " + candles[index].time, 'color: #CC0066');
-                candles[index-1].color = '#FF99CC';
-                candles[index].color = '#FF99CC';  // Change color for Bullish Engulfing
-              }
+          if (patterns.length > 0) {
+            patterns.forEach((pattern) => {
+              allMarkers.push({
+                time: pattern.time,
+                position: 'aboveBar',
+                color: 'red',
+                shape: 'circle',
+                text: patternTitle,
+              });
             });
 
-            candleseries.setData(candles);
+            // Cập nhật marker trên biểu đồ
+            candleseries.setMarkers(allMarkers);
           } else {
-            console.log('No Harami patterns found.');
+            console.log('No Bullish Engulfing patterns found.');
           }
         } catch (error) {
           console.error('Error checking Bullish Engulfing patterns:', error.message);
         }
-      };
-
-      const findHaramiPatterns = (candles) => {
-        const haramiPatterns = [];
-
-        for (let i = 1; i < candles.length; i+=2) {
-          const currentCandle = candles[i];
-          const previousCandle = candles[i - 1];
-
-          if(Math.abs(currentCandle.close - currentCandle.open) <= 0.2){
-            continue;
-          }
-
-          const previousBodySize = Math.abs(previousCandle.close - previousCandle.open);
-          const currentBodySize = Math.abs(currentCandle.close - currentCandle.open);
-
-          const sizeCurrent = currentCandle.high - currentCandle.low;
-          const sizePrevious = previousCandle.high - previousCandle.low;
-
-
-          // Calculate the range of the previous candle
-          const rangePrevious = Math.abs(previousCandle.close - previousCandle.open);
-
-          // Check if the current candle is smaller than the previous one
-          const isSmaller = Math.abs(currentCandle.close - currentCandle.open) < rangePrevious;
-
-          // Check if the current candle is inside the range of the previous one
-          const isInside =
-            currentCandle.low > Math.min(previousCandle.close, previousCandle.open) &&
-            currentCandle.low < Math.max(previousCandle.close, previousCandle.open) &&
-            currentCandle.high > Math.min(previousCandle.close, previousCandle.open) &&
-            currentCandle.high < Math.max(previousCandle.close, previousCandle.open);
-
-          // Define conditions for a Harami pattern
-          const isBearishEngulfing =
-            previousCandle.close > previousCandle.open && currentCandle.close < currentCandle.open;
-          const isBullishEngulfing =
-            previousCandle.close < previousCandle.open && currentCandle.close > currentCandle.open;
-
-          if((isBearishEngulfing || isBullishEngulfing) && isSmaller && isInside){
-            haramiPatterns.push(currentCandle);
-          }
-        }
-
-        return haramiPatterns;
-      };
-
-
-      const checkThreeBlackCrowsPatterns = () => {
-        try {
-          if (!candleseries) {
-            console.error('Candleseries is not initialized.');
-            return;
-          }
-
-          // Clear previous line series (if any)
-          if (lineSeries) {
-            chart.removeSeries(lineSeries);
-          }
-
-          lineSeries = chart.addLineSeries();
-
-          const candles = [...originalData];
-
-          const threeBlackCrowsPatterns = findThreeBlackCrowsPatterns(candles);
-
-          if (threeBlackCrowsPatterns.length > 0) {
-            console.log("%cThree BlackCrows Patterns: ", 'font-size: 16px; color: #003366 ; font-weight: bold;');
-
-            candles.forEach((candle, index) => {
-              const isThreeBlackCrows = threeBlackCrowsPatterns.some((pattern) =>
-                pattern.time === candle.time &&
-                pattern.open === candle.open &&
-                pattern.high === candle.high &&
-                pattern.low === candle.low &&
-                pattern.close === candle.close
-              );
-              if (isThreeBlackCrows) {
-                console.log("%c " + candles[index].time, "color: #003366;");
-                candles[index-2].color = '#003366';
-                candles[index-1].color = '#003366';
-                candles[index].color =  '#003366' // Change color for Bullish Engulfing
-              }
-            });
-
-            candleseries.setData(candles);
-          } else {
-            console.log('No Three BlackCrows Patterns found.');
-          }
-        } catch (error) {
-          console.error('Error checking Three BlackCrows Patterns:', error.message);
-        }
-      };
-
-      const findThreeBlackCrowsPatterns = (candles) => {
-        const threeBlackCrowsPatterns = [];
-
-        for(let i = 2; i < candles.length; i += 3) {
-          const currentCandle = candles[i];
-          const previousCandle = candles[i - 1];
-          const secondPreviousCandle = candles[i-2];
-
-          if(currentCandle.open - currentCandle.close <= 0.6){
-            continue;
-          }
-
-          // Check conditions for Three Black Crows pattern
-          if (
-            currentCandle.open < currentCandle.close ||
-            previousCandle.open < previousCandle.close ||
-            secondPreviousCandle.open < secondPreviousCandle.close
-          ) {
-            continue;
-          }
-
-          if (
-            currentCandle.open - currentCandle.close <= 0.5||
-            previousCandle.open - previousCandle.close <= 0.5||
-            secondPreviousCandle.open - secondPreviousCandle.close <= 0.5
-          ) {
-            continue;
-          }
-
-          // Check if each candle closes lower than the previous candle
-          if (
-            currentCandle.close >= previousCandle.close ||
-            currentCandle.close - previousCandle.open >= 1||
-            previousCandle.close >= secondPreviousCandle.close ||
-            previousCandle.close - secondPreviousCandle.open >= 1 ||
-            currentCandle.open >= previousCandle.open ||
-            previousCandle.open >= secondPreviousCandle.open
-          ) {
-            continue;
-          }
-
-          threeBlackCrowsPatterns.push(currentCandle);
-        }
-
-        return threeBlackCrowsPatterns;
-      };
-
-      const checkThreeWhiteSoldiersPatterns = () => {
-        try {
-          if (!candleseries) {
-            console.error('Candleseries is not initialized.');
-            return;
-          }
-
-          const candles = [...originalData];
-
-          const threeWhiteSoldiersPatterns = findThreeWhiteSoldiersPatterns(candles);
-
-          if (threeWhiteSoldiersPatterns.length > 0) {
-            console.log("%cThree WhiteSoldiers Pattern: ",  'font-size: 16px; color: green; font-weight: bold;');
-
-            candles.forEach((candle, index) => {
-              const isThreeWhiteSoldiersPatterns = threeWhiteSoldiersPatterns.some((pattern) =>
-                pattern.time === candle.time &&
-                pattern.open === candle.open &&
-                pattern.high === candle.high &&
-                pattern.low === candle.low &&
-                pattern.close === candle.close
-              );
-              if (isThreeWhiteSoldiersPatterns) {
-                console.log("%c " + candles[index].time, 'color: green;');
-                candles[index-2].color = 'white';
-                candles[index-1].color = 'white';
-                candles[index].color =  'white' // Change color for Bullish Engulfing
-              }
-            });
-
-            candleseries.setData(candles);
-          } else {
-            console.log('No Three White Soldier found.');
-          }
-        } catch (error) {
-          console.error('Error checking Three White Soldiers Patterns:', error.message);
-        }
-      };
-
-      const findThreeWhiteSoldiersPatterns = (candles) => {
-        const threeWhiteSoldiersPatterns = [];
-
-        for(let i = 2; i < candles.length; i += 3) {
-          const currentCandle = candles[i];
-          const previousCandle = candles[i - 1];
-          const secondPreviousCandle = candles[i-2];
-
-          if(currentCandle.close - currentCandle.open <= 0.6){
-            continue;
-          }
-
-          // Check conditions for Three Black Crows pattern
-          if (
-            currentCandle.open > currentCandle.close ||
-            previousCandle.open > previousCandle.close ||
-            secondPreviousCandle.open > secondPreviousCandle.close
-          ) {
-            continue;
-          }
-
-
-          // Check if each candle closes lower than the previous candle
-          if (
-            currentCandle.open <= previousCandle.open ||
-            currentCandle.open - previousCandle.close >= 2||
-            previousCandle.open <= secondPreviousCandle.open ||
-            previousCandle.open - secondPreviousCandle.close >= 2 ||
-            currentCandle.close <= previousCandle.close ||
-            previousCandle.close <= secondPreviousCandle.close
-          ) {
-            continue;
-          }
-
-          threeWhiteSoldiersPatterns.push(currentCandle);
-        }
-
-        return threeWhiteSoldiersPatterns;
-      };
+      }
 
       const findPattern = async (pattern) => {
         try {
