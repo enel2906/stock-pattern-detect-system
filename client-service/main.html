@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Candlestick</title>
+    <title>📈 Vietnam & International Stock Pattern Detection</title>
     <!-- Include the Lightweight Charts library -->
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   </head>
@@ -17,17 +17,18 @@
 
 
     #patternSelector {
-      padding: 10px;
+      padding: 12px;
       font-size: 16px;
-      width: 250px;
+      width: 500px;
       border: 2px solid #0066CC;
-      border-radius: 5px;
+      border-radius: 8px;
       cursor: pointer;
-      background-color: #fff;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
       color: #0066CC;
-
       position: relative;
-      left: 620px;
+      left: 500px;
+      box-shadow: 0 2px 8px rgba(0, 102, 204, 0.15);
+      transition: all 0.3s ease;
     }
 
     #patternSelector:hover {
@@ -37,7 +38,9 @@
 
     #selectText{
       position: relative;
-      left: 600px;
+      left: 500px;
+      font-size: 16px;
+      margin-bottom: 8px;
     }
 
     #annotationTable {
@@ -63,102 +66,246 @@
       }
 
       #stockSelector, #patternSelector {
-        padding: 10px;
+        padding: 12px;
         font-size: 16px;
-        width: 250px;
+        width: 400px;
         border: 2px solid #0066CC;
-        border-radius: 5px;
+        border-radius: 8px;
         cursor: pointer;
         background-color: #fff;
         color: #0066CC;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
 
       #stockSelector:hover, #patternSelector:hover {
-        background-color: #fff;
+        background-color: #f0f8ff;
         color: #003366;
+        border-color: #003366;
+      }
+
+      /* Style for optgroups */
+      optgroup {
+        font-weight: bold;
+        background: linear-gradient(135deg, #f5f8ff 0%, #e8f2ff 100%);
+        color: #003366;
+        border-bottom: 2px solid #0066CC;
+        padding: 8px 0;
+        font-size: 14px;
+      }
+
+      optgroup option {
+        font-weight: normal;
+        background-color: #fff;
+        color: #333;
+        padding: 8px 15px;
+        border-left: 3px solid transparent;
+        transition: all 0.3s ease;
+      }
+
+      optgroup option:hover {
+        background: linear-gradient(90deg, #e6f3ff 0%, #f0f8ff 100%);
+        border-left-color: #0066CC;
+        color: #003366;
+        transform: translateX(2px);
+      }
+
+      /* Pattern category colors */
+      optgroup[label*="Single"] {
+        background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+        border-left: 4px solid #ff9800;
+      }
+      
+      optgroup[label*="Two"] {
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+        border-left: 4px solid #9c27b0;
+      }
+      
+      optgroup[label*="Three"] {
+        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+        border-left: 4px solid #4caf50;
+      }
+      
+      optgroup[label*="Multi"] {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-left: 4px solid #2196f3;
+      }
+      
+      optgroup[label*="Complex"] {
+        background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%);
+        border-left: 4px solid #e91e63;
+      }
+
+      /* Animate pattern selector */
+      #patternSelector {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      #patternSelector:focus {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+      }
+
+      /* Improve label styling */
+      #selectText {
+        font-weight: 600;
+        color: #003366;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
       }
 
   </style>
   <body>
+    <!-- Header -->
+    <div style="background-color: #003366; color: white; padding: 20px; text-align: center; margin-bottom: 20px;">
+      <h1>📈 Vietnam & International Stock Pattern Detection System</h1>
+      <p>Analyze candlestick patterns across Vietnamese and global markets</p>
+      <div style="margin-top: 10px; font-size: 14px; opacity: 0.9;">
+        <span>🇻🇳 HOSE: Ho Chi Minh Stock Exchange</span> • 
+        <span>🇻🇳 HNX: Hanoi Stock Exchange</span> • 
+        <span>🇻🇳 UPCOM: Unlisted Public Company Market</span> • 
+        <span>🌍 US: International Markets</span>
+      </div>
+    </div>
+
     <!-- Placeholder div for the chart -->
      <!-- Dropdown for selecting stock symbol -->
-    <label style="margin-left: 20px;" for="stockSelector">Select Stock Symbol:</label>
+    <label style="margin-left: 20px;" for="stockSelector">🏛️ Select Stock Symbol:</label>
     <select id="stockSelector" onchange="refreshChart()">
-      <option value="AAPL">AAPL</option>
-      <option value="GOOG">GOOG</option>
-      <option value="AMZN">AMZN</option>
-      <option value="JBL">JBL</option>
-      <option value="HNX">HNX</option>
+      <!-- Vietnamese Stocks - HOSE (Ho Chi Minh Stock Exchange) -->
+      <optgroup label="🇻🇳 HOSE (Ho Chi Minh Stock Exchange)">
+        <option value="VIC">VIC - Vingroup</option>
+        <option value="VHM">VHM - Vinhomes</option>
+        <option value="VCB">VCB - Vietcombank</option>
+        <option value="BID">BID - BIDV</option>
+        <option value="CTG">CTG - VietinBank</option>
+        <option value="GAS">GAS - PetroVietnam Gas</option>
+        <option value="MSN">MSN - Masan Group</option>
+        <option value="SAB">SAB - Sabeco</option>
+        <option value="TCB">TCB - Techcombank</option>
+        <option value="HPG">HPG - Hoa Phat Group</option>
+        <option value="FPT">FPT - FPT Corporation</option>
+        <option value="SSI">SSI - SSI Securities</option>
+        <option value="VRE">VRE - Vincom Retail</option>
+        <option value="PLX">PLX - Petrolimex</option>
+        <option value="POW">POW - PetroVietnam Power</option>
+      </optgroup>
+
+      <!-- Vietnamese Stocks - HNX (Hanoi Stock Exchange) -->
+      <optgroup label="🇻🇳 HNX (Hanoi Stock Exchange)">
+        <option value="SHB">SHB - SHB Bank</option>
+        <option value="ACB">ACB - Asia Commercial Bank</option>
+        <option value="PVS">PVS - PetroVietnam Services</option>
+        <option value="CEO">CEO - CEO Group</option>
+        <option value="TNG">TNG - TNG Investment</option>
+        <option value="VCS">VCS - Vinacomin Services</option>
+        <option value="IDC">IDC - IDICO Corporation</option>
+        <option value="BVS">BVS - Bao Viet Securities</option>
+        <option value="DHC">DHC - Dong Hai Corporation</option>
+        <option value="NVB">NVB - National Citizen Bank</option>
+      </optgroup>
+
+      <!-- Vietnamese Stocks - UPCOM -->
+      <optgroup label="🇻🇳 UPCOM (Unlisted Public Company Market)">
+        <option value="OPC">OPC - Olive Pharmaceutical</option>
+        <option value="BST">BST - Binh Son Transportation</option>
+        <option value="QST">QST - Quang Ninh Thermal Power</option>
+        <option value="VGS">VGS - Golden Sand</option>
+        <option value="TDN">TDN - Thuan Duc</option>
+      </optgroup>
+
+      <!-- International Stocks -->
+      <optgroup label="🌍 International Stocks (US Market)">
+        <option value="AAPL">AAPL - Apple Inc.</option>
+        <option value="GOOG">GOOG - Alphabet Inc.</option>
+        <option value="AMZN">AMZN - Amazon.com Inc.</option>
+        <option value="MSFT">MSFT - Microsoft Corporation</option>
+        <option value="TSLA">TSLA - Tesla Inc.</option>
+        <option value="NVDA">NVDA - NVIDIA Corporation</option>
+        <option value="META">META - Meta Platforms Inc.</option>
+        <option value="JBL">JBL - Jabil Inc.</option>
+        <option value="EURUSD">EUR/USD</option>
+      </optgroup>
     </select>
 
 
-    <label id="selectText" for="patternSelector">Select Candlestick Patterns:</label>
+    <label id="selectText" for="patternSelector">🔍 Select Candlestick Patterns:</label>
 <select id="patternSelector" onchange="checkSelectedPattern()">
-  <option value="reset">Default</option>
+  <option value="reset">🔄 Default / Reset All Patterns</option>
 
-  <!-- One candle patterns -->
-  <option value="hammer">Hammer</option>
-  <option value="long_legged_doji">Long Legged Doji</option>
-  <option value="gravestone_doji">Gravestone Doji</option>
-  <option value="dragonfly_doji">Dragonfly Doji</option>
-  <option value="inverted_hammer">Inverted Hammer</option>
-  <option value="hanging_man">Hanging Man</option>
-  <option value="shooting_star">Shooting Star</option>
-  <option value="bearish_marubozu">Bearish Marubozu</option>
-  <option value="bullish_marubozu">Bullish Marubozu</option>
-  <option value="bearish_belt_hold">Bearish Belt Hold</option>
-  <option value="bullish_belt_hold">Bullish Belt Hold</option>
+  <!-- Single Candle Patterns -->
+  <optgroup label="🕯️ Single Candle Patterns (Reversal Signals)">
+    <option value="hammer">🔨 Hammer - Bullish Reversal</option>
+    <option value="inverted_hammer">🔨 Inverted Hammer - Bullish Reversal</option>
+    <option value="hanging_man">👤 Hanging Man - Bearish Reversal</option>
+    <option value="shooting_star">🌟 Shooting Star - Bearish Reversal</option>
+    <option value="long_legged_doji">🕯️ Long Legged Doji - Indecision</option>
+    <option value="gravestone_doji">⚰️ Gravestone Doji - Bearish</option>
+    <option value="dragonfly_doji">🐲 Dragonfly Doji - Bullish</option>
+    <option value="bearish_marubozu">🔴 Bearish Marubozu - Strong Bearish</option>
+    <option value="bullish_marubozu">🟢 Bullish Marubozu - Strong Bullish</option>
+    <option value="bearish_belt_hold">🔴 Bearish Belt Hold</option>
+    <option value="bullish_belt_hold">🟢 Bullish Belt Hold</option>
+  </optgroup>
 
-  <!-- Two candle patterns -->
-  <option value="bullish_engulfing">Bullish Engulfing</option>
-  <option value="bearish_engulfing">Bearish Engulfing</option>
-  <option value="bearish_kicker">Bearish Kicker</option>
-  <option value="bullish_kicker">Bullish Kicker</option>
-  <option value="piercing_line">Piercing Line</option>
-  <option value="tweezer_bottom">Tweezer Bottom</option>
-  <option value="tweezer_top">Tweezer Top</option>
-  <option value="harami">Harami</option>
-  <option value="dark_cloud_cover">Dark Cloud Cover</option>
-  <option value="matching_low">Matching Low</option>
-  <option value="matching_high">Matching High</option>
-  <option value="bearish_harami_cross">Bearish Harami Cross</option>
-  <option value="bullish_harami_cross">Bullish Harami Cross</option>
-  <option value="bearish_counterattack">Bearish Counterattack</option>
-  <option value="bullish_counterattack">Bullish Counterattack</option>
+  <!-- Two Candle Patterns -->
+  <optgroup label="🕯️🕯️ Two Candle Patterns (Confirmation Signals)">
+    <option value="bullish_engulfing">🟢🔴 Bullish Engulfing - Strong Buy</option>
+    <option value="bearish_engulfing">🔴🟢 Bearish Engulfing - Strong Sell</option>
+    <option value="piercing_line">🗡️ Piercing Line - Bullish Reversal</option>
+    <option value="dark_cloud_cover">☁️ Dark Cloud Cover - Bearish Reversal</option>
+    <option value="harami">🤱 Harami - Trend Reversal</option>
+    <option value="bearish_harami_cross">🤱❌ Bearish Harami Cross</option>
+    <option value="bullish_harami_cross">🤱✅ Bullish Harami Cross</option>
+    <option value="tweezer_bottom">🔧 Tweezer Bottom - Support</option>
+    <option value="tweezer_top">🔧 Tweezer Top - Resistance</option>
+    <option value="bearish_kicker">⚡ Bearish Kicker - Gap Down</option>
+    <option value="bullish_kicker">⚡ Bullish Kicker - Gap Up</option>
+    <option value="matching_low">📉 Matching Low</option>
+    <option value="matching_high">📈 Matching High</option>
+    <option value="bearish_counterattack">🔴⚔️ Bearish Counterattack</option>
+    <option value="bullish_counterattack">🟢⚔️ Bullish Counterattack</option>
+  </optgroup>
 
-  <!-- Three candle patterns -->
-  <option value="three_white_soldiers">Three White Soldiers</option>
-  <option value="three_black_crows">Three Black Crows</option>
-  <option value="evening_star">Evening Star</option>
-  <option value="morning_star">Morning Star</option>
-  <option value="three_outside_up">Three Outside Up</option>
-  <option value="three_inside_up">Three Inside Up</option>
-  <option value="bearish_abandoned_baby">Bearish Abandoned Baby</option>
-  <option value="downside_tasuki_gap">Downside Tasuki Gap</option>
-  <option value="upside_tasuki_gap">Upside Tasuki Gap</option>
-  <option value="evening_star_doji">Evening Star Doji</option>
-  <option value="morning_star_doji">Morning Star Doji</option>
-  <option value="bearish_tri_star">Bearish Tri Star</option>
-  <option value="bullish_tri_star">Bullish Tri Star</option>
-  <option value="thrusting">Thrusting</option>
-  <option value="upside_gap_two_crows">Upside Gap Two Crows</option>
-  <option value="three_star_in_the_south">Three Star In The South</option>
-  <option value="advance_block">Advance Block</option>
-  <option value="descending_hawk">Descending Hawk</option>
-  <option value="deliberation">Deliberation</option>
+  <!-- Three Candle Patterns -->
+  <optgroup label="🕯️🕯️🕯️ Three Candle Patterns (Strong Trend Signals)">
+    <option value="three_white_soldiers">⬜⬜⬜ Three White Soldiers - Strong Bullish</option>
+    <option value="three_black_crows">⬛⬛⬛ Three Black Crows - Strong Bearish</option>
+    <option value="morning_star">🌅 Morning Star - Bullish Reversal</option>
+    <option value="evening_star">🌆 Evening Star - Bearish Reversal</option>
+    <option value="morning_star_doji">🌅🕯️ Morning Star Doji</option>
+    <option value="evening_star_doji">🌆🕯️ Evening Star Doji</option>
+    <option value="three_outside_up">📈🔺 Three Outside Up</option>
+    <option value="three_inside_up">📈🔻 Three Inside Up</option>
+    <option value="bearish_abandoned_baby">👶💔 Bearish Abandoned Baby</option>
+    <option value="upside_tasuki_gap">📈⬆️ Upside Tasuki Gap</option>
+    <option value="downside_tasuki_gap">📉⬇️ Downside Tasuki Gap</option>
+    <option value="bearish_tri_star">🌟🌟🌟 Bearish Tri Star</option>
+    <option value="bullish_tri_star">⭐⭐⭐ Bullish Tri Star</option>
+    <option value="thrusting">🗡️ Thrusting Pattern</option>
+    <option value="upside_gap_two_crows">🐦🐦 Upside Gap Two Crows</option>
+    <option value="three_star_in_the_south">🌟🌟🌟 Three Star In The South</option>
+    <option value="advance_block">🧱 Advance Block</option>
+    <option value="descending_hawk">🦅 Descending Hawk</option>
+    <option value="deliberation">🤔 Deliberation</option>
+  </optgroup>
 
-  <!-- Many candle patterns -->
-  <option value="falling_three">Falling Three</option>
-  <option value="rising_three">Rising Three</option>
-  <option value="bearish_three_line_strike">Bearish Three Line Strike</option>
-  <option value="bullish_three_line_strike">Bullish Three Line Strike</option>
-  <option value="ladder_top">Ladder Top</option>
+  <!-- Multi-Candle Patterns -->
+  <optgroup label="📊 Multi-Candle Patterns (Complex Formations)">
+    <option value="rising_three">📈📈📈 Rising Three Methods</option>
+    <option value="falling_three">📉📉📉 Falling Three Methods</option>
+    <option value="bullish_three_line_strike">✅📈📈📈 Bullish Three Line Strike</option>
+    <option value="bearish_three_line_strike">❌📉📉📉 Bearish Three Line Strike</option>
+    <option value="ladder_top">🪜 Ladder Top</option>
+  </optgroup>
 
-  <!-- Complex candle patterns -->
-  <option value="cup_with_handle">Cup With Handle</option>
-
-  <option value="reset">Reset</option>
+  <!-- Complex Chart Patterns -->
+  <optgroup label="🧩 Complex Chart Patterns (Advanced Analysis)">
+    <option value="cup_with_handle">☕ Cup With Handle - Breakout Pattern</option>
+    <option value="flag_pattern">🚩 Flag Pattern - Continuation Pattern</option>
+    <option value="double_tops">⛰️⛰️ Double Tops - Bearish Reversal</option>
+    <option value="double_bottoms">🏔️🏔️ Double Bottoms - Bullish Reversal</option>
+    <option value="double_pattern">🔄 All Double Patterns - Tops & Bottoms</option>
+  </optgroup>
 </select>
 
 
@@ -370,6 +517,20 @@
             await getPattern("cup_with_handle", "Cup With Handle");
             break;
 
+          // Complex chart patterns with pivot points
+          case "flag_pattern":
+            await getComplexPattern("flag_pattern", "Flag Pattern");
+            break;
+          case "double_tops":
+            await getComplexPattern("double_tops", "Double Tops");
+            break;
+          case "double_bottoms":
+            await getComplexPattern("double_bottoms", "Double Bottoms");
+            break;
+          case "double_pattern":
+            await getComplexPattern("double_pattern", "Double Pattern");
+            break;
+
           case "reset":
             resetPatterns();
             break;
@@ -531,11 +692,223 @@
         }
       }
 
+      // New function to handle complex patterns with pivot points
+      const getComplexPattern = async (patternName, patternTitle) => {
+        try {
+          if (!candleseries) {
+            console.error('Candleseries is not initialized.');
+            return;
+          }
+
+          await resetPatterns();
+
+          const stockSymbol = document.getElementById('stockSelector').value || "AAPL";
+          const res = await fetch(`http://localhost:60/alter/candle-stick/${stockSymbol}?candlePattern=${patternName}`);
+          
+          if (!res.ok) {
+            throw new Error('Failed to fetch pattern data');
+          }
+
+          const response = await res.json();
+          if (response.code !== 0 || !response.data) {
+            console.log('No patterns found for ' + patternTitle);
+            return;
+          }
+
+          const patterns = response.data;
+          const allMarkers = [];
+          const allLines = [];
+
+          patterns.forEach((pattern, patternIndex) => {
+            // Xử lý cho Double Pattern
+            if (pattern.pivotIndices && pattern.pivotPoints) {
+              const { candleIndex, pivotIndices, pivotPoints, doubleType, ratio } = pattern;
+              
+              // Tạo markers cho các pivot points
+              pivotIndices.forEach((pivotIdx, i) => {
+                const candleData = originalData[pivotIdx];
+                if (candleData) {
+                  const isTop = i % 2 === 0; // Đỉnh ở index chẵn, đáy ở index lẻ (tùy pattern)
+                  
+                  allMarkers.push({
+                    time: candleData.time,
+                    position: isTop ? 'aboveBar' : 'belowBar',
+                    color: doubleType === 'tops' ? '#FF4444' : '#44FF44',
+                    shape: 'circle',
+                    text: `P${i + 1}: ${pivotPoints[i].toFixed(2)}`,
+                    size: 1.5
+                  });
+                }
+              });
+
+              // Vẽ đường nối các pivot points
+              const lineData = pivotIndices.map((pivotIdx, i) => {
+                const candleData = originalData[pivotIdx];
+                return candleData ? {
+                  time: candleData.time,
+                  value: pivotPoints[i]
+                } : null;
+              }).filter(point => point !== null);
+
+              if (lineData.length > 0) {
+                const lineColor = doubleType === 'tops' ? 'rgba(255, 68, 68, 0.8)' : 'rgba(68, 255, 68, 0.8)';
+                const patternLine = chart.addLineSeries({
+                  color: lineColor,
+                  lineWidth: 2,
+                  lineStyle: 2, // Dashed line
+                  crosshairMarkerVisible: false,
+                  lastValueVisible: false,
+                  priceLineVisible: false,
+                });
+                patternLine.setData(lineData);
+                allLines.push(patternLine);
+              }
+
+              // Thêm marker chính cho pattern
+              const mainCandle = originalData[candleIndex];
+              if (mainCandle) {
+                allMarkers.push({
+                  time: mainCandle.time,
+                  position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
+                  color: doubleType === 'tops' ? '#FF0000' : '#00FF00',
+                  shape: 'arrowDown',
+                  text: `${patternTitle} (${ratio.toFixed(4)})`,
+                  size: 2
+                });
+              }
+            }
+            
+            // Xử lý cho Flag Pattern
+            else if (pattern.flagHighs && pattern.flagLows) {
+              const { candleIndex, flagHighsIdx, flagLowsIdx, flagHighs, flagLows, direction } = pattern;
+              
+              // Markers cho flag highs
+              if (flagHighsIdx && flagHighs) {
+                flagHighsIdx.forEach((idx, i) => {
+                  const candleData = originalData[idx];
+                  if (candleData) {
+                    allMarkers.push({
+                      time: candleData.time,
+                      position: 'aboveBar',
+                      color: '#FFA500',
+                      shape: 'circle',
+                      text: `H${i + 1}`,
+                      size: 1
+                    });
+                  }
+                });
+
+                // Vẽ đường upper trendline
+                const upperLineData = flagHighsIdx.map((idx, i) => {
+                  const candleData = originalData[idx];
+                  return candleData ? {
+                    time: candleData.time,
+                    value: flagHighs[i]
+                  } : null;
+                }).filter(point => point !== null);
+
+                if (upperLineData.length > 0) {
+                  const upperLine = chart.addLineSeries({
+                    color: 'rgba(255, 165, 0, 0.8)',
+                    lineWidth: 2,
+                    crosshairMarkerVisible: false,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                  });
+                  upperLine.setData(upperLineData);
+                  allLines.push(upperLine);
+                }
+              }
+
+              // Markers cho flag lows
+              if (flagLowsIdx && flagLows) {
+                flagLowsIdx.forEach((idx, i) => {
+                  const candleData = originalData[idx];
+                  if (candleData) {
+                    allMarkers.push({
+                      time: candleData.time,
+                      position: 'belowBar',
+                      color: '#00CED1',
+                      shape: 'circle',
+                      text: `L${i + 1}`,
+                      size: 1
+                    });
+                  }
+                });
+
+                // Vẽ đường lower trendline
+                const lowerLineData = flagLowsIdx.map((idx, i) => {
+                  const candleData = originalData[idx];
+                  return candleData ? {
+                    time: candleData.time,
+                    value: flagLows[i]
+                  } : null;
+                }).filter(point => point !== null);
+
+                if (lowerLineData.length > 0) {
+                  const lowerLine = chart.addLineSeries({
+                    color: 'rgba(0, 206, 209, 0.8)',
+                    lineWidth: 2,
+                    crosshairMarkerVisible: false,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                  });
+                  lowerLine.setData(lowerLineData);
+                  allLines.push(lowerLine);
+                }
+              }
+
+              // Main marker cho flag pattern
+              const mainCandle = originalData[candleIndex];
+              if (mainCandle) {
+                allMarkers.push({
+                  time: mainCandle.time,
+                  position: 'aboveBar',
+                  color: direction === 'bullish' ? '#00FF00' : '#FF0000',
+                  shape: 'flag',
+                  text: `${patternTitle} (${direction})`,
+                  size: 2
+                });
+              }
+            }
+          });
+
+          // Cập nhật markers
+          if (allMarkers.length > 0) {
+            candleseries.setMarkers(allMarkers);
+            console.log(`Found ${patterns.length} ${patternTitle} pattern(s)`);
+          } else {
+            console.log('No patterns to display');
+          }
+
+          // Lưu các line series để có thể xóa sau
+          if (!window.patternLines) {
+            window.patternLines = [];
+          }
+          window.patternLines.push(...allLines);
+
+        } catch (error) {
+          console.error('Error processing complex pattern:', error.message);
+        }
+      }
+
       const resetPatterns = () => {
         try {
           if (!candleseries) {
             console.error('Candleseries is not initialized.');
             return;
+          }
+
+          // Xóa các line series đã vẽ trước đó
+          if (window.patternLines && window.patternLines.length > 0) {
+            window.patternLines.forEach(line => {
+              try {
+                chart.removeSeries(line);
+              } catch (e) {
+                console.warn('Could not remove line series:', e);
+              }
+            });
+            window.patternLines = [];
           }
 
           const candles = [...originalData];

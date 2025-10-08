@@ -5,11 +5,13 @@ import com.example.alert.constant.ResponseCode;
 import com.example.alert.domain.CandleStick;
 import com.example.alert.domain.StockMarket;
 import com.example.alert.model.CupWithHandle;
+import com.example.alert.model.chartpattern.ChartPatternResult;
 import com.example.alert.response.Response;
 import com.example.alert.service.CandleStickService;
 import com.example.alert.service.ComplexPatternDetectorService;
 import com.example.alert.service.DetectCandlePatternService;
 import com.example.alert.service.StockMarketService;
+import com.example.alert.service.chartpattern.ChartPatternDetectionService;
 import com.example.alert.util.Indicator;
 import lombok.AllArgsConstructor;
 import org.springframework.util.StringUtils;
@@ -26,6 +28,7 @@ public class AlterController {
     private DetectCandlePatternService detectCandlePatternService;
     private CandleStickService candleStickService;
     private ComplexPatternDetectorService complexPatternDetectorService;
+    private ChartPatternDetectionService chartPatternDetectionService;
 
     @GetMapping("{stockSymbol}")
         public Response alterCandleStick(@PathVariable String stockSymbol,
@@ -132,10 +135,62 @@ public class AlterController {
                 CupWithHandle cupWithHandle = complexPatternDetectorService.getNearestCupWithHandle(smaValues);
                 yield new Response(cupWithHandle);
             }
+            
+            // Chart patterns
+            case CandleNames.FLAG_PATTERN -> 
+                new Response(chartPatternDetectionService.analyzeFlagPatterns(stockId));
+            case CandleNames.DOUBLE_TOPS -> 
+                new Response(chartPatternDetectionService.analyzeDoublePatterns(stockId, "tops"));
+            case CandleNames.DOUBLE_BOTTOMS -> 
+                new Response(chartPatternDetectionService.analyzeDoublePatterns(stockId, "bottoms"));
+            case CandleNames.DOUBLE_PATTERN -> 
+                new Response(chartPatternDetectionService.analyzeDoublePatterns(stockId, "both"));
 
             // Default case for unknown patterns
             default -> new Response(ResponseCode.UNKNOWN_ERROR);
         };
+    }
+    
+    /**
+     * Endpoint để phân tích tất cả chart patterns cho một stock symbol
+     * @param stockSymbol symbol của stock
+     * @return Response chứa ChartPatternResult với tất cả patterns được tìm thấy
+     */
+    @GetMapping("{stockSymbol}/all-patterns")
+    public Response analyzeAllChartPatterns(@PathVariable String stockSymbol) {
+        StockMarket stockMarket = stockMarketService.getStockBySymbol(stockSymbol);
+        if (stockMarket == null || !StringUtils.hasText(stockMarket.getId())) {
+            return new Response(ResponseCode.UNKNOWN_ERROR);
+        }
+        
+        String stockId = stockMarket.getId();
+        ChartPatternResult result = chartPatternDetectionService.analyzeAllPatterns(stockId);
+        return new Response(result);
+    }
+    
+    /**
+     * Endpoint để phân tích Flag patterns với custom parameters
+     * @param stockSymbol symbol của stock
+     * @param lookback số periods để look back (optional, default: 25)
+     * @param minPoints số pivot points tối thiểu (optional, default: 3)
+     * @param rMax R-squared threshold cho highs (optional, default: 0.9)
+     * @param rMin R-squared threshold cho lows (optional, default: 0.9)
+     * @return Response chứa danh sách Flag patterns
+     */
+    @GetMapping("{stockSymbol}/flag-custom")
+    public Response analyzeFlagPatternsCustom(@PathVariable String stockSymbol,
+                                             @RequestParam(defaultValue = "25") int lookback,
+                                             @RequestParam(defaultValue = "3") int minPoints,
+                                             @RequestParam(defaultValue = "0.9") double rMax,
+                                             @RequestParam(defaultValue = "0.9") double rMin) {
+        StockMarket stockMarket = stockMarketService.getStockBySymbol(stockSymbol);
+        if (stockMarket == null || !StringUtils.hasText(stockMarket.getId())) {
+            return new Response(ResponseCode.UNKNOWN_ERROR);
+        }
+        
+        String stockId = stockMarket.getId();
+        return new Response(chartPatternDetectionService.analyzeFlagPatternsCustom(
+            stockId, lookback, minPoints, rMax, rMin));
     }
 }
 

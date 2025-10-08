@@ -18,6 +18,8 @@ public class StockMarket {
     public static final String NAME = "name";
     public static final String SYMBOL = "symbol";
     public static final String CREATED_AT = "created_at";
+    public static final String MARKET = "market";
+    public static final String COUNTRY = "country";
 
     @Id
     private String id;
@@ -25,6 +27,10 @@ public class StockMarket {
     private String symbol;
     @Field(NAME)
     private String name;
+    @Field(MARKET)
+    private String market;
+    @Field(COUNTRY)
+    private String country;
     @Field(CREATED_AT)
-    private long createAT;
+    private long createdAt;
 }

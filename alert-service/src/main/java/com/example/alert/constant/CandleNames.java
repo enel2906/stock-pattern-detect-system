@@ -61,4 +61,10 @@ public class  CandleNames {
 
     //Complex candle patterns
     public static final String CUP_WITH_HANDLE = "cup_with_handle";
+    
+    // Chart patterns
+    public static final String FLAG_PATTERN = "flag_pattern";
+    public static final String DOUBLE_TOPS = "double_tops";
+    public static final String DOUBLE_BOTTOMS = "double_bottoms";
+    public static final String DOUBLE_PATTERN = "double_pattern";
 }
