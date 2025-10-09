@@ -20,6 +20,10 @@ public class ChartPatternDetectionService {
     private final CandleStickService candleStickService;
     private final FlagPatternService flagPatternService;
     private final DoublePatternService doublePatternService;
+    private final HeadAndShouldersService headAndShouldersService;
+    private final InverseHeadAndShouldersService inverseHeadAndShouldersService;
+    private final PennantService pennantService;
+    private final TriangleService triangleService;
     
     /**
      * Phân tích tất cả chart patterns cho một stock symbol
@@ -36,6 +40,10 @@ public class ChartPatternDetectionService {
                 .analysisTime(System.currentTimeMillis())
                 .flagPatterns(new ArrayList<>())
                 .doublePatterns(new ArrayList<>())
+                .headAndShouldersPatterns(new ArrayList<>())
+                .inverseHeadAndShouldersPatterns(new ArrayList<>())
+                .pennantPatterns(new ArrayList<>())
+                .trianglePatterns(new ArrayList<>())
                 .totalPatternsFound(0)
                 .build();
         }
@@ -46,14 +54,24 @@ public class ChartPatternDetectionService {
         // Phát hiện các patterns
         List<FlagPattern> flagPatterns = flagPatternService.findFlagPatterns(ohlcDataList);
         List<DoublePattern> doublePatterns = doublePatternService.findDoublePatterns(ohlcDataList);
+        List<HeadAndShouldersPattern> hsPatterns = headAndShouldersService.findHeadAndShouldersPatterns(ohlcDataList);
+        List<InverseHeadAndShouldersPattern> ihsPatterns = inverseHeadAndShouldersService.findInverseHeadAndShouldersPatterns(ohlcDataList);
+        List<PennantPattern> pennantPatterns = pennantService.findPennantPatterns(ohlcDataList);
+        List<TrianglePattern> trianglePatterns = triangleService.findTrianglePatterns(ohlcDataList);
         
-        int totalPatterns = flagPatterns.size() + doublePatterns.size();
+        int totalPatterns = flagPatterns.size() + doublePatterns.size() + 
+                          hsPatterns.size() + ihsPatterns.size() + 
+                          pennantPatterns.size() + trianglePatterns.size();
         
         return ChartPatternResult.builder()
             .stockSymbol(stockId)
             .analysisTime(System.currentTimeMillis())
             .flagPatterns(flagPatterns)
             .doublePatterns(doublePatterns)
+            .headAndShouldersPatterns(hsPatterns)
+            .inverseHeadAndShouldersPatterns(ihsPatterns)
+            .pennantPatterns(pennantPatterns)
+            .trianglePatterns(trianglePatterns)
             .totalPatternsFound(totalPatterns)
             .build();
     }
@@ -111,6 +129,129 @@ public class ChartPatternDetectionService {
         List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
         return flagPatternService.findFlagPatterns(ohlcDataList, lookback, minPoints, 
                                                  rMax, rMin, 0, 0, 0.9, 1.05);
+    }
+    
+    /**
+     * Phân tích Head and Shoulders patterns
+     * @param stockId ID của stock
+     * @return danh sách Head and Shoulders patterns
+     */
+    public List<HeadAndShouldersPattern> analyzeHeadAndShouldersPatterns(String stockId) {
+        List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+        if (candleSticks == null || candleSticks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
+        return headAndShouldersService.findHeadAndShouldersPatterns(ohlcDataList);
+    }
+    
+    /**
+     * Phân tích Head and Shoulders patterns với custom parameters
+     */
+    public List<HeadAndShouldersPattern> analyzeHeadAndShouldersCustom(
+            String stockId, int lookback, int pivotInterval, 
+            double headRatioBefore, double headRatioAfter) {
+        List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+        if (candleSticks == null || candleSticks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
+        return headAndShouldersService.findHeadAndShouldersPatterns(
+            ohlcDataList, lookback, pivotInterval, 5, headRatioBefore, headRatioAfter, 1e-4);
+    }
+    
+    /**
+     * Phân tích Inverse Head and Shoulders patterns
+     * @param stockId ID của stock
+     * @return danh sách Inverse Head and Shoulders patterns
+     */
+    public List<InverseHeadAndShouldersPattern> analyzeInverseHeadAndShouldersPatterns(String stockId) {
+        List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+        if (candleSticks == null || candleSticks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
+        return inverseHeadAndShouldersService.findInverseHeadAndShouldersPatterns(ohlcDataList);
+    }
+    
+    /**
+     * Phân tích Inverse Head and Shoulders patterns với custom parameters
+     */
+    public List<InverseHeadAndShouldersPattern> analyzeInverseHeadAndShouldersCustom(
+            String stockId, int lookback, int pivotInterval,
+            double headRatioBefore, double headRatioAfter) {
+        List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+        if (candleSticks == null || candleSticks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
+        return inverseHeadAndShouldersService.findInverseHeadAndShouldersPatterns(
+            ohlcDataList, lookback, pivotInterval, 5, headRatioBefore, headRatioAfter, 1e-4);
+    }
+    
+    /**
+     * Phân tích Pennant patterns
+     * @param stockId ID của stock
+     * @return danh sách Pennant patterns
+     */
+    public List<PennantPattern> analyzePennantPatterns(String stockId) {
+        List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+        if (candleSticks == null || candleSticks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
+        return pennantService.findPennantPatterns(ohlcDataList);
+    }
+    
+    /**
+     * Phân tích Pennant patterns với custom parameters
+     */
+    public List<PennantPattern> analyzePennantPatternsCustom(
+            String stockId, int lookback, int minPoints, double rMax, double rMin) {
+        List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+        if (candleSticks == null || candleSticks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
+        return pennantService.findPennantPatterns(
+            ohlcDataList, lookback, minPoints, rMax, rMin, -0.0001, 0.0001, 0.95, 1.0);
+    }
+    
+    /**
+     * Phân tích Triangle patterns
+     * @param stockId ID của stock
+     * @param triangleType "ascending", "descending", "symmetrical", "all"
+     * @return danh sách Triangle patterns
+     */
+    public List<TrianglePattern> analyzeTrianglePatterns(String stockId, String triangleType) {
+        List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+        if (candleSticks == null || candleSticks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
+        return triangleService.findTrianglePatterns(ohlcDataList, triangleType);
+    }
+    
+    /**
+     * Phân tích Triangle patterns với custom parameters
+     */
+    public List<TrianglePattern> analyzeTrianglePatternsCustom(
+            String stockId, String triangleType, int lookback, int minPoints, double rlimit) {
+        List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
+        if (candleSticks == null || candleSticks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<OhlcData> ohlcDataList = convertToOhlcData(candleSticks);
+        return triangleService.findTrianglePatterns(
+            ohlcDataList, lookback, minPoints, rlimit, 0.00001, 0.00001, triangleType);
     }
     
     /**

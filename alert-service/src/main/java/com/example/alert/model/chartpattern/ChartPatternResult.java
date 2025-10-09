@@ -19,6 +19,9 @@ public class ChartPatternResult {
     private long analysisTime;
     private List<FlagPattern> flagPatterns;
     private List<DoublePattern> doublePatterns;
-    // Có thể thêm các pattern khác
+    private List<HeadAndShouldersPattern> headAndShouldersPatterns;
+    private List<InverseHeadAndShouldersPattern> inverseHeadAndShouldersPatterns;
+    private List<PennantPattern> pennantPatterns;
+    private List<TrianglePattern> trianglePatterns;
     private int totalPatternsFound;
 }

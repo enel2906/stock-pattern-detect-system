@@ -67,4 +67,11 @@ public class  CandleNames {
     public static final String DOUBLE_TOPS = "double_tops";
     public static final String DOUBLE_BOTTOMS = "double_bottoms";
     public static final String DOUBLE_PATTERN = "double_pattern";
+    public static final String HEAD_AND_SHOULDERS = "head_and_shoulders";
+    public static final String INVERSE_HEAD_AND_SHOULDERS = "inverse_head_and_shoulders";
+    public static final String PENNANT = "pennant";
+    public static final String TRIANGLE_ASCENDING = "triangle_ascending";
+    public static final String TRIANGLE_DESCENDING = "triangle_descending";
+    public static final String TRIANGLE_SYMMETRICAL = "triangle_symmetrical";
+    public static final String TRIANGLE_PATTERN = "triangle_pattern";
 }

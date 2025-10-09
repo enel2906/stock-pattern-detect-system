@@ -145,6 +145,20 @@ public class AlterController {
                 new Response(chartPatternDetectionService.analyzeDoublePatterns(stockId, "bottoms"));
             case CandleNames.DOUBLE_PATTERN -> 
                 new Response(chartPatternDetectionService.analyzeDoublePatterns(stockId, "both"));
+            case CandleNames.HEAD_AND_SHOULDERS -> 
+                new Response(chartPatternDetectionService.analyzeHeadAndShouldersPatterns(stockId));
+            case CandleNames.INVERSE_HEAD_AND_SHOULDERS -> 
+                new Response(chartPatternDetectionService.analyzeInverseHeadAndShouldersPatterns(stockId));
+            case CandleNames.PENNANT -> 
+                new Response(chartPatternDetectionService.analyzePennantPatterns(stockId));
+            case CandleNames.TRIANGLE_ASCENDING -> 
+                new Response(chartPatternDetectionService.analyzeTrianglePatterns(stockId, "ascending"));
+            case CandleNames.TRIANGLE_DESCENDING -> 
+                new Response(chartPatternDetectionService.analyzeTrianglePatterns(stockId, "descending"));
+            case CandleNames.TRIANGLE_SYMMETRICAL -> 
+                new Response(chartPatternDetectionService.analyzeTrianglePatterns(stockId, "symmetrical"));
+            case CandleNames.TRIANGLE_PATTERN -> 
+                new Response(chartPatternDetectionService.analyzeTrianglePatterns(stockId, "all"));
 
             // Default case for unknown patterns
             default -> new Response(ResponseCode.UNKNOWN_ERROR);
@@ -191,6 +205,106 @@ public class AlterController {
         String stockId = stockMarket.getId();
         return new Response(chartPatternDetectionService.analyzeFlagPatternsCustom(
             stockId, lookback, minPoints, rMax, rMin));
+    }
+    
+    /**
+     * Endpoint để phân tích Head and Shoulders patterns với custom parameters
+     * @param stockSymbol symbol của stock
+     * @param lookback số periods để look back (optional, default: 60)
+     * @param pivotInterval số candles để xác định pivot point (optional, default: 10)
+     * @param headRatioBefore tỷ lệ giữa head và shoulder trái (optional, default: 1.0002)
+     * @param headRatioAfter tỷ lệ giữa head và shoulder phải (optional, default: 1.0002)
+     * @return Response chứa danh sách Head and Shoulders patterns
+     */
+    @GetMapping("{stockSymbol}/head-shoulders-custom")
+    public Response analyzeHeadAndShouldersCustom(@PathVariable String stockSymbol,
+                                                  @RequestParam(defaultValue = "60") int lookback,
+                                                  @RequestParam(defaultValue = "10") int pivotInterval,
+                                                  @RequestParam(defaultValue = "1.0002") double headRatioBefore,
+                                                  @RequestParam(defaultValue = "1.0002") double headRatioAfter) {
+        StockMarket stockMarket = stockMarketService.getStockBySymbol(stockSymbol);
+        if (stockMarket == null || !StringUtils.hasText(stockMarket.getId())) {
+            return new Response(ResponseCode.UNKNOWN_ERROR);
+        }
+        
+        String stockId = stockMarket.getId();
+        return new Response(chartPatternDetectionService.analyzeHeadAndShouldersCustom(
+            stockId, lookback, pivotInterval, headRatioBefore, headRatioAfter));
+    }
+    
+    /**
+     * Endpoint để phân tích Inverse Head and Shoulders patterns với custom parameters
+     * @param stockSymbol symbol của stock
+     * @param lookback số periods để look back (optional, default: 60)
+     * @param pivotInterval số candles để xác định pivot point (optional, default: 10)
+     * @param headRatioBefore tỷ lệ giữa head và shoulder trái (optional, default: 0.98)
+     * @param headRatioAfter tỷ lệ giữa head và shoulder phải (optional, default: 0.98)
+     * @return Response chứa danh sách Inverse Head and Shoulders patterns
+     */
+    @GetMapping("{stockSymbol}/inverse-head-shoulders-custom")
+    public Response analyzeInverseHeadAndShouldersCustom(@PathVariable String stockSymbol,
+                                                         @RequestParam(defaultValue = "60") int lookback,
+                                                         @RequestParam(defaultValue = "10") int pivotInterval,
+                                                         @RequestParam(defaultValue = "0.98") double headRatioBefore,
+                                                         @RequestParam(defaultValue = "0.98") double headRatioAfter) {
+        StockMarket stockMarket = stockMarketService.getStockBySymbol(stockSymbol);
+        if (stockMarket == null || !StringUtils.hasText(stockMarket.getId())) {
+            return new Response(ResponseCode.UNKNOWN_ERROR);
+        }
+        
+        String stockId = stockMarket.getId();
+        return new Response(chartPatternDetectionService.analyzeInverseHeadAndShouldersCustom(
+            stockId, lookback, pivotInterval, headRatioBefore, headRatioAfter));
+    }
+    
+    /**
+     * Endpoint để phân tích Pennant patterns với custom parameters
+     * @param stockSymbol symbol của stock
+     * @param lookback số periods để look back (optional, default: 20)
+     * @param minPoints số pivot points tối thiểu (optional, default: 3)
+     * @param rMax R-squared threshold cho highs (optional, default: 0.9)
+     * @param rMin R-squared threshold cho lows (optional, default: 0.9)
+     * @return Response chứa danh sách Pennant patterns
+     */
+    @GetMapping("{stockSymbol}/pennant-custom")
+    public Response analyzePennantPatternsCustom(@PathVariable String stockSymbol,
+                                                 @RequestParam(defaultValue = "20") int lookback,
+                                                 @RequestParam(defaultValue = "3") int minPoints,
+                                                 @RequestParam(defaultValue = "0.9") double rMax,
+                                                 @RequestParam(defaultValue = "0.9") double rMin) {
+        StockMarket stockMarket = stockMarketService.getStockBySymbol(stockSymbol);
+        if (stockMarket == null || !StringUtils.hasText(stockMarket.getId())) {
+            return new Response(ResponseCode.UNKNOWN_ERROR);
+        }
+        
+        String stockId = stockMarket.getId();
+        return new Response(chartPatternDetectionService.analyzePennantPatternsCustom(
+            stockId, lookback, minPoints, rMax, rMin));
+    }
+    
+    /**
+     * Endpoint để phân tích Triangle patterns với custom parameters
+     * @param stockSymbol symbol của stock
+     * @param triangleType loại triangle: "ascending", "descending", "symmetrical", "all" (optional, default: "all")
+     * @param lookback số periods để look back (optional, default: 25)
+     * @param minPoints số pivot points tối thiểu (optional, default: 3)
+     * @param rlimit R-squared threshold (optional, default: 0.9)
+     * @return Response chứa danh sách Triangle patterns
+     */
+    @GetMapping("{stockSymbol}/triangle-custom")
+    public Response analyzeTrianglePatternsCustom(@PathVariable String stockSymbol,
+                                                  @RequestParam(defaultValue = "all") String triangleType,
+                                                  @RequestParam(defaultValue = "25") int lookback,
+                                                  @RequestParam(defaultValue = "3") int minPoints,
+                                                  @RequestParam(defaultValue = "0.9") double rlimit) {
+        StockMarket stockMarket = stockMarketService.getStockBySymbol(stockSymbol);
+        if (stockMarket == null || !StringUtils.hasText(stockMarket.getId())) {
+            return new Response(ResponseCode.UNKNOWN_ERROR);
+        }
+        
+        String stockId = stockMarket.getId();
+        return new Response(chartPatternDetectionService.analyzeTrianglePatternsCustom(
+            stockId, triangleType, lookback, minPoints, rlimit));
     }
 }
 
