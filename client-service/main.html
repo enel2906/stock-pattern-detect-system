@@ -302,9 +302,16 @@
   <optgroup label="🧩 Complex Chart Patterns (Advanced Analysis)">
     <option value="cup_with_handle">☕ Cup With Handle - Breakout Pattern</option>
     <option value="flag_pattern">🚩 Flag Pattern - Continuation Pattern</option>
+    <option value="pennant">🔻 Pennant Pattern - Continuation Pattern</option>
     <option value="double_tops">⛰️⛰️ Double Tops - Bearish Reversal</option>
     <option value="double_bottoms">🏔️🏔️ Double Bottoms - Bullish Reversal</option>
     <option value="double_pattern">🔄 All Double Patterns - Tops & Bottoms</option>
+    <option value="head_and_shoulders">👤 Head and Shoulders - Bearish Reversal</option>
+    <option value="inverse_head_and_shoulders">👤 Inverse Head and Shoulders - Bullish Reversal</option>
+    <option value="triangle_ascending">📐 Ascending Triangle - Bullish Breakout</option>
+    <option value="triangle_descending">📐 Descending Triangle - Bearish Breakout</option>
+    <option value="triangle_symmetrical">📐 Symmetrical Triangle - Breakout</option>
+    <option value="triangle_pattern">📐 All Triangle Patterns</option>
   </optgroup>
 </select>
 
@@ -350,10 +357,16 @@
 
     <script>
       const checkSelectedPattern = async () => {
-        const selectedPattern = document.getElementById("patternSelector").value;
+        try {
+          const selectedPattern = document.getElementById("patternSelector").value;
+          
+          if (!selectedPattern) {
+            console.warn('No pattern selected');
+            return;
+          }
 
-        // Call the appropriate function based on the selected pattern
-        switch (selectedPattern) {
+          // Call the appropriate function based on the selected pattern
+          switch (selectedPattern) {
           // One candle patterns
           case "hammer":
             await getPattern("hammer", "Hammer");
@@ -531,6 +544,33 @@
             await getComplexPattern("double_pattern", "Double Pattern");
             break;
 
+          // Head and Shoulders patterns
+          case "head_and_shoulders":
+            await getComplexPattern("head_and_shoulders", "Head and Shoulders");
+            break;
+          case "inverse_head_and_shoulders":
+            await getComplexPattern("inverse_head_and_shoulders", "Inverse Head and Shoulders");
+            break;
+
+          // Pennant pattern
+          case "pennant":
+            await getComplexPattern("pennant", "Pennant Pattern");
+            break;
+
+          // Triangle patterns
+          case "triangle_ascending":
+            await getComplexPattern("triangle_ascending", "Ascending Triangle");
+            break;
+          case "triangle_descending":
+            await getComplexPattern("triangle_descending", "Descending Triangle");
+            break;
+          case "triangle_symmetrical":
+            await getComplexPattern("triangle_symmetrical", "Symmetrical Triangle");
+            break;
+          case "triangle_pattern":
+            await getComplexPattern("triangle_pattern", "All Triangle Patterns");
+            break;
+
           case "reset":
             resetPatterns();
             break;
@@ -538,27 +578,77 @@
           default:
             console.error("Invalid pattern selected");
           }
-
+        } catch (error) {
+          console.error('Error in checkSelectedPattern:', error.message);
+        }
       };
 
       let chart;
       let lineSeries;
       let candleseries;  // Declare candleseries in the global scope
       let originalData;  // Store the original data separately
+      
+      // Utility function to validate data
+      const isValidData = (data) => {
+        return data && Array.isArray(data) && data.length > 0 && 
+               data.every(item => item.time && typeof item.open === 'number' && 
+                                typeof item.high === 'number' && typeof item.low === 'number' && 
+                                typeof item.close === 'number');
+      };
+
+      // Utility function to get pattern color based on type
+      const getPatternColor = (patternName) => {
+        const colorMap = {
+          // Bullish patterns
+          'hammer': '#00FF00',
+          'bullish_engulfing': '#32CD32',
+          'morning_star': '#00FF7F',
+          'inverse_head_and_shoulders': '#00FF00',
+          'double_bottoms': '#00FF00',
+          
+          // Bearish patterns  
+          'hanging_man': '#FF0000',
+          'bearish_engulfing': '#DC143C',
+          'evening_star': '#FF4500',
+          'head_and_shoulders': '#FF0000',
+          'double_tops': '#FF0000',
+          
+          // Neutral/Continuation patterns
+          'flag_pattern': '#FFD700',
+          'pennant': '#FFA500',
+          'triangle_ascending': '#32CD32',
+          'triangle_descending': '#FF6347',
+          'triangle_symmetrical': '#FFD700',
+          
+          // Default colors
+          'default': '#9933FF'
+        };
+        
+        return colorMap[patternName] || colorMap['default'];
+      };
 
       const refreshChart = async () => {
-        const stockSymbol = document.getElementById('stockSelector').value;
-        const data = await getData(stockSymbol);
-        if (data.length > 0) {
-          candleseries.setData(data);
-        } else {
-          console.warn('No valid data to display.');
+        try {
+          // Reset patterns trước khi load dữ liệu mới
+          resetPatterns();
+          
+          const stockSymbol = document.getElementById('stockSelector').value;
+          const data = await getData(stockSymbol);
+          
+          if (isValidData(data)) {
+            // Cập nhật dữ liệu gốc
+            originalData = [...data];
+            candleseries.setData(originalData);
+          } else {
+            console.warn('No valid data to display.');
+          }
+        } catch (error) {
+          console.error('Error refreshing chart:', error.message);
         }
       };
 
       const getData = async (stockSymbol) => {
         try {
-          await resetPatterns();
           const res = await fetch(`http://localhost:60/stock?symbol=${stockSymbol}`);
           if (!res.ok) {
             throw new Error('Failed to fetch data');
@@ -617,12 +707,15 @@
           });
 
           const stockSymbol = document.getElementById('stockSelector').value || "AAPL";
-          originalData = await getData(stockSymbol);
+          const data = await getData(stockSymbol);
 
-          if (originalData.length > 0) {
+          if (isValidData(data)) {
+            // Tạo copy để bảo vệ dữ liệu gốc
+            originalData = [...data];
             candleseries.setData(originalData);
           } else {
             console.warn('No valid data to display.');
+            originalData = [];
           }
         } catch (error) {
           console.error('Error displaying chart:', error.message);
@@ -630,18 +723,22 @@
       };
       
       const getPattern = async (patternName, patternTitle) => {
-        const allMarkers = [];
-
         try {
           if (!candleseries) {
             console.error('Candleseries is not initialized.');
             return;
           }
 
-          await resetPatterns();
+          if (!originalData || originalData.length === 0) {
+            console.error('Original data is missing or empty');
+            return;
+          }
 
-          const candles = [...originalData];
+          // Reset patterns nhưng giữ nguyên dữ liệu gốc
+          resetPatterns();
+
           const patterns = await findPattern(patternName);
+          const allMarkers = [];
 
           if (patterns.length > 0) {
             patterns.forEach((pattern) => {
@@ -656,11 +753,12 @@
 
             // Cập nhật marker trên biểu đồ
             candleseries.setMarkers(allMarkers);
+            console.log(`Found ${patterns.length} ${patternTitle} pattern(s)`);
           } else {
-            console.log('No Bullish Engulfing patterns found.');
+            console.log(`No ${patternTitle} patterns found.`);
           }
         } catch (error) {
-          console.error('Error checking Bullish Engulfing patterns:', error.message);
+          console.error(`Error processing ${patternTitle} patterns:`, error.message);
         }
       }
 
@@ -700,7 +798,14 @@
             return;
           }
 
-          await resetPatterns();
+          // Reset patterns trước khi vẽ pattern mới (không await)
+          resetPatterns();
+          
+          // Đảm bảo dữ liệu gốc vẫn còn nguyên vẹn
+          if (!originalData || originalData.length === 0) {
+            console.error('Original data is missing or empty');
+            return;
+          }
 
           const stockSymbol = document.getElementById('stockSelector').value || "AAPL";
           const res = await fetch(`http://localhost:60/alter/candle-stick/${stockSymbol}?candlePattern=${patternName}`);
@@ -719,38 +824,58 @@
           const allMarkers = [];
           const allLines = [];
 
+          console.log(`Processing ${patterns.length} ${patternTitle} pattern(s)`);
+
           patterns.forEach((pattern, patternIndex) => {
+            console.log(`Processing pattern ${patternIndex + 1}:`, pattern);
             // Xử lý cho Double Pattern
             if (pattern.pivotIndices && pattern.pivotPoints) {
               const { candleIndex, pivotIndices, pivotPoints, doubleType, ratio } = pattern;
               
+              // Debug log
+              console.log('Double pattern data:', {
+                candleIndex,
+                pivotIndices,
+                pivotPoints,
+                doubleType,
+                ratio,
+                originalDataLength: originalData.length
+              });
+              
               // Tạo markers cho các pivot points
               pivotIndices.forEach((pivotIdx, i) => {
-                const candleData = originalData[pivotIdx];
-                if (candleData) {
-                  const isTop = i % 2 === 0; // Đỉnh ở index chẵn, đáy ở index lẻ (tùy pattern)
-                  
-                  allMarkers.push({
-                    time: candleData.time,
-                    position: isTop ? 'aboveBar' : 'belowBar',
-                    color: doubleType === 'tops' ? '#FF4444' : '#44FF44',
-                    shape: 'circle',
-                    text: `P${i + 1}: ${pivotPoints[i].toFixed(2)}`,
-                    size: 1.5
-                  });
+                if (pivotIdx >= 0 && pivotIdx < originalData.length) {
+                  const candleData = originalData[pivotIdx];
+                  if (candleData && pivotPoints[i]) {
+                    const isTop = doubleType === 'tops' || doubleType === 'both';
+                    
+                    allMarkers.push({
+                      time: candleData.time,
+                      position: isTop ? 'aboveBar' : 'belowBar',
+                      color: doubleType === 'tops' ? '#FF4444' : '#44FF44',
+                      shape: 'circle',
+                      text: `P${i + 1}: ${pivotPoints[i].toFixed(2)}`,
+                      size: 1.5
+                    });
+                  }
+                } else {
+                  console.warn(`Invalid pivotIndices[${i}]: ${pivotIdx}, originalData length: ${originalData.length}`);
                 }
               });
 
-              // Vẽ đường nối các pivot points
+              // Vẽ đường nối các pivot points - chỉ sử dụng index hợp lệ
               const lineData = pivotIndices.map((pivotIdx, i) => {
-                const candleData = originalData[pivotIdx];
-                return candleData ? {
-                  time: candleData.time,
-                  value: pivotPoints[i]
-                } : null;
+                if (pivotIdx >= 0 && pivotIdx < originalData.length && pivotPoints[i]) {
+                  const candleData = originalData[pivotIdx];
+                  return candleData ? {
+                    time: candleData.time,
+                    value: pivotPoints[i]
+                  } : null;
+                }
+                return null;
               }).filter(point => point !== null);
 
-              if (lineData.length > 0) {
+              if (lineData.length > 1) {
                 const lineColor = doubleType === 'tops' ? 'rgba(255, 68, 68, 0.8)' : 'rgba(68, 255, 68, 0.8)';
                 const patternLine = chart.addLineSeries({
                   color: lineColor,
@@ -765,16 +890,20 @@
               }
 
               // Thêm marker chính cho pattern
-              const mainCandle = originalData[candleIndex];
-              if (mainCandle) {
-                allMarkers.push({
-                  time: mainCandle.time,
-                  position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
-                  color: doubleType === 'tops' ? '#FF0000' : '#00FF00',
-                  shape: 'arrowDown',
-                  text: `${patternTitle} (${ratio.toFixed(4)})`,
-                  size: 2
-                });
+              if (candleIndex >= 0 && candleIndex < originalData.length) {
+                const mainCandle = originalData[candleIndex];
+                if (mainCandle) {
+                  allMarkers.push({
+                    time: mainCandle.time,
+                    position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
+                    color: doubleType === 'tops' ? '#FF0000' : '#00FF00',
+                    shape: 'arrowDown',
+                    text: `${patternTitle} (${ratio.toFixed(4)})`,
+                    size: 2
+                  });
+                }
+              } else {
+                console.warn(`Invalid candleIndex: ${candleIndex}, originalData length: ${originalData.length}`);
               }
             }
             
@@ -782,32 +911,51 @@
             else if (pattern.flagHighs && pattern.flagLows) {
               const { candleIndex, flagHighsIdx, flagLowsIdx, flagHighs, flagLows, direction } = pattern;
               
+              // Debug log để kiểm tra dữ liệu
+              console.log('Flag pattern data:', {
+                candleIndex,
+                flagHighsIdx,
+                flagLowsIdx,
+                flagHighs,
+                flagLows,
+                direction,
+                originalDataLength: originalData.length
+              });
+              
               // Markers cho flag highs
-              if (flagHighsIdx && flagHighs) {
+              if (flagHighsIdx && flagHighs && Array.isArray(flagHighsIdx)) {
                 flagHighsIdx.forEach((idx, i) => {
-                  const candleData = originalData[idx];
-                  if (candleData) {
-                    allMarkers.push({
-                      time: candleData.time,
-                      position: 'aboveBar',
-                      color: '#FFA500',
-                      shape: 'circle',
-                      text: `H${i + 1}`,
-                      size: 1
-                    });
+                  // Kiểm tra index hợp lệ
+                  if (idx >= 0 && idx < originalData.length) {
+                    const candleData = originalData[idx];
+                    if (candleData && flagHighs[i]) {
+                      allMarkers.push({
+                        time: candleData.time,
+                        position: 'aboveBar',
+                        color: '#FFA500',
+                        shape: 'circle',
+                        text: `H${i + 1}: ${flagHighs[i].toFixed(2)}`,
+                        size: 1
+                      });
+                    }
+                  } else {
+                    console.warn(`Invalid flagHighsIdx[${i}]: ${idx}, originalData length: ${originalData.length}`);
                   }
                 });
 
-                // Vẽ đường upper trendline
+                // Vẽ đường upper trendline - chỉ sử dụng index hợp lệ
                 const upperLineData = flagHighsIdx.map((idx, i) => {
-                  const candleData = originalData[idx];
-                  return candleData ? {
-                    time: candleData.time,
-                    value: flagHighs[i]
-                  } : null;
+                  if (idx >= 0 && idx < originalData.length && flagHighs[i]) {
+                    const candleData = originalData[idx];
+                    return candleData ? {
+                      time: candleData.time,
+                      value: flagHighs[i]
+                    } : null;
+                  }
+                  return null;
                 }).filter(point => point !== null);
 
-                if (upperLineData.length > 0) {
+                if (upperLineData.length > 1) { // Cần ít nhất 2 điểm để vẽ đường
                   const upperLine = chart.addLineSeries({
                     color: 'rgba(255, 165, 0, 0.8)',
                     lineWidth: 2,
@@ -821,31 +969,39 @@
               }
 
               // Markers cho flag lows
-              if (flagLowsIdx && flagLows) {
+              if (flagLowsIdx && flagLows && Array.isArray(flagLowsIdx)) {
                 flagLowsIdx.forEach((idx, i) => {
-                  const candleData = originalData[idx];
-                  if (candleData) {
-                    allMarkers.push({
-                      time: candleData.time,
-                      position: 'belowBar',
-                      color: '#00CED1',
-                      shape: 'circle',
-                      text: `L${i + 1}`,
-                      size: 1
-                    });
+                  // Kiểm tra index hợp lệ
+                  if (idx >= 0 && idx < originalData.length) {
+                    const candleData = originalData[idx];
+                    if (candleData && flagLows[i]) {
+                      allMarkers.push({
+                        time: candleData.time,
+                        position: 'belowBar',
+                        color: '#00CED1',
+                        shape: 'circle',
+                        text: `L${i + 1}: ${flagLows[i].toFixed(2)}`,
+                        size: 1
+                      });
+                    }
+                  } else {
+                    console.warn(`Invalid flagLowsIdx[${i}]: ${idx}, originalData length: ${originalData.length}`);
                   }
                 });
 
-                // Vẽ đường lower trendline
+                // Vẽ đường lower trendline - chỉ sử dụng index hợp lệ
                 const lowerLineData = flagLowsIdx.map((idx, i) => {
-                  const candleData = originalData[idx];
-                  return candleData ? {
-                    time: candleData.time,
-                    value: flagLows[i]
-                  } : null;
+                  if (idx >= 0 && idx < originalData.length && flagLows[i]) {
+                    const candleData = originalData[idx];
+                    return candleData ? {
+                      time: candleData.time,
+                      value: flagLows[i]
+                    } : null;
+                  }
+                  return null;
                 }).filter(point => point !== null);
 
-                if (lowerLineData.length > 0) {
+                if (lowerLineData.length > 1) { // Cần ít nhất 2 điểm để vẽ đường
                   const lowerLine = chart.addLineSeries({
                     color: 'rgba(0, 206, 209, 0.8)',
                     lineWidth: 2,
@@ -859,16 +1015,319 @@
               }
 
               // Main marker cho flag pattern
-              const mainCandle = originalData[candleIndex];
-              if (mainCandle) {
-                allMarkers.push({
-                  time: mainCandle.time,
-                  position: 'aboveBar',
-                  color: direction === 'bullish' ? '#00FF00' : '#FF0000',
-                  shape: 'flag',
-                  text: `${patternTitle} (${direction})`,
-                  size: 2
+              if (candleIndex >= 0 && candleIndex < originalData.length) {
+                const mainCandle = originalData[candleIndex];
+                if (mainCandle) {
+                  allMarkers.push({
+                    time: mainCandle.time,
+                    position: 'aboveBar',
+                    color: direction === 'bullish' ? '#00FF00' : '#FF0000',
+                    shape: 'flag',
+                    text: `${patternTitle} (${direction})`,
+                    size: 2
+                  });
+                }
+              } else {
+                console.warn(`Invalid candleIndex: ${candleIndex}, originalData length: ${originalData.length}`);
+              }
+            }
+
+            // Xử lý cho Head and Shoulders patterns
+            else if (pattern.headIndex !== undefined && pattern.leftShoulderIndex !== undefined && pattern.rightShoulderIndex !== undefined) {
+              const { candleIndex, headIndex, leftShoulderIndex, rightShoulderIndex, headPrice, leftShoulderPrice, rightShoulderPrice, necklinePrice, patternType } = pattern;
+              
+              console.log('Head and Shoulders pattern data:', {
+                candleIndex, headIndex, leftShoulderIndex, rightShoulderIndex,
+                headPrice, leftShoulderPrice, rightShoulderPrice, necklinePrice, patternType
+              });
+
+              // Markers cho các điểm chính
+              const points = [
+                { index: headIndex, price: headPrice, label: 'Head', color: '#FF4444' },
+                { index: leftShoulderIndex, price: leftShoulderPrice, label: 'L.Shoulder', color: '#FFA500' },
+                { index: rightShoulderIndex, price: rightShoulderPrice, label: 'R.Shoulder', color: '#FFA500' }
+              ];
+
+              points.forEach(point => {
+                if (point.index >= 0 && point.index < originalData.length) {
+                  const candleData = originalData[point.index];
+                  if (candleData) {
+                    allMarkers.push({
+                      time: candleData.time,
+                      position: patternType === 'inverse' ? 'belowBar' : 'aboveBar',
+                      color: point.color,
+                      shape: 'circle',
+                      text: `${point.label}: ${point.price.toFixed(2)}`,
+                      size: 1.5
+                    });
+                  }
+                }
+              });
+
+              // Vẽ neckline nếu có
+              if (necklinePrice && leftShoulderIndex >= 0 && rightShoulderIndex >= 0) {
+                const necklineData = [
+                  { time: originalData[leftShoulderIndex].time, value: necklinePrice },
+                  { time: originalData[rightShoulderIndex].time, value: necklinePrice }
+                ];
+                
+                const neckline = chart.addLineSeries({
+                  color: 'rgba(255, 255, 0, 0.8)',
+                  lineWidth: 2,
+                  lineStyle: 1, // Solid line
+                  crosshairMarkerVisible: false,
+                  lastValueVisible: false,
+                  priceLineVisible: false,
                 });
+                neckline.setData(necklineData);
+                allLines.push(neckline);
+              }
+
+              // Main marker
+              if (candleIndex >= 0 && candleIndex < originalData.length) {
+                const mainCandle = originalData[candleIndex];
+                if (mainCandle) {
+                  allMarkers.push({
+                    time: mainCandle.time,
+                    position: patternType === 'inverse' ? 'belowBar' : 'aboveBar',
+                    color: patternType === 'inverse' ? '#00FF00' : '#FF0000',
+                    shape: 'arrowUp',
+                    text: `${patternTitle}`,
+                    size: 2
+                  });
+                }
+              }
+            }
+
+            // Xử lý cho Pennant patterns
+            else if (pattern.pennantHighs && pattern.pennantLows) {
+              const { candleIndex, pennantHighsIdx, pennantLowsIdx, pennantHighs, pennantLows, direction } = pattern;
+              
+              console.log('Pennant pattern data:', {
+                candleIndex, pennantHighsIdx, pennantLowsIdx,
+                pennantHighs, pennantLows, direction
+              });
+
+              // Markers cho pennant highs
+              if (pennantHighsIdx && pennantHighs) {
+                pennantHighsIdx.forEach((idx, i) => {
+                  if (idx >= 0 && idx < originalData.length && pennantHighs[i]) {
+                    const candleData = originalData[idx];
+                    if (candleData) {
+                      allMarkers.push({
+                        time: candleData.time,
+                        position: 'aboveBar',
+                        color: '#FF6B35',
+                        shape: 'circle',
+                        text: `PH${i + 1}: ${pennantHighs[i].toFixed(2)}`,
+                        size: 1
+                      });
+                    }
+                  }
+                });
+
+                // Vẽ upper trendline
+                const upperLineData = pennantHighsIdx.map((idx, i) => {
+                  if (idx >= 0 && idx < originalData.length && pennantHighs[i]) {
+                    return { time: originalData[idx].time, value: pennantHighs[i] };
+                  }
+                  return null;
+                }).filter(point => point !== null);
+
+                if (upperLineData.length > 1) {
+                  const upperLine = chart.addLineSeries({
+                    color: 'rgba(255, 107, 53, 0.8)',
+                    lineWidth: 2,
+                    crosshairMarkerVisible: false,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                  });
+                  upperLine.setData(upperLineData);
+                  allLines.push(upperLine);
+                }
+              }
+
+              // Markers cho pennant lows
+              if (pennantLowsIdx && pennantLows) {
+                pennantLowsIdx.forEach((idx, i) => {
+                  if (idx >= 0 && idx < originalData.length && pennantLows[i]) {
+                    const candleData = originalData[idx];
+                    if (candleData) {
+                      allMarkers.push({
+                        time: candleData.time,
+                        position: 'belowBar',
+                        color: '#4ECDC4',
+                        shape: 'circle',
+                        text: `PL${i + 1}: ${pennantLows[i].toFixed(2)}`,
+                        size: 1
+                      });
+                    }
+                  }
+                });
+
+                // Vẽ lower trendline
+                const lowerLineData = pennantLowsIdx.map((idx, i) => {
+                  if (idx >= 0 && idx < originalData.length && pennantLows[i]) {
+                    return { time: originalData[idx].time, value: pennantLows[i] };
+                  }
+                  return null;
+                }).filter(point => point !== null);
+
+                if (lowerLineData.length > 1) {
+                  const lowerLine = chart.addLineSeries({
+                    color: 'rgba(78, 205, 196, 0.8)',
+                    lineWidth: 2,
+                    crosshairMarkerVisible: false,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                  });
+                  lowerLine.setData(lowerLineData);
+                  allLines.push(lowerLine);
+                }
+              }
+
+              // Main marker cho pennant
+              if (candleIndex >= 0 && candleIndex < originalData.length) {
+                const mainCandle = originalData[candleIndex];
+                if (mainCandle) {
+                  allMarkers.push({
+                    time: mainCandle.time,
+                    position: 'aboveBar',
+                    color: direction === 'bullish' ? '#00FF00' : '#FF0000',
+                    shape: 'circle',
+                    text: `${patternTitle} (${direction})`,
+                    size: 2
+                  });
+                }
+              }
+            }
+
+            // Xử lý cho Triangle patterns
+            else if (pattern.triangleType || (pattern.upperTrendIndices && pattern.lowerTrendIndices)) {
+              const { candleIndex, triangleType, upperTrendIndices, lowerTrendIndices, upperTrendValues, lowerTrendValues, direction } = pattern;
+              
+              console.log('Triangle pattern data:', {
+                candleIndex, triangleType, upperTrendIndices, lowerTrendIndices,
+                upperTrendValues, lowerTrendValues, direction
+              });
+
+              // Màu sắc theo loại triangle
+              const colors = {
+                'ascending': { upper: '#32CD32', lower: '#32CD32', main: '#00FF00' },
+                'descending': { upper: '#FF6347', lower: '#FF6347', main: '#FF0000' },
+                'symmetrical': { upper: '#FFD700', lower: '#FFD700', main: '#FFA500' }
+              };
+              const color = colors[triangleType] || colors['symmetrical'];
+
+              // Markers cho upper trend
+              if (upperTrendIndices && upperTrendValues) {
+                upperTrendIndices.forEach((idx, i) => {
+                  if (idx >= 0 && idx < originalData.length && upperTrendValues[i]) {
+                    const candleData = originalData[idx];
+                    if (candleData) {
+                      allMarkers.push({
+                        time: candleData.time,
+                        position: 'aboveBar',
+                        color: color.upper,
+                        shape: 'circle',
+                        text: `U${i + 1}: ${upperTrendValues[i].toFixed(2)}`,
+                        size: 1
+                      });
+                    }
+                  }
+                });
+
+                // Vẽ upper trendline
+                const upperLineData = upperTrendIndices.map((idx, i) => {
+                  if (idx >= 0 && idx < originalData.length && upperTrendValues[i]) {
+                    return { time: originalData[idx].time, value: upperTrendValues[i] };
+                  }
+                  return null;
+                }).filter(point => point !== null);
+
+                if (upperLineData.length > 1) {
+                  const upperLine = chart.addLineSeries({
+                    color: color.upper + '80',
+                    lineWidth: 2,
+                    crosshairMarkerVisible: false,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                  });
+                  upperLine.setData(upperLineData);
+                  allLines.push(upperLine);
+                }
+              }
+
+              // Markers cho lower trend
+              if (lowerTrendIndices && lowerTrendValues) {
+                lowerTrendIndices.forEach((idx, i) => {
+                  if (idx >= 0 && idx < originalData.length && lowerTrendValues[i]) {
+                    const candleData = originalData[idx];
+                    if (candleData) {
+                      allMarkers.push({
+                        time: candleData.time,
+                        position: 'belowBar',
+                        color: color.lower,
+                        shape: 'circle',
+                        text: `L${i + 1}: ${lowerTrendValues[i].toFixed(2)}`,
+                        size: 1
+                      });
+                    }
+                  }
+                });
+
+                // Vẽ lower trendline
+                const lowerLineData = lowerTrendIndices.map((idx, i) => {
+                  if (idx >= 0 && idx < originalData.length && lowerTrendValues[i]) {
+                    return { time: originalData[idx].time, value: lowerTrendValues[i] };
+                  }
+                  return null;
+                }).filter(point => point !== null);
+
+                if (lowerLineData.length > 1) {
+                  const lowerLine = chart.addLineSeries({
+                    color: color.lower + '80',
+                    lineWidth: 2,
+                    crosshairMarkerVisible: false,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                  });
+                  lowerLine.setData(lowerLineData);
+                  allLines.push(lowerLine);
+                }
+              }
+
+              // Main marker cho triangle
+              if (candleIndex >= 0 && candleIndex < originalData.length) {
+                const mainCandle = originalData[candleIndex];
+                if (mainCandle) {
+                  allMarkers.push({
+                    time: mainCandle.time,
+                    position: 'aboveBar',
+                    color: color.main,
+                    shape: 'circle',
+                    text: `${patternTitle} (${triangleType || 'triangle'})`,
+                    size: 2
+                  });
+                }
+              }
+            }
+
+            // Xử lý cho các patterns khác (fallback)
+            else {
+              console.log('Generic pattern processing for:', patternTitle);
+              if (pattern.candleIndex !== undefined && pattern.candleIndex >= 0 && pattern.candleIndex < originalData.length) {
+                const mainCandle = originalData[pattern.candleIndex];
+                if (mainCandle) {
+                  allMarkers.push({
+                    time: mainCandle.time,
+                    position: 'aboveBar',
+                    color: '#9933FF',
+                    shape: 'circle',
+                    text: patternTitle,
+                    size: 2
+                  });
+                }
               }
             }
           });
@@ -911,24 +1370,16 @@
             window.patternLines = [];
           }
 
-          const candles = [...originalData];
+          // Reset markers
+          candleseries.setMarkers([]);
 
-          candles.forEach((candle, index) => {
-              if(candle.open > candle.close){
-                candle.color = 'red';
-              }
-              else{
-                candle.color = 'green';
-              }
-            });
-
-            candleseries.setData(candles);
-            console.clear();
-
-            candleseries.setMarkers([]);
+          // Đảm bảo dữ liệu gốc được hiển thị
+          if (isValidData(originalData)) {
+            candleseries.setData([...originalData]); // Tạo copy để tránh thay đổi originalData
+          }
 
         } catch (error) {
-          console.error('Error checking Three White Soldiers Patterns:', error.message);
+          console.error('Error in resetPatterns:', error.message);
         }
       };
 
