@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/alter/candle-stick")
+@RequestMapping("/alert/candle-stick")
 @AllArgsConstructor
 @CrossOrigin(origins = "*")
 public class AlterController {
