@@ -1,0 +1,13 @@
+# Requirements for Vietnam Stock Data Crawler
+# Core data processing
+pandas>=1.5.0
+numpy>=1.21.0
+# Vietnam stock data source
+vnstock3>=0.1.0
+# Database
+pymongo>=4.0.0
+# Utilities
+requests>=2.28.0
+python-dateutil>=2.8.0
+# Logging and utilities
+tqdm>=4.64.0

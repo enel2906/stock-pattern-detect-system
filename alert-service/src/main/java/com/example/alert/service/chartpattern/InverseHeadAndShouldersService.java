@@ -83,8 +83,13 @@ public class InverseHeadAndShouldersService {
             }
             
             // Chạy linear regression cho neckline (maxima)
-            LinearRegressionUtils.RegressionResult maxRegression = 
-                LinearRegressionUtils.linregress(xxmax, maxima);
+            LinearRegressionUtils.RegressionResult maxRegression;
+            try {
+                maxRegression = LinearRegressionUtils.linregress(xxmax, maxima);
+            } catch (IllegalArgumentException e) {
+                // Không đủ dữ liệu để chạy regression, skip pattern này
+                continue;
+            }
             double slmax = maxRegression.getSlope();
             
             // Tìm head index (giá trị thấp nhất)

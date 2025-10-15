@@ -74,10 +74,15 @@ public class PennantService {
             }
             
             // Chạy linear regression cho cả hai trendlines
-            LinearRegressionUtils.RegressionResult minRegression = 
-                LinearRegressionUtils.linregress(xxmin, minima);
-            LinearRegressionUtils.RegressionResult maxRegression = 
-                LinearRegressionUtils.linregress(xxmax, maxima);
+            LinearRegressionUtils.RegressionResult minRegression;
+            LinearRegressionUtils.RegressionResult maxRegression;
+            try {
+                minRegression = LinearRegressionUtils.linregress(xxmin, minima);
+                maxRegression = LinearRegressionUtils.linregress(xxmax, maxima);
+            } catch (IllegalArgumentException e) {
+                // Không đủ dữ liệu để chạy regression, skip pattern này
+                continue;
+            }
             
             double slmin = minRegression.getSlope();
             double intercmin = minRegression.getIntercept();

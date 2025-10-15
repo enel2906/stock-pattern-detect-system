@@ -37,10 +37,17 @@ public class LinearRegressionUtils {
      * @param x mảng giá trị x (thường là indices)
      * @param y mảng giá trị y (thường là giá)
      * @return RegressionResult chứa slope, intercept, r-value, etc.
+     * @throws IllegalArgumentException nếu x và y không cùng size hoặc có ít hơn 2 phần tử
      */
     public static RegressionResult linregress(List<Integer> x, List<Double> y) {
-        if (x.size() != y.size() || x.size() < 2) {
-            throw new IllegalArgumentException("Arrays must have the same size and at least 2 elements");
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("Input arrays cannot be null");
+        }
+        if (x.size() != y.size()) {
+            throw new IllegalArgumentException("Input arrays must have the same size. x.size=" + x.size() + ", y.size=" + y.size());
+        }
+        if (x.size() < 2) {
+            throw new IllegalArgumentException("Input arrays must have at least 2 elements. Size=" + x.size());
         }
         
         int n = x.size();
@@ -68,13 +75,11 @@ public class LinearRegressionUtils {
         double rValue = (denominator == 0) ? 0 : numerator / denominator;
         
         // Tính standard error (simplified version)
-        double meanY = sumY / n;
-        double ss_res = 0, ss_tot = 0;
+        double ss_res = 0;
         for (int i = 0; i < n; i++) {
             double predicted = slope * x.get(i) + intercept;
             double actual = y.get(i);
             ss_res += Math.pow(actual - predicted, 2);
-            ss_tot += Math.pow(actual - meanY, 2);
         }
         
         double stdErr = Math.sqrt(ss_res / (n - 2));
@@ -109,7 +114,6 @@ public class LinearRegressionUtils {
         double denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
         double rValue = (denominator == 0) ? 0 : numerator / denominator;
         
-        double meanY = sumY / n;
         double ss_res = 0;
         for (int i = 0; i < n; i++) {
             double predicted = slope * x[i] + intercept;

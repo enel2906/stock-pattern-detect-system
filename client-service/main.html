@@ -765,7 +765,7 @@
       const findPattern = async (pattern) => {
         try {
           const stockSymbol = document.getElementById('stockSelector').value || "AAPL";
-          const res = await fetch(`http://localhost:60/alter/candle-stick/${stockSymbol}?candlePattern=${pattern}`);
+          const res = await fetch(`http://localhost:60/alert/candle-stick/${stockSymbol}?candlePattern=${pattern}`);
           if (!res.ok) {
             throw new Error('Failed to fetch data');
           }
@@ -807,8 +807,8 @@
             return;
           }
 
-          const stockSymbol = document.getElementById('stockSelector').value || "AAPL";
-          const res = await fetch(`http://localhost:60/alter/candle-stick/${stockSymbol}?candlePattern=${patternName}`);
+          const stockSymbol = document.getElementById('stockSelector').value;
+          const res = await fetch(`http://localhost:60/alert/candle-stick/${stockSymbol}?candlePattern=${patternName}`);
           
           if (!res.ok) {
             throw new Error('Failed to fetch pattern data');

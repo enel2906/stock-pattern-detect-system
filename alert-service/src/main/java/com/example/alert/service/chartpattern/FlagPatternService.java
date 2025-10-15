@@ -77,10 +77,15 @@ public class FlagPatternService {
             }
             
             // Chạy linear regression cho cả hai trendlines
-            LinearRegressionUtils.RegressionResult minRegression = 
-                LinearRegressionUtils.linregress(xxmin, minima);
-            LinearRegressionUtils.RegressionResult maxRegression = 
-                LinearRegressionUtils.linregress(xxmax, maxima);
+            LinearRegressionUtils.RegressionResult minRegression;
+            LinearRegressionUtils.RegressionResult maxRegression;
+            try {
+                minRegression = LinearRegressionUtils.linregress(xxmin, minima);
+                maxRegression = LinearRegressionUtils.linregress(xxmax, maxima);
+            } catch (IllegalArgumentException e) {
+                // Không đủ dữ liệu để chạy regression, skip pattern này
+                continue;
+            }
             
             double slmin = minRegression.getSlope();
             double intercmin = minRegression.getIntercept();
@@ -128,7 +133,7 @@ public class FlagPatternService {
      * Overload method với default parameters
      */
     public List<FlagPattern> findFlagPatterns(List<OhlcData> ohlcDataList) {
-        return findFlagPatterns(ohlcDataList, 25, 3, 0.9, 0.9, 0, 0, 0.9, 1.05);
+        return findFlagPatterns(ohlcDataList, 50, 5, 0.9, 0.9, 0, 0, 0.9, 1.05);
     }
     
     /**

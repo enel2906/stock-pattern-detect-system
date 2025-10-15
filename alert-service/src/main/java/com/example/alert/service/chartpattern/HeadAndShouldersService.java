@@ -84,8 +84,13 @@ public class HeadAndShouldersService {
             }
             
             // Chạy linear regression cho neckline (minima)
-            LinearRegressionUtils.RegressionResult minRegression = 
-                LinearRegressionUtils.linregress(xxmin, minima);
+            LinearRegressionUtils.RegressionResult minRegression;
+            try {
+                minRegression = LinearRegressionUtils.linregress(xxmin, minima);
+            } catch (IllegalArgumentException e) {
+                // Không đủ dữ liệu để chạy regression, skip pattern này
+                continue;
+            }
             double slmin = minRegression.getSlope();
             
             // Tìm head index (giá trị cao nhất)
