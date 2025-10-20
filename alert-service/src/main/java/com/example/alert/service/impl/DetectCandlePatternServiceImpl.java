@@ -441,11 +441,14 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             CandleStick second = candles.get(i - 1);
             CandleStick third = candles.get(i);
 
+            // Three White Soldiers: 3 nến tăng liên tiếp, mỗi nến mở trong thân nến trước và đóng cao hơn
             if (first.getClose() > first.getOpen() && // Nến đầu tăng
                     second.getClose() > second.getOpen() && // Nến thứ hai tăng
                     third.getClose() > third.getOpen() && // Nến thứ ba tăng
-                    second.getOpen() > first.getClose() && // Mở cửa nến thứ hai cao hơn đóng cửa nến đầu
-                    third.getOpen() > second.getClose()) { // Mở cửa nến thứ ba cao hơn đóng cửa nến thứ hai
+                    second.getOpen() > first.getOpen() && second.getOpen() < first.getClose() && // Nến 2 mở trong thân nến 1
+                    second.getClose() > first.getClose() && // Nến 2 đóng cao hơn nến 1
+                    third.getOpen() > second.getOpen() && third.getOpen() < second.getClose() && // Nến 3 mở trong thân nến 2
+                    third.getClose() > second.getClose()) { // Nến 3 đóng cao hơn nến 2
                 patterns.add(third);
             }
         }
@@ -462,11 +465,14 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             CandleStick second = candles.get(i - 1);
             CandleStick third = candles.get(i);
 
+            // Three Black Crows: 3 nến giảm liên tiếp, mỗi nến mở trong thân nến trước và đóng thấp hơn
             if (first.getClose() < first.getOpen() && // Nến đầu giảm
                     second.getClose() < second.getOpen() && // Nến thứ hai giảm
                     third.getClose() < third.getOpen() && // Nến thứ ba giảm
-                    second.getOpen() < first.getClose() && // Mở cửa nến thứ hai thấp hơn đóng cửa nến đầu
-                    third.getOpen() < second.getClose()) { // Mở cửa nến thứ ba thấp hơn đóng cửa nến thứ hai
+                    second.getOpen() < first.getOpen() && second.getOpen() > first.getClose() && // Nến 2 mở trong thân nến 1
+                    second.getClose() < first.getClose() && // Nến 2 đóng thấp hơn nến 1
+                    third.getOpen() < second.getOpen() && third.getOpen() > second.getClose() && // Nến 3 mở trong thân nến 2
+                    third.getClose() < second.getClose()) { // Nến 3 đóng thấp hơn nến 2
                 patterns.add(third);
             }
         }
@@ -537,12 +543,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             // Kiểm tra nến thứ nhất là nến tăng
             boolean firstCandleBullish = firstCandle.getClose() > firstCandle.getOpen();
 
-            // Kiểm tra nến thứ hai là nến giảm với gap up và đóng cửa dưới điểm giữa của nến đầu tiên
-            boolean secondCandleBearish = secondCandle.getOpen() > firstCandle.getClose() &&
-                    secondCandle.getClose() < firstCandle.getOpen() +
-                            (firstCandle.getClose() - firstCandle.getOpen()) / 2;
+            // Kiểm tra nến thứ hai là nến giảm với gap up
+            boolean secondCandleBearish = secondCandle.getClose() < secondCandle.getOpen();
+            boolean hasGapUp = secondCandle.getOpen() > firstCandle.getClose();
+            
+            // Kiểm tra nến thứ hai đóng cửa dưới điểm giữa thân nến đầu tiên
+            double firstCandleMidpoint = (firstCandle.getOpen() + firstCandle.getClose()) / 2;
+            boolean closeBelowMidpoint = secondCandle.getClose() < firstCandleMidpoint &&
+                    secondCandle.getClose() > firstCandle.getOpen(); // Nhưng không đóng dưới giá mở nến 1
 
-            if (firstCandleBullish && secondCandleBearish) {
+            if (firstCandleBullish && secondCandleBearish && hasGapUp && closeBelowMidpoint) {
                 darkCloudCoverPatterns.add(secondCandle);
             }
         }
@@ -715,7 +725,7 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
 
             // Kiểm tra nến thứ ba là nến tăng mạnh, giá đóng cửa cao hơn nến thứ hai
             boolean thirdCandleBullish = thirdCandle.getClose() > thirdCandle.getOpen() &&
-                    thirdCandle.getClose() > secondCandle.getHigh();
+                    thirdCandle.getClose() > secondCandle.getClose(); // Chỉ cần cao hơn close, không cần cao hơn high
 
             if (firstCandleBearish && secondCandleBullishHarami && thirdCandleBullish) {
                 threeInsideUpPatterns.add(thirdCandle);
@@ -1002,7 +1012,8 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             // Kiểm tra nến thứ hai là Doji
             double secondCandleBodySize = Math.abs(secondCandle.getClose() - secondCandle.getOpen());
             double secondCandleTotalRange = secondCandle.getHigh() - secondCandle.getLow();
-            boolean secondCandleDoji = secondCandleBodySize <= 0.1 * secondCandleTotalRange;
+            boolean secondCandleDoji = secondCandleTotalRange > 0 && 
+                    secondCandleBodySize <= 0.1 * secondCandleTotalRange;
 
             // Kiểm tra nến thứ ba là nến giảm mạnh, đóng cửa thấp hơn 50% thân nến thứ nhất
             boolean thirdCandleBearish = thirdCandle.getClose() < thirdCandle.getOpen();
@@ -1036,15 +1047,16 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             // Kiểm tra nến thứ hai là Doji
             double secondCandleBodySize = Math.abs(secondCandle.getClose() - secondCandle.getOpen());
             double secondCandleTotalRange = secondCandle.getHigh() - secondCandle.getLow();
-            boolean secondCandleDoji = secondCandleBodySize <= 0.1 * secondCandleTotalRange;
+            boolean secondCandleDoji = secondCandleTotalRange > 0 && 
+                    secondCandleBodySize <= 0.1 * secondCandleTotalRange;
 
             // Kiểm tra nến thứ ba là nến tăng mạnh, đóng cửa cao hơn nến đầu tiên
             boolean thirdCandleBullish = thirdCandle.getClose() > thirdCandle.getOpen();
             boolean closesAboveFirstCandle = thirdCandle.getClose() > firstCandle.getClose();
 
-            // Kiểm tra bối cảnh: Xuất hiện sau một xu hướng giảm
+            // Kiểm tra bối cảnh: Xuất hiện sau một xu hướng giảm (FIXED: was checking for uptrend)
             CandleStick prevCandle = candles.get(i - 3);
-            boolean isDowntrend = prevCandle.getClose() > prevCandle.getOpen() && firstCandleBearish;
+            boolean isDowntrend = prevCandle.getClose() < prevCandle.getOpen() || firstCandleBearish;
 
             // Điều kiện để nhận diện mẫu Morning Star Doji
             if (isDowntrend && firstCandleBearish && secondCandleDoji && thirdCandleBullish && closesAboveFirstCandle) {
@@ -1280,11 +1292,15 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             // Điều kiện Bearish Harami Cross
             // Cây nến đầu tiên tăng mạnh
             boolean firstCandleBullish = firstCandle.getClose() > firstCandle.getOpen();
+            
             // Cây nến thứ hai là Doji
-            boolean secondCandleDoji = Math.abs(secondCandle.getClose() - secondCandle.getOpen()) <= 0.1 * (secondCandle.getHigh() - secondCandle.getLow());
-            // Doji nằm hoàn toàn trong thân nến đầu tiên
-            boolean withinFirstBody = secondCandle.getOpen() <= firstCandle.getClose() &&
-                    secondCandle.getClose() >= firstCandle.getOpen();
+            double secondTotalRange = secondCandle.getHigh() - secondCandle.getLow();
+            boolean secondCandleDoji = secondTotalRange > 0 && 
+                    Math.abs(secondCandle.getClose() - secondCandle.getOpen()) <= 0.1 * secondTotalRange;
+            
+            // Doji nằm hoàn toàn trong thân nến đầu tiên (kiểm tra cả high và low)
+            boolean withinFirstBody = secondCandle.getHigh() <= firstCandle.getClose() &&
+                    secondCandle.getLow() >= firstCandle.getOpen();
 
             if (firstCandleBullish && secondCandleDoji && withinFirstBody) {
                 bearishHaramiCrossPatterns.add(secondCandle);
@@ -1305,11 +1321,15 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
             // Điều kiện Bullish Harami Cross
             // Cây nến đầu tiên giảm mạnh
             boolean firstCandleBearish = firstCandle.getClose() < firstCandle.getOpen();
+            
             // Cây nến thứ hai là Doji
-            boolean secondCandleDoji = Math.abs(secondCandle.getClose() - secondCandle.getOpen()) <= 0.1 * (secondCandle.getHigh() - secondCandle.getLow());
-            // Doji nằm hoàn toàn trong thân nến đầu tiên
-            boolean withinFirstBody = secondCandle.getOpen() >= firstCandle.getClose() &&
-                    secondCandle.getClose() <= firstCandle.getOpen();
+            double secondTotalRange = secondCandle.getHigh() - secondCandle.getLow();
+            boolean secondCandleDoji = secondTotalRange > 0 && 
+                    Math.abs(secondCandle.getClose() - secondCandle.getOpen()) <= 0.1 * secondTotalRange;
+            
+            // Doji nằm hoàn toàn trong thân nến đầu tiên (kiểm tra cả high và low)
+            boolean withinFirstBody = secondCandle.getHigh() <= firstCandle.getOpen() &&
+                    secondCandle.getLow() >= firstCandle.getClose();
 
             if (firstCandleBearish && secondCandleDoji && withinFirstBody) {
                 bullishHaramiCrossPatterns.add(secondCandle);
