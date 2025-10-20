@@ -62,5 +62,18 @@ public interface DetectCandlePatternService {
     List<CandleStick> getBullishThreeLineStrikePatterns(String stockId);
     List<CandleStick> getBearishThreeLineStrikePatterns(String stockId);
     List<CandleStick> getLadderTopPatterns(String stockId);
+    
+    // Real-time pattern detection methods (work with List directly, not from DB)
+    List<CandleStick> getHammerCandlesFromList(List<CandleStick> candles);
+    List<CandleStick> getInvertedHammerCandlesFromList(List<CandleStick> candles);
+    List<CandleStick> getHangingManCandlesFromList(List<CandleStick> candles);
+    List<CandleStick> getShootingStarCandlesFromList(List<CandleStick> candles);
+    List<CandleStick> getBullishEngulfingFromList(List<CandleStick> candles);
+    List<CandleStick> getBearishEngulfingFromList(List<CandleStick> candles);
+    List<CandleStick> getMorningStarFromList(List<CandleStick> candles);
+    List<CandleStick> getEveningStarFromList(List<CandleStick> candles);
+    List<CandleStick> getThreeWhiteSoldiersFromList(List<CandleStick> candles);
+    List<CandleStick> getThreeBlackCrowsFromList(List<CandleStick> candles);
+    List<CandleStick> getDojiFromList(List<CandleStick> candles);
 }
 

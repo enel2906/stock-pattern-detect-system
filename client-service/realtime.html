@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Pattern Detection</title>
+    <!-- SockJS và STOMP for WebSocket -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stomp-websocket@2.3.4-next/lib/stomp.min.js"></script>
+    <!-- Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+        
+        select, input {
+            padding: 8px;
+            min-width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        #chart {
+            width: 100%;
+            height: 600px;
+            margin-top: 20px;
+        }
+        
+        .pattern-alert {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .pattern-alert.bullish {
+            background-color: #d1e7dd;
+            border-left-color: #28a745;
+        }
+        
+        .pattern-alert.bearish {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        
+        #alerts {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔴 Real-time Candlestick Pattern Detection</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="stockSymbol">Stock Symbol:</label>
+                <select id="stockSymbol">
+                    <option value="VIC">VIC - Vingroup</option>
+                    <option value="VNM">VNM - Vinamilk</option>
+                    <option value="FPT">FPT - FPT Corporation</option>
+                    <option value="HPG">HPG - Hoa Phat Group</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="patternSelect">Watch Pattern:</label>
+                <select id="patternSelect">
+                    <option value="">-- None --</option>
+                    <option value="hammer">🔨 Hammer</option>
+                    <option value="inverted_hammer">🔨 Inverted Hammer</option>
+                    <option value="hanging_man">👤 Hanging Man</option>
+                    <option value="shooting_star">🌟 Shooting Star</option>
+                    <option value="bullish_engulfing">🟢 Bullish Engulfing</option>
+                    <option value="bearish_engulfing">🔴 Bearish Engulfing</option>
+                    <option value="morning_star">🌅 Morning Star</option>
+                    <option value="evening_star">🌆 Evening Star</option>
+                    <option value="three_white_soldiers">⬜⬜⬜ Three White Soldiers</option>
+                    <option value="three_black_crows">⬛⬛⬛ Three Black Crows</option>
+                    <option value="doji">🕯️ Doji</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <button id="connectBtn" onclick="connectWebSocket()">Connect</button>
+                <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled>Disconnect</button>
+                <button onclick="startWatching()">Start Watching</button>
+            </div>
+            
+            <div id="status" class="status disconnected">
+                Status: Disconnected
+            </div>
+        </div>
+        
+        <div id="chart"></div>
+        
+        <div id="alerts">
+            <h3>Pattern Alerts</h3>
+        </div>
+    </div>
+    
+    <script>
+        let stompClient = null;
+        let chart = null;
+        let candleSeries = null;
+        let currentSymbol = 'VIC';
+        
+        // Initialize chart
+        function initChart() {
+            const container = document.getElementById('chart');
+            chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 600,
+                layout: {
+                    backgroundColor: '#ffffff',
+                    textColor: '#333',
+                },
+                grid: {
+                    vertLines: { color: '#f0f0f0' },
+                    horzLines: { color: '#f0f0f0' },
+                },
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: true,
+                },
+            });
+            
+            candleSeries = chart.addCandlestickSeries({
+                upColor: '#26a69a',
+                downColor: '#ef5350',
+                borderVisible: false,
+                wickUpColor: '#26a69a',
+                wickDownColor: '#ef5350',
+            });
+        }
+        
+        // Connect WebSocket
+        function connectWebSocket() {
+            const socket = new SockJS('http://localhost:60/ws-pattern-detection');
+            stompClient = Stomp.over(socket);
+            
+            // Optional: disable debug
+            stompClient.debug = (str) => console.log('STOMP: ' + str);
+            
+            stompClient.connect({}, (frame) => {
+                console.log('Connected: ' + frame);
+                updateStatus(true);
+                
+                // Subscribe to updates for current symbol
+                subscribeToSymbol(currentSymbol);
+            }, (error) => {
+                console.error('Connection error: ', error);
+                updateStatus(false);
+            });
+        }
+        
+        // Disconnect WebSocket
+        function disconnectWebSocket() {
+            if (stompClient && stompClient.connected) {
+                stompClient.disconnect(() => {
+                    console.log('Disconnected');
+                    updateStatus(false);
+                });
+            }
+        }
+        
+        // Subscribe to symbol updates
+        function subscribeToSymbol(symbol) {
+            if (!stompClient || !stompClient.connected) {
+                console.error('Not connected to WebSocket');
+                return;
+            }
+            
+            const topic = `/topic/updates/${symbol}`;
+            console.log('Subscribing to: ' + topic);
+            
+            stompClient.subscribe(topic, (message) => {
+                const update = JSON.parse(message.body);
+                console.log('Received update:', update);
+                handleRealtimeUpdate(update);
+            });
+        }
+        
+        // Start watching pattern
+        function startWatching() {
+            if (!stompClient || !stompClient.connected) {
+                alert('Please connect first!');
+                return;
+            }
+            
+            currentSymbol = document.getElementById('stockSymbol').value;
+            const patternName = document.getElementById('patternSelect').value;
+            
+            console.log(`Starting to watch ${patternName} for ${currentSymbol}`);
+            
+            // Send watch request
+            stompClient.send(
+                `/app/watch-pattern/${currentSymbol}`,
+                {},
+                JSON.stringify({ patternName: patternName })
+            );
+            
+            addAlert('info', `Now watching ${patternName || 'all patterns'} for ${currentSymbol}`);
+        }
+        
+        // Handle real-time update
+        function handleRealtimeUpdate(update) {
+            console.log('Processing update:', update);
+            
+            // Update chart with recent candles
+            if (update.recentCandles && update.recentCandles.length > 0) {
+                const chartData = update.recentCandles.map(candle => ({
+                    time: new Date(candle.date).toISOString().split('T')[0],
+                    open: candle.open,
+                    high: candle.high,
+                    low: candle.low,
+                    close: candle.close,
+                }));
+                
+                candleSeries.setData(chartData);
+            }
+            
+            // Show pattern alert if detected
+            if (update.detectedPattern && update.patternCandle) {
+                const patternType = getPatternType(update.detectedPattern);
+                addAlert(
+                    patternType,
+                    `🎯 ${update.detectedPattern.toUpperCase()} pattern detected at ${new Date(update.patternCandle.date).toLocaleTimeString()}!`
+                );
+                
+                // Add marker to chart
+                const markers = [{
+                    time: new Date(update.patternCandle.date).toISOString().split('T')[0],
+                    position: 'aboveBar',
+                    color: patternType === 'bullish' ? '#26a69a' : '#ef5350',
+                    shape: 'circle',
+                    text: update.detectedPattern.replace('_', ' ').toUpperCase(),
+                }];
+                candleSeries.setMarkers(markers);
+            }
+        }
+        
+        // Get pattern type (bullish/bearish)
+        function getPatternType(patternName) {
+            const bullishPatterns = ['hammer', 'inverted_hammer', 'bullish_engulfing', 'morning_star', 'three_white_soldiers'];
+            const bearishPatterns = ['hanging_man', 'shooting_star', 'bearish_engulfing', 'evening_star', 'three_black_crows'];
+            
+            if (bullishPatterns.includes(patternName)) return 'bullish';
+            if (bearishPatterns.includes(patternName)) return 'bearish';
+            return 'info';
+        }
+        
+        // Add alert message
+        function addAlert(type, message) {
+            const alertsDiv = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `pattern-alert ${type}`;
+            alert.innerHTML = `
+                <strong>${new Date().toLocaleTimeString()}</strong>: ${message}
+            `;
+            alertsDiv.insertBefore(alert, alertsDiv.children[1]);
+            
+            // Keep only last 10 alerts
+            while (alertsDiv.children.length > 11) {
+                alertsDiv.removeChild(alertsDiv.lastChild);
+            }
+        }
+        
+        // Update connection status
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            
+            if (connected) {
+                statusDiv.textContent = 'Status: Connected';
+                statusDiv.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+            } else {
+                statusDiv.textContent = 'Status: Disconnected';
+                statusDiv.className = 'status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            initChart();
+            addAlert('info', 'Chart initialized. Click Connect to start.');
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (chart) {
+                chart.applyOptions({
+                    width: document.getElementById('chart').clientWidth
+                });
+            }
+        });
+    </script>
+</body>
+</html>

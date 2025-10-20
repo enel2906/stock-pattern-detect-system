@@ -1453,6 +1453,241 @@ public class DetectCandlePatternServiceImpl implements DetectCandlePatternServic
         return ladderTopPatterns;
     }
 
+    // ==================== REAL-TIME PATTERN DETECTION METHODS ====================
+    // These methods work with List<CandleStick> directly instead of fetching from DB
+    
+    @Override
+    public List<CandleStick> getHammerCandlesFromList(List<CandleStick> candles) {
+        List<CandleStick> hammerCandles = new ArrayList<>();
+        for (CandleStick candle : candles) {
+            double bodySize = Math.abs(candle.getClose() - candle.getOpen());
+            double upperShadow = candle.getHigh() - Math.max(candle.getOpen(), candle.getClose());
+            double lowerShadow = Math.min(candle.getOpen(), candle.getClose()) - candle.getLow();
+            double totalRange = candle.getHigh() - candle.getLow();
+            
+            if (totalRange == 0) continue;
+
+            if (bodySize <= 0.3 * totalRange && 
+                    lowerShadow >= 2 * bodySize && 
+                    upperShadow <= 0.1 * totalRange) {
+                hammerCandles.add(candle);
+            }
+        }
+        return hammerCandles;
+    }
+
+    @Override
+    public List<CandleStick> getInvertedHammerCandlesFromList(List<CandleStick> candles) {
+        List<CandleStick> invertedHammerCandles = new ArrayList<>();
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick candle = candles.get(i);
+            double bodySize = Math.abs(candle.getClose() - candle.getOpen());
+            double upperShadow = candle.getHigh() - Math.max(candle.getOpen(), candle.getClose());
+            double lowerShadow = Math.min(candle.getOpen(), candle.getClose()) - candle.getLow();
+            double totalRange = candle.getHigh() - candle.getLow();
+            
+            if (totalRange == 0) continue;
+
+            boolean isInvertedHammer = bodySize <= 0.3 * totalRange && 
+                    upperShadow >= 2 * bodySize && 
+                    lowerShadow <= 0.1 * totalRange;
+
+            CandleStick prevCandle = candles.get(i - 1);
+            boolean isDowntrend = prevCandle.getClose() < prevCandle.getOpen();
+
+            if (isInvertedHammer && isDowntrend) {
+                invertedHammerCandles.add(candle);
+            }
+        }
+        return invertedHammerCandles;
+    }
+
+    @Override
+    public List<CandleStick> getHangingManCandlesFromList(List<CandleStick> candles) {
+        List<CandleStick> hangingManCandles = new ArrayList<>();
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick candle = candles.get(i);
+            double bodySize = Math.abs(candle.getClose() - candle.getOpen());
+            double upperShadow = candle.getHigh() - Math.max(candle.getOpen(), candle.getClose());
+            double lowerShadow = Math.min(candle.getOpen(), candle.getClose()) - candle.getLow();
+            double totalRange = candle.getHigh() - candle.getLow();
+
+            boolean isHangingMan = totalRange > 0 &&
+                    bodySize <= 0.3 * totalRange && 
+                    lowerShadow >= 2 * bodySize && 
+                    upperShadow <= 0.1 * totalRange;
+
+            CandleStick prevCandle = candles.get(i - 1);
+            boolean isUptrend = prevCandle.getClose() > prevCandle.getOpen();
+
+            if (isHangingMan && isUptrend) {
+                hangingManCandles.add(candle);
+            }
+        }
+        return hangingManCandles;
+    }
+
+    @Override
+    public List<CandleStick> getShootingStarCandlesFromList(List<CandleStick> candles) {
+        List<CandleStick> shootingStarCandles = new ArrayList<>();
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick candle = candles.get(i);
+            double bodySize = Math.abs(candle.getClose() - candle.getOpen());
+            double upperShadow = candle.getHigh() - Math.max(candle.getOpen(), candle.getClose());
+            double lowerShadow = Math.min(candle.getOpen(), candle.getClose()) - candle.getLow();
+            double totalRange = candle.getHigh() - candle.getLow();
+            
+            if (totalRange == 0) continue;
+
+            boolean isShootingStar = bodySize <= 0.3 * totalRange && 
+                    upperShadow >= 2 * bodySize && 
+                    lowerShadow <= 0.1 * totalRange;
+
+            CandleStick prevCandle = candles.get(i - 1);
+            boolean isUptrend = prevCandle.getClose() > prevCandle.getOpen();
+
+            if (isShootingStar && isUptrend) {
+                shootingStarCandles.add(candle);
+            }
+        }
+        return shootingStarCandles;
+    }
+
+    @Override
+    public List<CandleStick> getBullishEngulfingFromList(List<CandleStick> candles) {
+        List<CandleStick> bullishPatterns = new ArrayList<>();
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick prev = candles.get(i - 1);
+            CandleStick curr = candles.get(i);
+
+            if (prev.getClose() < prev.getOpen() && 
+                    curr.getClose() > curr.getOpen() && 
+                    curr.getOpen() <= prev.getClose() && 
+                    curr.getClose() >= prev.getOpen()) {
+                bullishPatterns.add(curr);
+            }
+        }
+        return bullishPatterns;
+    }
+
+    @Override
+    public List<CandleStick> getBearishEngulfingFromList(List<CandleStick> candles) {
+        List<CandleStick> bearishPatterns = new ArrayList<>();
+        for (int i = 1; i < candles.size(); i++) {
+            CandleStick prev = candles.get(i - 1);
+            CandleStick curr = candles.get(i);
+
+            if (prev.getClose() > prev.getOpen() && 
+                    curr.getClose() < curr.getOpen() && 
+                    curr.getOpen() >= prev.getClose() && 
+                    curr.getClose() <= prev.getOpen()) {
+                bearishPatterns.add(curr);
+            }
+        }
+        return bearishPatterns;
+    }
+
+    @Override
+    public List<CandleStick> getMorningStarFromList(List<CandleStick> candles) {
+        List<CandleStick> morningStarPatterns = new ArrayList<>();
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            boolean firstBearish = firstCandle.getClose() < firstCandle.getOpen();
+            boolean secondSmallBody = Math.abs(secondCandle.getClose() - secondCandle.getOpen()) <
+                    (firstCandle.getHigh() - firstCandle.getLow()) * 0.3;
+            boolean thirdBullish = thirdCandle.getClose() > thirdCandle.getOpen();
+            boolean strongRecovery = thirdCandle.getClose() > (firstCandle.getOpen() +
+                    (firstCandle.getClose() - firstCandle.getOpen()) * 0.5);
+
+            if (firstBearish && secondSmallBody && thirdBullish && strongRecovery) {
+                morningStarPatterns.add(thirdCandle);
+            }
+        }
+        return morningStarPatterns;
+    }
+
+    @Override
+    public List<CandleStick> getEveningStarFromList(List<CandleStick> candles) {
+        List<CandleStick> eveningStarPatterns = new ArrayList<>();
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick firstCandle = candles.get(i - 2);
+            CandleStick secondCandle = candles.get(i - 1);
+            CandleStick thirdCandle = candles.get(i);
+
+            boolean firstBullish = firstCandle.getClose() > firstCandle.getOpen();
+            boolean secondSmallBody = Math.abs(secondCandle.getClose() - secondCandle.getOpen()) <
+                    (firstCandle.getHigh() - firstCandle.getLow()) * 0.3;
+            boolean thirdBearish = thirdCandle.getClose() < thirdCandle.getOpen();
+            boolean strongDrop = thirdCandle.getClose() < (firstCandle.getClose() +
+                    (firstCandle.getOpen() - firstCandle.getClose()) * 0.5);
+
+            if (firstBullish && secondSmallBody && thirdBearish && strongDrop) {
+                eveningStarPatterns.add(thirdCandle);
+            }
+        }
+        return eveningStarPatterns;
+    }
+
+    @Override
+    public List<CandleStick> getThreeWhiteSoldiersFromList(List<CandleStick> candles) {
+        List<CandleStick> patterns = new ArrayList<>();
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick first = candles.get(i - 2);
+            CandleStick second = candles.get(i - 1);
+            CandleStick third = candles.get(i);
+
+            if (first.getClose() > first.getOpen() && 
+                    second.getClose() > second.getOpen() && 
+                    third.getClose() > third.getOpen() && 
+                    second.getOpen() > first.getOpen() && second.getOpen() < first.getClose() && 
+                    second.getClose() > first.getClose() && 
+                    third.getOpen() > second.getOpen() && third.getOpen() < second.getClose() && 
+                    third.getClose() > second.getClose()) {
+                patterns.add(third);
+            }
+        }
+        return patterns;
+    }
+
+    @Override
+    public List<CandleStick> getThreeBlackCrowsFromList(List<CandleStick> candles) {
+        List<CandleStick> patterns = new ArrayList<>();
+        for (int i = 2; i < candles.size(); i++) {
+            CandleStick first = candles.get(i - 2);
+            CandleStick second = candles.get(i - 1);
+            CandleStick third = candles.get(i);
+
+            if (first.getClose() < first.getOpen() && 
+                    second.getClose() < second.getOpen() && 
+                    third.getClose() < third.getOpen() && 
+                    second.getOpen() < first.getOpen() && second.getOpen() > first.getClose() && 
+                    second.getClose() < first.getClose() && 
+                    third.getOpen() < second.getOpen() && third.getOpen() > second.getClose() && 
+                    third.getClose() < second.getClose()) {
+                patterns.add(third);
+            }
+        }
+        return patterns;
+    }
+
+    @Override
+    public List<CandleStick> getDojiFromList(List<CandleStick> candles) {
+        List<CandleStick> dojiCandles = new ArrayList<>();
+        for (CandleStick candle : candles) {
+            double openCloseDiff = Math.abs(candle.getOpen() - candle.getClose());
+            double totalRange = candle.getHigh() - candle.getLow();
+            
+            if (totalRange == 0) continue;
+
+            if (openCloseDiff <= 0.1 * totalRange) {
+                dojiCandles.add(candle);
+            }
+        }
+        return dojiCandles;
+    }
 
 }
 
