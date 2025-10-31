@@ -1,166 +1,176 @@
   <!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stock Pattern Detection - ChungKhoanNT.com</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-  <!-- Include the Lightweight Charts library -->
-  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📈 Vietnam & International Stock Pattern Detection</title>
+    <!-- Include the Lightweight Charts library -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+  </head>
   <style>
-    :root {
-      --bg:#0b0d10; --panel:#12151a; --text:#dce3ea; --muted:#8b95a5; --accent:#3b82f6; --grid:#1f242d;
-    }
-    body.light {
-      --bg:#ffffff; --panel:#f4f6f8; --text:#1f2937; --muted:#6b7280; --accent:#2563eb; --grid:#e5e7eb;
-    }
-    * { box-sizing: border-box; }
-    body { 
-      margin:0; 
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; 
-      background: var(--bg); 
-      color: var(--text); 
-    }
-    header { 
-      display:flex; 
-      align-items:center; 
-      justify-content:space-between; 
-      padding:12px 16px; 
-      background: var(--panel); 
-      border-bottom:1px solid #1a1f27; 
-      position: sticky; 
-      top:0; 
-      z-index:5;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .brand { 
-      display:flex; 
-      align-items:center; 
-      gap:10px; 
-      font-weight:700; 
-      letter-spacing:.2px; 
-    }
-    .brand .dot { 
-      width:10px; 
-      height:10px; 
-      border-radius:50%; 
-      background: var(--accent); 
-      box-shadow: 0 0 12px var(--accent); 
-    }
-    .controls { 
-      display:flex; 
-      gap:8px; 
-      align-items:center; 
-      flex-wrap: wrap; 
-    }
-    .controls input, .controls select, .controls button {
-      background:#0f1117; 
-      color:var(--text); 
-      border:1px solid #2a313d; 
-      padding:8px 10px; 
-      border-radius:10px; 
-      outline:none;
-      font-size: 13px;
-    }
-    .controls input:focus, .controls select:focus { border-color: var(--accent); }
-    .controls button { cursor: pointer; font-weight:600; }
-    .controls button.primary { background: var(--accent); border-color:transparent; color:white; }
-    
-    .layout {
-      display:grid;
-      grid-template-rows: 100%;
-      gap:0;
-      padding:10px;
-      height: var(--layout-h, 80vh);
-    }
-
-    .chart {
-      height: auto;
-      min-height: 0;
-      position: relative;
-    }
-
-    .card {
-      background: var(--panel);
-      border:1px solid #1a1f27;
-      border-radius:14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
-      overflow: hidden;
-    }
-    
-    .status { font-size:12px; color: var(--muted); margin-left: 16px; }
-    .row { display:flex; gap:8px; align-items:center; }
-    .spacer { flex:1; }
-
-    /* Pattern category colors for optgroups */
-    optgroup {
-      font-weight: bold;
-      background: linear-gradient(135deg, #f5f8ff 0%, #e8f2ff 100%);
-      color: #003366;
-      border-bottom: 2px solid #0066CC;
-      padding: 8px 0;
-      font-size: 14px;
-    }
-
-    optgroup option {
-      font-weight: normal;
+    body {
+      font-family: 'Arial', sans-serif;
       background-color: #fff;
-      color: #333;
-      padding: 8px 15px;
-      border-left: 3px solid transparent;
+      margin: 0;
+      padding: 0;
+    }
+
+
+    #patternSelector {
+      padding: 12px;
+      font-size: 16px;
+      width: 500px;
+      border: 2px solid #0066CC;
+      border-radius: 8px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+      color: #0066CC;
+      position: relative;
+      left: 500px;
+      box-shadow: 0 2px 8px rgba(0, 102, 204, 0.15);
       transition: all 0.3s ease;
     }
 
-    optgroup[label*="Single"] {
-      background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
-      border-left: 4px solid #ff9800;
-    }
-    
-    optgroup[label*="Two"] {
-      background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-      border-left: 4px solid #9c27b0;
-    }
-    
-    optgroup[label*="Three"] {
-      background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-      border-left: 4px solid #4caf50;
-    }
-    
-    optgroup[label*="Multi"] {
-      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-      border-left: 4px solid #2196f3;
-    }
-    
-    optgroup[label*="Complex"] {
-      background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%);
-      border-left: 4px solid #e91e63;
+    #patternSelector:hover {
+      background-color: #fff;
+      color: #003366;
     }
 
-    /* Hide watermarks */
-    #tvchart a[href*="tradingview"], #tvchart [class*="tradingview"],
-    #tvchart [class*="watermark"] { display:none !important; }
-
-    @media (max-width: 720px) {
-      .chart { height: 80vh; }
-      .controls { gap:6px; }
-      header { flex-direction: column; align-items: flex-start; }
+    #selectText{
+      position: relative;
+      left: 500px;
+      font-size: 16px;
+      margin-bottom: 8px;
     }
+
+    #annotationTable {
+        margin-top: 20px;
+        width: 480px;
+        border-collapse: collapse;
+
+        align-items: center;
+
+        position: relative;
+        left: 600px;
+      }
+
+      #annotationTable th, #annotationTable td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+      }
+
+      #annotationTable th {
+        background-color: #003366;
+        color: #fff;
+      }
+
+      #stockSelector, #patternSelector {
+        padding: 12px;
+        font-size: 16px;
+        width: 400px;
+        border: 2px solid #0066CC;
+        border-radius: 8px;
+        cursor: pointer;
+        background-color: #fff;
+        color: #0066CC;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+
+      #stockSelector:hover, #patternSelector:hover {
+        background-color: #f0f8ff;
+        color: #003366;
+        border-color: #003366;
+      }
+
+      /* Style for optgroups */
+      optgroup {
+        font-weight: bold;
+        background: linear-gradient(135deg, #f5f8ff 0%, #e8f2ff 100%);
+        color: #003366;
+        border-bottom: 2px solid #0066CC;
+        padding: 8px 0;
+        font-size: 14px;
+      }
+
+      optgroup option {
+        font-weight: normal;
+        background-color: #fff;
+        color: #333;
+        padding: 8px 15px;
+        border-left: 3px solid transparent;
+        transition: all 0.3s ease;
+      }
+
+      optgroup option:hover {
+        background: linear-gradient(90deg, #e6f3ff 0%, #f0f8ff 100%);
+        border-left-color: #0066CC;
+        color: #003366;
+        transform: translateX(2px);
+      }
+
+      /* Pattern category colors */
+      optgroup[label*="Single"] {
+        background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+        border-left: 4px solid #ff9800;
+      }
+      
+      optgroup[label*="Two"] {
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+        border-left: 4px solid #9c27b0;
+      }
+      
+      optgroup[label*="Three"] {
+        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+        border-left: 4px solid #4caf50;
+      }
+      
+      optgroup[label*="Multi"] {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-left: 4px solid #2196f3;
+      }
+      
+      optgroup[label*="Complex"] {
+        background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%);
+        border-left: 4px solid #e91e63;
+      }
+
+      /* Animate pattern selector */
+      #patternSelector {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      #patternSelector:focus {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+      }
+
+      /* Improve label styling */
+      #selectText {
+        font-weight: 600;
+        color: #003366;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+      }
+
   </style>
-</head>
-<body>
-  <header>
-    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 12px;">
-      <div class="brand">
-        <div class="dot"></div> 
-        <div>Stock Pattern Detection - ChungKhoanNT.com</div>
+  <body>
+    <!-- Header -->
+    <div style="background-color: #003366; color: white; padding: 20px; text-align: center; margin-bottom: 20px;">
+      <h1>📈 Vietnam & International Stock Pattern Detection System</h1>
+      <p>Analyze candlestick patterns across Vietnamese and global markets</p>
+      <div style="margin-top: 10px; font-size: 14px; opacity: 0.9;">
+        <span>🇻🇳 HOSE: Ho Chi Minh Stock Exchange</span> • 
+        <span>🇻🇳 HNX: Hanoi Stock Exchange</span> • 
+        <span>🇻🇳 UPCOM: Unlisted Public Company Market</span> • 
+        <span>🌍 US: International Markets</span>
       </div>
-      <div class="status" id="status">Sẵn sàng.</div>
     </div>
-    <div class="controls">
-      <div class="row">
-        <label for="stockSelector" style="color:var(--muted); font-size:12px;">Mã CP</label>
-        <select id="stockSelector" onchange="refreshChart()">
+
+    <!-- Placeholder div for the chart -->
+     <!-- Dropdown for selecting stock symbol -->
+    <label style="margin-left: 20px;" for="stockSelector">🏛️ Select Stock Symbol:</label>
+    <select id="stockSelector" onchange="refreshChart()">
       <!-- Vietnamese Stocks - HOSE (Ho Chi Minh Stock Exchange) -->
       <optgroup label="🇻🇳 HOSE (Ho Chi Minh Stock Exchange)">
         <option value="VIC">VIC - Vingroup</option>
@@ -216,10 +226,10 @@
         <option value="EURUSD">EUR/USD</option>
       </optgroup>
     </select>
-      </div>
-      <div class="row">
-        <label for="patternSelector" style="color:var(--muted); font-size:12px;">Mô hình</label>
-        <select id="patternSelector" onchange="checkSelectedPattern()">
+
+
+    <label id="selectText" for="patternSelector">🔍 Select Candlestick Patterns:</label>
+<select id="patternSelector" onchange="checkSelectedPattern()">
   <option value="reset">🔄 Default / Reset All Patterns</option>
 
   <!-- Single Candle Patterns -->
@@ -304,61 +314,49 @@
     <option value="triangle_pattern">📐 All Triangle Patterns</option>
   </optgroup>
 </select>
-      </div>
-      <button class="primary" id="load" onclick="refreshChart()">Tải dữ liệu</button>
-      <button id="toggle-theme" title="Chuyển chế độ">🌙</button>
-    </div>
-  </header>
 
-  <main style="padding:10px;">
-    <div class="card layout">
-      <div id="tvchart" class="chart"></div>
-    </div>
-  </main>
 
-  <script>
-    const $ = (s) => document.querySelector(s);
-    const statusEl = $('#status');
-    const RIGHT_OFFSET = 20;
+      <!-- Add more options as needed -->
+    </select>
+    <!-- Include your JavaScript file that contains the chart-drawing logic -->
 
-    function setStatus(t){ statusEl.textContent = t; }
 
-    // Tính chiều cao thực tế cho .layout để lấp đầy màn hình
-    function sizeLayout() {
-      const h = window.innerHeight;
-      const headerH = document.querySelector('header')?.offsetHeight || 0;
-      const layoutH = h - headerH - 20;
-      document.querySelector('.layout').style.setProperty('--layout-h', layoutH + 'px');
-    }
+    <div id="tvchart" ></div>
+    <canvas id="overlayCanvas" style="position: absolute; top: 0; left: 0;"></canvas>
 
-    window.addEventListener('resize', sizeLayout);
-    sizeLayout();
+<!--    <table id="annotationTable">-->
+<!--      <thead>-->
+<!--        <tr>-->
+<!--          <th>Candle Stick Pattern</th>-->
+<!--          <th>Color</th>-->
+<!--        </tr>-->
+<!--      </thead>-->
+<!--      <tbody>-->
+<!--        <tr>-->
+<!--          <td>Hammer</td>-->
+<!--          <td  style="background-color: #FF8000;"></td>-->
+<!--        </tr>-->
+<!--        <tr>-->
+<!--          <td>Bullish Engulfing</td>-->
+<!--          <td style="background-color: #9933FF;"></td>-->
+<!--        </tr>-->
+<!--        <tr>-->
+<!--          <td>Harami</td>-->
+<!--          <td style="background-color: #FF99CC;"></td>-->
+<!--        </tr>-->
+<!--        <tr>-->
+<!--          <td>Three Black Crows</td>-->
+<!--          <td style="background-color: #003366;"></td>-->
+<!--        </tr>-->
+<!--        <tr>-->
+<!--          <td>Three White Soldiers</td>-->
+<!--          <td style="background-color: white;"></td>-->
+<!--        </tr>-->
+<!--      </tbody>-->
+<!--    </table>-->
 
-    // Theme toggle
-    const themeBtn = $('#toggle-theme');
-    let isLight = false;
-
-    themeBtn.addEventListener('click', () => {
-      isLight = !isLight;
-      document.body.classList.toggle('light', isLight);
-      themeBtn.textContent = isLight ? '☀️' : '🌙';
-
-      // Đổi màu chart khi đổi theme
-      const colors = isLight
-        ? { bg:'transparent', text:'#1f2937', grid:'#e5e7eb', border:'#2a313d' }
-        : { bg:'transparent', text:'#c7d2e0', grid:'#1f242d', border:'#2b3240' };
-
-      if (chart) {
-        chart.applyOptions({
-          layout: { background:{ type:'solid', color: colors.bg }, textColor: colors.text },
-          grid: { vertLines:{ color: colors.grid }, horzLines:{ color: colors.grid } },
-          rightPriceScale: { borderColor: colors.border },
-          timeScale: { borderColor: colors.border }
-        });
-      }
-    });
-
-    const checkSelectedPattern = async () => {
+    <script>
+      const checkSelectedPattern = async () => {
         try {
           const selectedPattern = document.getElementById("patternSelector").value;
           
@@ -631,7 +629,6 @@
 
       const refreshChart = async () => {
         try {
-          setStatus('Đang tải dữ liệu...');
           // Reset patterns trước khi load dữ liệu mới
           resetPatterns();
           
@@ -642,14 +639,11 @@
             // Cập nhật dữ liệu gốc
             originalData = [...data];
             candleseries.setData(originalData);
-            setStatus(`Đã tải ${data.length} phiên cho ${stockSymbol}.`);
           } else {
             console.warn('No valid data to display.');
-            setStatus('Không có dữ liệu để hiển thị.');
           }
         } catch (error) {
           console.error('Error refreshing chart:', error.message);
-          setStatus('Lỗi: ' + error.message);
         }
       };
 
@@ -682,84 +676,61 @@
 
       const displayChart = async () => {
         try {
-          setStatus('Đang khởi tạo biểu đồ...');
-          
           const chartProperties = {
-            layout: { background:{ type:'solid', color:'transparent' }, textColor:'#c7d2e0' },
-            rightPriceScale: { borderColor:'#2b3240' },
-            timeScale: { 
-              borderColor:'#2b3240', 
-              timeVisible:true, 
-              rightOffset: RIGHT_OFFSET, 
-              secondsVisible:false 
+            width: 1600,
+            height: 600,
+            timeScale: {
+              timeVisible: true,
+              secondsVisible: true,
             },
-            grid: { vertLines:{ color:'#1f242d' }, horzLines:{ color:'#1f242d' } },
-            crosshair: { mode: 0 },
-            handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
-            handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
-            autoSize: true,
+            layout: {
+              backgroundColor: 'black', // Dark background color
+            },
           };
 
           const domElement = document.getElementById('tvchart');
           if (!domElement) {
             console.error('Element with id "tvchart" not found.');
-            setStatus('Lỗi: Không tìm thấy container.');
             return;
           }
 
           chart = LightweightCharts.createChart(domElement, chartProperties);
-          candleseries = chart.addCandlestickSeries({
-            upColor: '#26a69a', 
-            downColor:'#ef5350', 
-            borderVisible:false, 
-            wickUpColor:'#26a69a', 
-            wickDownColor:'#ef5350',
+          candleseries = chart.addCandlestickSeries();  // Assign candleseries in the global scope
+
+          // Set color options for bullish (up) and bearish (down) candlesticks
+          candleseries.applyOptions({
+            upColor: 'green',   // Color for bullish (up) candlesticks
+            downColor: 'red',   // Color for bearish (down) candlesticks
+            borderVisible: true, // Show border around candlesticks
+            wickVisible: true,   // Show candle wicks
+            borderColor: 'black' // Color of the candlestick borders
           });
 
-          const stockSymbol = document.getElementById('stockSelector').value || "HPG";
+          const stockSymbol = document.getElementById('stockSelector').value || "AAPL";
           const data = await getData(stockSymbol);
 
           if (isValidData(data)) {
             // Tạo copy để bảo vệ dữ liệu gốc
             originalData = [...data];
             candleseries.setData(originalData);
-            
-            // Hiển thị 300 cây nến đầu tiên
-            const INIT_BARS = 300;
-            const last = Math.min(INIT_BARS - 1, originalData.length - 1);
-            chart.timeScale().setVisibleLogicalRange({ from: 0, to: last });
-            
-            setStatus(`Sẵn sàng. Đã tải ${data.length} phiên cho ${stockSymbol}.`);
           } else {
             console.warn('No valid data to display.');
             originalData = [];
-            setStatus('Không có dữ liệu để hiển thị.');
           }
-
-          // Ẩn watermarks
-          document.querySelectorAll('#tvchart a').forEach(a => {
-            const href = (a.getAttribute('href') || '').toLowerCase();
-            if (href.includes('tradingview')) { a.remove(); }
-          });
         } catch (error) {
           console.error('Error displaying chart:', error.message);
-          setStatus('Lỗi: ' + error.message);
         }
       };
       
       const getPattern = async (patternName, patternTitle) => {
         try {
-          setStatus(`Đang tìm mô hình ${patternTitle}...`);
-          
           if (!candleseries) {
             console.error('Candleseries is not initialized.');
-            setStatus('Lỗi: Biểu đồ chưa được khởi tạo.');
             return;
           }
 
           if (!originalData || originalData.length === 0) {
             console.error('Original data is missing or empty');
-            setStatus('Lỗi: Không có dữ liệu.');
             return;
           }
 
@@ -774,7 +745,7 @@
               allMarkers.push({
                 time: pattern.time,
                 position: 'aboveBar',
-                color: '#3b82f6',
+                color: 'red',
                 shape: 'circle',
                 text: patternTitle,
               });
@@ -783,14 +754,11 @@
             // Cập nhật marker trên biểu đồ
             candleseries.setMarkers(allMarkers);
             console.log(`Found ${patterns.length} ${patternTitle} pattern(s)`);
-            setStatus(`Tìm thấy ${patterns.length} mô hình ${patternTitle}.`);
           } else {
             console.log(`No ${patternTitle} patterns found.`);
-            setStatus(`Không tìm thấy mô hình ${patternTitle}.`);
           }
         } catch (error) {
           console.error(`Error processing ${patternTitle} patterns:`, error.message);
-          setStatus('Lỗi: ' + error.message);
         }
       }
 
@@ -825,11 +793,8 @@
       // New function to handle complex patterns with pivot points
       const getComplexPattern = async (patternName, patternTitle) => {
         try {
-          setStatus(`Đang tìm mô hình ${patternTitle}...`);
-          
           if (!candleseries) {
             console.error('Candleseries is not initialized.');
-            setStatus('Lỗi: Biểu đồ chưa được khởi tạo.');
             return;
           }
 
@@ -839,7 +804,6 @@
           // Đảm bảo dữ liệu gốc vẫn còn nguyên vẹn
           if (!originalData || originalData.length === 0) {
             console.error('Original data is missing or empty');
-            setStatus('Lỗi: Không có dữ liệu.');
             return;
           }
 
@@ -853,7 +817,6 @@
           const response = await res.json();
           if (response.code !== 0 || !response.data) {
             console.log('No patterns found for ' + patternTitle);
-            setStatus(`Không tìm thấy mô hình ${patternTitle}.`);
             return;
           }
 
@@ -862,7 +825,6 @@
           const allLines = [];
 
           console.log(`Processing ${patterns.length} ${patternTitle} pattern(s)`);
-          setStatus(`Đang xử lý ${patterns.length} mô hình ${patternTitle}...`);
 
           patterns.forEach((pattern, patternIndex) => {
             console.log(`Processing pattern ${patternIndex + 1}:`, pattern);
@@ -1374,10 +1336,8 @@
           if (allMarkers.length > 0) {
             candleseries.setMarkers(allMarkers);
             console.log(`Found ${patterns.length} ${patternTitle} pattern(s)`);
-            setStatus(`Tìm thấy ${patterns.length} mô hình ${patternTitle}.`);
           } else {
             console.log('No patterns to display');
-            setStatus('Không có mô hình để hiển thị.');
           }
 
           // Lưu các line series để có thể xóa sau
@@ -1388,14 +1348,11 @@
 
         } catch (error) {
           console.error('Error processing complex pattern:', error.message);
-          setStatus('Lỗi: ' + error.message);
         }
       }
 
       const resetPatterns = () => {
         try {
-          setStatus('Đang reset mô hình...');
-          
           if (!candleseries) {
             console.error('Candleseries is not initialized.');
             return;
@@ -1420,12 +1377,9 @@
           if (isValidData(originalData)) {
             candleseries.setData([...originalData]); // Tạo copy để tránh thay đổi originalData
           }
-          
-          setStatus('Sẵn sàng.');
 
         } catch (error) {
           console.error('Error in resetPatterns:', error.message);
-          setStatus('Lỗi: ' + error.message);
         }
       };
 
