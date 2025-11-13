@@ -8,7 +8,7 @@ pandas==2.1.4
 numpy==1.26.3
 
 # VNStock Integration
-vnstock==2.2.9
+vnstock==3.2.6
 
 # Caching
 redis==5.0.1
