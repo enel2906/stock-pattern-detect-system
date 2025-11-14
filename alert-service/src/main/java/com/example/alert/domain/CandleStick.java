@@ -22,7 +22,6 @@ public class CandleStick {
     public static final String LOW = "low";
     public static final String VOLUME = "volume";
     public static final String DATE = "date";
-    public static final String PATTERN_DEFINITION = "pattern_definition";
 
     @Id
     private String id;
@@ -40,7 +39,5 @@ public class CandleStick {
     private double volume;
     @Field(DATE)
     private long date;
-    @Field(PATTERN_DEFINITION)
-    private String patternDefinition;
 
 }

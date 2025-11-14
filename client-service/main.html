@@ -7,6 +7,8 @@
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <!-- Include the Lightweight Charts library -->
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Include Pattern Definitions -->
+  <script src="pattern-definitions.js"></script>
   <style>
     :root {
       --bg:#0b0d10; --panel:#12151a; --text:#dce3ea; --muted:#8b95a5; --accent:#3b82f6; --grid:#1f242d;
@@ -141,10 +143,89 @@
     #tvchart a[href*="tradingview"], #tvchart [class*="tradingview"],
     #tvchart [class*="watermark"] { display:none !important; }
 
+    /* Pattern indicator tooltip styles */
+    .pattern-tooltip {
+      position: absolute;
+      background: rgba(18, 21, 26, 0.98);
+      border: 1px solid #3b82f6;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      max-width: 350px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      word-wrap: break-word;
+    }
+
+    body.light .pattern-tooltip {
+      background: rgba(255, 255, 255, 0.98);
+      border-color: #2563eb;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    .pattern-tooltip.visible {
+      opacity: 1;
+    }
+
+    .pattern-tooltip-title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #3b82f6;
+      border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+      padding-bottom: 6px;
+    }
+
+    body.light .pattern-tooltip-title {
+      color: #2563eb;
+      border-bottom-color: rgba(37, 99, 235, 0.3);
+    }
+
+    .pattern-tooltip-content {
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    /* Pattern indicator label on chart */
+    .pattern-label {
+      position: absolute;
+      background: rgba(59, 130, 246, 0.9);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.2s ease;
+    }
+
+    .pattern-label:hover {
+      transform: scale(1.1);
+      background: rgba(59, 130, 246, 1);
+    }
+
+    .pattern-label.bullish {
+      background: rgba(38, 166, 154, 0.9);
+    }
+
+    .pattern-label.bearish {
+      background: rgba(239, 83, 80, 0.9);
+    }
+
     @media (max-width: 720px) {
       .chart { height: 80vh; }
       .controls { gap:6px; }
       header { flex-direction: column; align-items: flex-start; }
+      .pattern-tooltip {
+        max-width: 280px;
+        font-size: 12px;
+      }
     }
   </style>
 </head>
@@ -320,6 +401,113 @@
     const $ = (s) => document.querySelector(s);
     const statusEl = $('#status');
     const RIGHT_OFFSET = 20;
+
+    // Pattern definitions - loaded from pattern-definitions.js
+    const patternDefinitions = PATTERN_DEFINITIONS;
+
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.className = 'pattern-tooltip';
+    document.body.appendChild(tooltip);
+
+    // Function to show tooltip with pattern definition
+    function showPatternTooltip(patternType, patternName, x, y) {
+      const definition = patternDefinitions[patternType];
+      if (!definition) {
+        return;
+      }
+
+      tooltip.innerHTML = `
+        <div class="pattern-tooltip-title">${patternName}</div>
+        <div class="pattern-tooltip-content">${definition}</div>
+      `;
+
+      // Position tooltip
+      const tooltipRect = tooltip.getBoundingClientRect();
+      let left = x + 10;
+      let top = y + 10;
+
+      // Adjust if tooltip goes off screen
+      if (left + tooltipRect.width > window.innerWidth) {
+        left = x - tooltipRect.width - 10;
+      }
+      if (top + tooltipRect.height > window.innerHeight) {
+        top = window.innerHeight - tooltipRect.height - 10;
+      }
+
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = top + 'px';
+      tooltip.classList.add('visible');
+    }
+
+    // Function to hide tooltip
+    function hidePatternTooltip() {
+      tooltip.classList.remove('visible');
+    }
+
+    // Get pattern abbreviation for display
+    function getPatternAbbreviation(patternName) {
+      const abbrevMap = {
+        'bullish_engulfing': 'BE',
+        'bearish_engulfing': 'BE',
+        'hammer': 'HM',
+        'hanging_man': 'HM',
+        'shooting_star': 'SS',
+        'inverted_hammer': 'IH',
+        'morning_star': 'MS',
+        'evening_star': 'ES',
+        'three_white_soldiers': '3WS',
+        'three_black_crows': '3BC',
+        'piercing_line': 'PL',
+        'dark_cloud_cover': 'DCC',
+        'harami': 'HR',
+        'tweezer_top': 'TT',
+        'tweezer_bottom': 'TB',
+        'doji': 'DJ',
+        'dragonfly_doji': 'DDJ',
+        'gravestone_doji': 'GDJ',
+        'long_legged_doji': 'LDJ',
+        'marubozu': 'MZ',
+        'bullish_marubozu': 'BMZ',
+        'bearish_marubozu': 'BMZ',
+        'cup_with_handle': 'CWH',
+        'head_and_shoulders': 'H&S',
+        'inverse_head_and_shoulders': 'IH&S',
+        'double_tops': 'DT',
+        'double_bottoms': 'DB',
+        'flag_pattern': 'FLG',
+        'pennant': 'PEN',
+        'triangle_ascending': 'AT',
+        'triangle_descending': 'DT',
+        'triangle_symmetrical': 'ST'
+      };
+      return abbrevMap[patternName] || patternName.substring(0, 3).toUpperCase();
+    }
+
+    // Determine if pattern is bullish or bearish for styling
+    function getPatternSentiment(patternName) {
+      const bullishPatterns = [
+        'bullish_engulfing', 'hammer', 'inverted_hammer', 'morning_star', 
+        'three_white_soldiers', 'piercing_line', 'dragonfly_doji', 'bullish_marubozu',
+        'bullish_belt_hold', 'bullish_kicker', 'bullish_harami_cross', 'bullish_counterattack',
+        'tweezer_bottom', 'morning_star_doji', 'three_outside_up', 'three_inside_up',
+        'upside_tasuki_gap', 'bullish_tri_star', 'rising_three', 'bullish_three_line_strike',
+        'cup_with_handle', 'double_bottoms', 'inverse_head_and_shoulders', 'triangle_ascending'
+      ];
+      
+      const bearishPatterns = [
+        'bearish_engulfing', 'hanging_man', 'shooting_star', 'evening_star',
+        'three_black_crows', 'dark_cloud_cover', 'gravestone_doji', 'bearish_marubozu',
+        'bearish_belt_hold', 'bearish_kicker', 'bearish_harami_cross', 'bearish_counterattack',
+        'tweezer_top', 'evening_star_doji', 'bearish_abandoned_baby', 'downside_tasuki_gap',
+        'bearish_tri_star', 'falling_three', 'bearish_three_line_strike', 'ladder_top',
+        'double_tops', 'head_and_shoulders', 'triangle_descending'
+      ];
+
+      if (bullishPatterns.includes(patternName)) return 'bullish';
+      if (bearishPatterns.includes(patternName)) return 'bearish';
+      return 'neutral';
+    }
 
     function setStatus(t){ statusEl.textContent = t; }
 
@@ -770,18 +958,26 @@
           const allMarkers = [];
 
           if (patterns.length > 0) {
+            const abbreviation = getPatternAbbreviation(patternName);
+            const sentiment = getPatternSentiment(patternName);
+            
             patterns.forEach((pattern) => {
               allMarkers.push({
                 time: pattern.time,
-                position: 'aboveBar',
-                color: '#3b82f6',
+                position: sentiment === 'bearish' ? 'aboveBar' : 'belowBar',
+                color: sentiment === 'bullish' ? '#26a69a' : sentiment === 'bearish' ? '#ef5350' : '#9933FF',
                 shape: 'circle',
-                text: patternTitle,
+                text: abbreviation,
+                size: 1.5
               });
             });
 
             // Cập nhật marker trên biểu đồ
             candleseries.setMarkers(allMarkers);
+            
+            // Add hover event listeners to markers for tooltip
+            setupMarkerTooltips(patterns, patternName, patternTitle);
+            
             console.log(`Found ${patterns.length} ${patternTitle} pattern(s)`);
             setStatus(`Tìm thấy ${patterns.length} mô hình ${patternTitle}.`);
           } else {
@@ -792,6 +988,32 @@
           console.error(`Error processing ${patternTitle} patterns:`, error.message);
           setStatus('Lỗi: ' + error.message);
         }
+      }
+
+      // Setup tooltip listeners for markers
+      function setupMarkerTooltips(patterns, patternName, patternTitle) {
+        // Subscribe to crosshair move to detect hover over markers
+        chart.subscribeCrosshairMove((param) => {
+          if (!param || !param.time || !param.point) {
+            hidePatternTooltip();
+            return;
+          }
+
+          // Check if crosshair is over a pattern marker
+          // For complex patterns, check candleIndex property, for simple patterns check time
+          const hoveredPattern = patterns.find(p => {
+            if (p.candleIndex !== undefined && p.candleIndex >= 0 && p.candleIndex < originalData.length) {
+              return originalData[p.candleIndex].time === param.time;
+            }
+            return p.time === param.time;
+          });
+          
+          if (hoveredPattern) {
+            showPatternTooltip(patternName, patternTitle, param.point.x, param.point.y);
+          } else {
+            hidePatternTooltip();
+          }
+        });
       }
 
       const findPattern = async (pattern) => {
@@ -860,6 +1082,10 @@
           const patterns = response.data;
           const allMarkers = [];
           const allLines = [];
+          
+          // Get pattern info for tooltips
+          const abbreviation = getPatternAbbreviation(patternName);
+          const sentiment = getPatternSentiment(patternName);
 
           console.log(`Processing ${patterns.length} ${patternTitle} pattern(s)`);
           setStatus(`Đang xử lý ${patterns.length} mô hình ${patternTitle}...`);
@@ -927,17 +1153,17 @@
                 allLines.push(patternLine);
               }
 
-              // Thêm marker chính cho pattern
+              // Thêm marker chính cho pattern với abbreviation
               if (candleIndex >= 0 && candleIndex < originalData.length) {
                 const mainCandle = originalData[candleIndex];
                 if (mainCandle) {
                   allMarkers.push({
                     time: mainCandle.time,
                     position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
-                    color: doubleType === 'tops' ? '#FF0000' : '#00FF00',
-                    shape: 'arrowDown',
-                    text: `${patternTitle} (${ratio.toFixed(4)})`,
-                    size: 2
+                    color: doubleType === 'tops' ? '#ef5350' : '#26a69a',
+                    shape: 'circle',
+                    text: abbreviation,
+                    size: 1.5
                   });
                 }
               } else {
@@ -1052,17 +1278,17 @@
                 }
               }
 
-              // Main marker cho flag pattern
+              // Main marker cho flag pattern với abbreviation
               if (candleIndex >= 0 && candleIndex < originalData.length) {
                 const mainCandle = originalData[candleIndex];
                 if (mainCandle) {
                   allMarkers.push({
                     time: mainCandle.time,
-                    position: 'aboveBar',
-                    color: direction === 'bullish' ? '#00FF00' : '#FF0000',
-                    shape: 'flag',
-                    text: `${patternTitle} (${direction})`,
-                    size: 2
+                    position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
+                    color: direction === 'bullish' ? '#26a69a' : '#ef5350',
+                    shape: 'circle',
+                    text: abbreviation,
+                    size: 1.5
                   });
                 }
               } else {
@@ -1121,17 +1347,17 @@
                 allLines.push(neckline);
               }
 
-              // Main marker
+              // Main marker với abbreviation
               if (candleIndex >= 0 && candleIndex < originalData.length) {
                 const mainCandle = originalData[candleIndex];
                 if (mainCandle) {
                   allMarkers.push({
                     time: mainCandle.time,
                     position: patternType === 'inverse' ? 'belowBar' : 'aboveBar',
-                    color: patternType === 'inverse' ? '#00FF00' : '#FF0000',
-                    shape: 'arrowUp',
-                    text: `${patternTitle}`,
-                    size: 2
+                    color: patternType === 'inverse' ? '#26a69a' : '#ef5350',
+                    shape: 'circle',
+                    text: abbreviation,
+                    size: 1.5
                   });
                 }
               }
@@ -1224,17 +1450,17 @@
                 }
               }
 
-              // Main marker cho pennant
+              // Main marker cho pennant với abbreviation
               if (candleIndex >= 0 && candleIndex < originalData.length) {
                 const mainCandle = originalData[candleIndex];
                 if (mainCandle) {
                   allMarkers.push({
                     time: mainCandle.time,
-                    position: 'aboveBar',
-                    color: direction === 'bullish' ? '#00FF00' : '#FF0000',
+                    position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
+                    color: direction === 'bullish' ? '#26a69a' : '#ef5350',
                     shape: 'circle',
-                    text: `${patternTitle} (${direction})`,
-                    size: 2
+                    text: abbreviation,
+                    size: 1.5
                   });
                 }
               }
@@ -1335,17 +1561,20 @@
                 }
               }
 
-              // Main marker cho triangle
+              // Main marker cho triangle với abbreviation
               if (candleIndex >= 0 && candleIndex < originalData.length) {
                 const mainCandle = originalData[candleIndex];
                 if (mainCandle) {
+                  const triSentiment = triangleType === 'ascending' ? 'bullish' : 
+                                       triangleType === 'descending' ? 'bearish' : 'neutral';
                   allMarkers.push({
                     time: mainCandle.time,
-                    position: 'aboveBar',
-                    color: color.main,
+                    position: triSentiment === 'bearish' ? 'aboveBar' : 'belowBar',
+                    color: triSentiment === 'bullish' ? '#26a69a' : 
+                           triSentiment === 'bearish' ? '#ef5350' : '#9933FF',
                     shape: 'circle',
-                    text: `${patternTitle} (${triangleType || 'triangle'})`,
-                    size: 2
+                    text: abbreviation,
+                    size: 1.5
                   });
                 }
               }
@@ -1373,6 +1602,10 @@
           // Cập nhật markers
           if (allMarkers.length > 0) {
             candleseries.setMarkers(allMarkers);
+            
+            // Setup tooltip for complex patterns
+            setupMarkerTooltips(patterns, patternName, patternTitle);
+            
             console.log(`Found ${patterns.length} ${patternTitle} pattern(s)`);
             setStatus(`Tìm thấy ${patterns.length} mô hình ${patternTitle}.`);
           } else {
