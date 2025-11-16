@@ -94,6 +94,46 @@
   opacity: 0.8;
 }
 
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid #2a313d;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-name {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.logout-button {
+  background: rgba(239, 83, 80, 0.1) !important;
+  border-color: rgba(239, 83, 80, 0.3) !important;
+  color: #ef5350 !important;
+  padding: 8px 12px !important;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-button:hover {
+  background: rgba(239, 83, 80, 0.2) !important;
+  opacity: 1 !important;
+}
+
+body.light .user-menu {
+  border-left-color: #d1d5db;
+}
+
 /* Pattern category colors for optgroups */
 optgroup {
   font-weight: bold;

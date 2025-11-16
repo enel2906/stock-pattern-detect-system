@@ -1,12 +1,28 @@
 // API Service
 const API_BASE_URL = 'http://localhost:60';
 
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('accessToken');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
+  };
+};
+
 export const stockApi = {
   // Fetch stock data
   getStockData: async (stockSymbol) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/stock?symbol=${stockSymbol}`);
+      const res = await fetch(`${API_BASE_URL}/stock?symbol=${stockSymbol}`, {
+        method: 'GET',
+        headers: getAuthHeaders()
+      });
+      
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Unauthorized - Please login again');
+        }
         throw new Error('Failed to fetch data');
       }
 
@@ -26,7 +42,7 @@ export const stockApi = {
       return cdata;
     } catch (error) {
       console.error('Error fetching data:', error.message);
-      return [];
+      throw error; // Throw error để component có thể xử lý
     }
   },
 
@@ -34,10 +50,17 @@ export const stockApi = {
   getPatternData: async (stockSymbol, patternName) => {
     try {
       const res = await fetch(
-        `${API_BASE_URL}/alert/candle-stick/${stockSymbol}?candlePattern=${patternName}`
+        `${API_BASE_URL}/alert/candle-stick/${stockSymbol}?candlePattern=${patternName}`,
+        {
+          method: 'GET',
+          headers: getAuthHeaders()
+        }
       );
       
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Unauthorized - Please login again');
+        }
         throw new Error('Failed to fetch pattern data');
       }
 

@@ -220,9 +220,9 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         time: pattern.time,
         position: sentiment === 'bearish' ? 'aboveBar' : 'belowBar',
         color: sentiment === 'bullish' ? '#26a69a' : sentiment === 'bearish' ? '#ef5350' : '#9933FF',
-        shape: 'circle',
+        shape: sentiment === 'bearish' ? 'arrowDown' : 'arrowUp',
         text: abbreviation,
-        size: 1.5
+        size: 2
       });
     });
 
@@ -324,9 +324,9 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
           time: mainCandle.time,
           position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
           color: doubleType === 'tops' ? '#ef5350' : '#26a69a',
-          shape: 'circle',
+          shape: doubleType === 'tops' ? 'arrowDown' : 'arrowUp',
           text: abbreviation,
-          size: 1.5
+          size: 2
         });
       }
     }
@@ -425,9 +425,9 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
           time: mainCandle.time,
           position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
           color: direction === 'bullish' ? '#26a69a' : '#ef5350',
-          shape: 'circle',
+          shape: direction === 'bullish' ? 'arrowUp' : 'arrowDown',
           text: abbreviation,
-          size: 1.5
+          size: 2
         });
       }
     }
@@ -489,9 +489,9 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
           time: mainCandle.time,
           position: patternType === 'inverse' ? 'belowBar' : 'aboveBar',
           color: patternType === 'inverse' ? '#26a69a' : '#ef5350',
-          shape: 'circle',
+          shape: patternType === 'inverse' ? 'arrowUp' : 'arrowDown',
           text: abbreviation,
-          size: 1.5
+          size: 2
         });
       }
     }
@@ -590,9 +590,9 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
           time: mainCandle.time,
           position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
           color: direction === 'bullish' ? '#26a69a' : '#ef5350',
-          shape: 'circle',
+          shape: direction === 'bullish' ? 'arrowUp' : 'arrowDown',
           text: abbreviation,
-          size: 1.5
+          size: 2
         });
       }
     }
@@ -705,9 +705,9 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
           position: triSentiment === 'bearish' ? 'aboveBar' : 'belowBar',
           color: triSentiment === 'bullish' ? '#26a69a' :
                  triSentiment === 'bearish' ? '#ef5350' : '#9933FF',
-          shape: 'circle',
+          shape: triSentiment === 'bearish' ? 'arrowDown' : triSentiment === 'bullish' ? 'arrowUp' : 'circle',
           text: abbreviation,
-          size: 1.5
+          size: 2
         });
       }
     }
@@ -717,12 +717,13 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
     if (pattern.candleIndex >= 0 && pattern.candleIndex < originalDataRef.current.length) {
       const mainCandle = originalDataRef.current[pattern.candleIndex];
       if (mainCandle) {
+        const sentiment = getPatternSentiment(patternName);
         allMarkers.push({
           time: mainCandle.time,
-          position: 'aboveBar',
-          color: '#9933FF',
-          shape: 'circle',
-          text: patternName,
+          position: sentiment === 'bearish' ? 'aboveBar' : 'belowBar',
+          color: sentiment === 'bullish' ? '#26a69a' : sentiment === 'bearish' ? '#ef5350' : '#9933FF',
+          shape: sentiment === 'bearish' ? 'arrowDown' : sentiment === 'bullish' ? 'arrowUp' : 'circle',
+          text: getPatternAbbreviation(patternName),
           size: 2
         });
       }

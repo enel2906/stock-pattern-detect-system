@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 import { STOCK_OPTIONS } from '../constants/stockOptions';
 import { PATTERN_OPTIONS } from '../constants/patternOptions';
 import './Header.css';
@@ -13,6 +14,8 @@ const Header = ({
   isLight, 
   status 
 }) => {
+  const { user, logout } = useAuth();
+
   return (
     <header className="app-header">
       <div className="header-left">
@@ -74,6 +77,17 @@ const Header = ({
         >
           {isLight ? '☀️' : '🌙'}
         </button>
+
+        {user && (
+          <div className="user-menu">
+            <div className="user-info">
+              <span className="user-name">{user.fullName || user.username}</span>
+            </div>
+            <button className="logout-button" onClick={logout} title="Đăng xuất">
+              🚪
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

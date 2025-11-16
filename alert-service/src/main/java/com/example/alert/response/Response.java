@@ -26,6 +26,15 @@ public class Response {
         this.code = ResponseCode.SUCCESS;
         this.data = data;
     }
+    
+    // Static factory methods for convenience
+    public static Response success(Object data) {
+        return new Response(data);
+    }
+    
+    public static Response error(int code, String message) {
+        return new Response(code, message);
+    }
 
     public int getCode() {
         return code;
