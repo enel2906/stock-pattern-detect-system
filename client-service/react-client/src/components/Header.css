@@ -1,0 +1,150 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid #1a1f27;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.brand .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+.status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.control-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.controls label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.controls input,
+.controls select,
+.controls button {
+  background: #0f1117;
+  color: var(--text);
+  border: 1px solid #2a313d;
+  padding: 8px 10px;
+  border-radius: 10px;
+  outline: none;
+  font-size: 13px;
+}
+
+.controls input:focus,
+.controls select:focus {
+  border-color: var(--accent);
+}
+
+.controls button {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.controls button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: white;
+}
+
+.controls button.primary:hover {
+  opacity: 0.9;
+}
+
+.controls button:hover {
+  opacity: 0.8;
+}
+
+/* Pattern category colors for optgroups */
+optgroup {
+  font-weight: bold;
+  background: linear-gradient(135deg, #f5f8ff 0%, #e8f2ff 100%);
+  color: #003366;
+  border-bottom: 2px solid #0066CC;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+optgroup option {
+  font-weight: normal;
+  background-color: #fff;
+  color: #333;
+  padding: 8px 15px;
+  border-left: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+optgroup[label*="Single"] {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+  border-left: 4px solid #ff9800;
+}
+
+optgroup[label*="Two"] {
+  background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+  border-left: 4px solid #9c27b0;
+}
+
+optgroup[label*="Three"] {
+  background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+  border-left: 4px solid #4caf50;
+}
+
+optgroup[label*="Multi"] {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-left: 4px solid #2196f3;
+}
+
+optgroup[label*="Complex"] {
+  background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%);
+  border-left: 4px solid #e91e63;
+}
+
+@media (max-width: 720px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .controls {
+    gap: 6px;
+  }
+}

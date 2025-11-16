@@ -1,0 +1,17 @@
+:root {
+  --bg: #0b0d10;
+  --panel: #12151a;
+  --text: #dce3ea;
+  --muted: #8b95a5;
+  --accent: #3b82f6;
+  --grid: #1f242d;
+}
+
+body.light {
+  --bg: #ffffff;
+  --panel: #f4f6f8;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --grid: #e5e7eb;
+}
