@@ -86,10 +86,10 @@ def init_mongodb():
         
         # Tạo index
         stocks_collection.create_index([("symbol", ASCENDING)], unique=True)
-        candlesticks_collection.create_index([
-            ("stock_id", ASCENDING),
-            ("date", ASCENDING)
-        ], unique=True)
+        # _id sẽ là composite key: stock_id + "_" + yyyyMMdd
+        # Index phụ để query nhanh theo stock_id và date_str
+        candlesticks_collection.create_index([("stock_id", ASCENDING), ("date_str", ASCENDING)])
+        candlesticks_collection.create_index([("date", ASCENDING)])
         
         logger.info("MongoDB connected successfully")
         return True
@@ -181,7 +181,7 @@ def save_stock_to_db(symbol: str, name: str, market: str, country: str = "Vietna
 
 
 def save_candlesticks_to_db(stock_id: str, df):
-    """Lưu dữ liệu nến vào database"""
+    """Lưu dữ liệu nến vào database với composite ID"""
     try:
         if df is None or df.empty:
             return 0
@@ -202,22 +202,34 @@ def save_candlesticks_to_db(stock_id: str, df):
                     # Lấy cột đầu tiên (thường là time/date)
                     date_val = row.iloc[0]
                 
-                # Chuyển đổi sang timestamp
+                # Chuyển đổi sang datetime object để format
                 if isinstance(date_val, (int, float)):
-                    timestamp = int(date_val)
+                    dt = datetime.fromtimestamp(int(date_val))
+                elif hasattr(date_val, 'to_pydatetime'):
+                    dt = date_val.to_pydatetime()
                 elif hasattr(date_val, 'timestamp'):
-                    timestamp = int(date_val.timestamp())
+                    dt = date_val
                 else:
                     # Parse string date
                     date_str = str(date_val)[:10]  # Lấy YYYY-MM-DD
-                    timestamp = int(datetime.strptime(date_str, '%Y-%m-%d').timestamp())
+                    dt = datetime.strptime(date_str, '%Y-%m-%d')
+                
+                # Tạo các định dạng date
+                timestamp = int(dt.timestamp())
+                date_str = dt.strftime('%Y%m%d')  # Format: yyyyMMdd
+                
             except Exception as e:
                 logger.warning(f"Error parsing date for row: {e}, skipping")
                 continue
             
+            # Tạo composite ID: stock_id + "_" + yyyyMMdd
+            composite_id = f"{stock_id}_{date_str}"
+            
             candle = {
+                "_id": composite_id,  # Sử dụng _id làm primary key
                 "stock_id": stock_id,
-                "date": timestamp,
+                "date": timestamp,  # Timestamp for sorting and time-based queries
+                "date_str": date_str,  # yyyyMMdd format for easy filtering
                 "open": float(row.get('open', 0)),
                 "high": float(row.get('high', 0)),
                 "low": float(row.get('low', 0)),
@@ -233,10 +245,7 @@ def save_candlesticks_to_db(stock_id: str, df):
         for candle in candlesticks:
             operations.append(
                 UpdateOne(
-                    filter={
-                        "stock_id": candle["stock_id"],
-                        "date": candle["date"]
-                    },
+                    filter={"_id": candle["_id"]},
                     update={"$set": candle},
                     upsert=True
                 )
@@ -405,32 +414,6 @@ async def root():
         "timestamp": datetime.now().isoformat()
     }
 
-
-@app.get("/api/stats")
-async def get_stats():
-    """Lấy thống kê dữ liệu"""
-    try:
-        stocks_count = stocks_collection.count_documents({})
-        candles_count = candlesticks_collection.count_documents({})
-        
-        # Lấy thông tin cập nhật gần nhất
-        latest_stock = stocks_collection.find_one(
-            {},
-            sort=[("updated_at", -1)]
-        )
-        
-        return {
-            "total_stocks": stocks_count,
-            "total_candlesticks": candles_count,
-            "last_updated": latest_stock.get('updated_at').isoformat() if latest_stock else None,
-            "markets": {
-                market: len(symbols) for market, symbols in STOCK_SYMBOLS.items()
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/stocks")
 async def get_stocks(market: str = None):
     """Lấy danh sách cổ phiếu"""
@@ -446,8 +429,21 @@ async def get_stocks(market: str = None):
 
 
 @app.get("/api/candlesticks/{symbol}")
-async def get_candlesticks(symbol: str, limit: int = 100):
-    """Lấy dữ liệu nến của một mã cổ phiếu"""
+async def get_candlesticks(
+    symbol: str, 
+    limit: int = 100,
+    start_date: str = None,
+    end_date: str = None
+):
+    """
+    Lấy dữ liệu nến của một mã cổ phiếu
+    
+    Args:
+        symbol: Mã cổ phiếu
+        limit: Số lượng nến tối đa (mặc định 100)
+        start_date: Ngày bắt đầu (format: YYYYMMDD hoặc YYYY-MM-DD)
+        end_date: Ngày kết thúc (format: YYYYMMDD hoặc YYYY-MM-DD)
+    """
     try:
         # Tìm stock
         stock = stocks_collection.find_one({"symbol": symbol.upper()})
@@ -456,11 +452,38 @@ async def get_candlesticks(symbol: str, limit: int = 100):
         
         stock_id = str(stock['_id'])
         
-        # Lấy candlesticks
+        # Xây dựng query
+        query = {"stock_id": stock_id}
+        
+        # Thêm filter theo date range nếu có
+        if start_date or end_date:
+            date_filter = {}
+            
+            # Convert start_date
+            if start_date:
+                # Xử lý format YYYY-MM-DD hoặc YYYYMMDD
+                start_str = start_date.replace('-', '')
+                date_filter["$gte"] = start_str
+            
+            # Convert end_date
+            if end_date:
+                # Xử lý format YYYY-MM-DD hoặc YYYYMMDD
+                end_str = end_date.replace('-', '')
+                date_filter["$lte"] = end_str
+            
+            if date_filter:
+                query["date_str"] = date_filter
+        
+        # Lấy candlesticks, không cần ẩn _id vì nó chứa thông tin hữu ích
         candles = list(candlesticks_collection.find(
-            {"stock_id": stock_id},
-            {"_id": 0}
+            query,
+            {"_id": 1, "stock_id": 1, "date": 1, "date_str": 1, 
+             "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}
         ).sort("date", -1).limit(limit))
+        
+        # Đổi tên _id thành id trong response để phù hợp với Java Entity
+        for candle in candles:
+            candle["id"] = candle.pop("_id")
         
         return {
             "symbol": symbol,
@@ -481,6 +504,51 @@ async def force_update():
         # Thực hiện cập nhật trong background
         asyncio.create_task(update_latest_data_once())
         return {"message": "Update started"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/candlestick")
+async def get_candlestick_by_id(candlestick_id: str = None, stock_id: str = None, date: str = None):
+    """
+    Lấy một nến cụ thể theo composite ID hoặc stock_id + date
+    
+    Args:
+        candlestick_id: Composite ID (format: stock_id_yyyyMMdd)
+        stock_id: ID của stock (dùng kèm với date)
+        date: Ngày (format: YYYYMMDD hoặc YYYY-MM-DD)
+    
+    Example:
+        /api/candlestick?candlestick_id=507f1f77bcf86cd799439011_20250117
+        /api/candlestick?stock_id=507f1f77bcf86cd799439011&date=20250117
+        /api/candlestick?stock_id=507f1f77bcf86cd799439011&date=2025-01-17
+    """
+    try:
+        # Nếu có candlestick_id thì query trực tiếp bằng _id
+        if candlestick_id:
+            candle = candlesticks_collection.find_one({"_id": candlestick_id})
+        # Nếu có stock_id và date thì tạo composite ID
+        elif stock_id and date:
+            # Convert date format nếu cần
+            date_str = date.replace('-', '')
+            composite_id = f"{stock_id}_{date_str}"
+            candle = candlesticks_collection.find_one({"_id": composite_id})
+        else:
+            raise HTTPException(
+                status_code=400, 
+                detail="Either candlestick_id or (stock_id + date) is required"
+            )
+        
+        if not candle:
+            raise HTTPException(status_code=404, detail="Candlestick not found")
+        
+        # Đổi tên _id thành id trong response để phù hợp với Java Entity
+        candle["id"] = candle.pop("_id")
+        
+        return candle
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

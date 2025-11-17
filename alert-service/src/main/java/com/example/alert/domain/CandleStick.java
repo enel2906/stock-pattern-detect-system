@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 
 @Document(collection = "candlesticks")
 @Data
@@ -22,8 +23,10 @@ public class CandleStick {
     public static final String LOW = "low";
     public static final String VOLUME = "volume";
     public static final String DATE = "date";
+    public static final String DATE_STR = "date_str";
 
     @Id
+    @Field(targetType = FieldType.STRING)
     private String id;
     @Field(STOCK_ID)
     private String stockId;
@@ -39,5 +42,7 @@ public class CandleStick {
     private double volume;
     @Field(DATE)
     private long date;
+    @Field(DATE_STR)
+    private String dateStr;
 
 }
