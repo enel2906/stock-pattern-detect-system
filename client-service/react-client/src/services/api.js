@@ -32,7 +32,8 @@ export const stockApi = {
       }
 
       const cdata = response.data.map(item => ({
-        time: new Date(item.date * 1000).toISOString().split('T')[0],
+        time: `${item.dateStr.substring(0, 4)}-${item.dateStr.substring(4, 6)}-${item.dateStr.substring(6, 8)}`,
+        
         open: item.open,
         high: item.high,
         low: item.low,
