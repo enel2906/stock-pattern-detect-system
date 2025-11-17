@@ -69,18 +69,29 @@ export const stockApi = {
         return [];
       }
 
-      // Transform data to match chart format
-      const patterns = response.data.map(item => ({
-        time: new Date(item.date * 1000).toISOString().split('T')[0],
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close,
-        // Keep additional pattern-specific fields
-        ...item
-      }));
+      // Check if this is a complex pattern (has candleIndex but no date)
+      // Complex patterns: double, flag, pennant, triangle, head_and_shoulders
+      const isComplexPattern = response.data.length > 0 && 
+        response.data[0].candleIndex !== undefined && 
+        !response.data[0].date;
 
-      return patterns;
+      if (isComplexPattern) {
+        // For complex patterns, return raw data (candleIndex will be used to map to originalData)
+        return response.data;
+      } else {
+        // For simple patterns, transform data to match chart format
+        const patterns = response.data.map(item => ({
+          time: new Date(item.date * 1000).toISOString().split('T')[0],
+          open: item.open,
+          high: item.high,
+          low: item.low,
+          close: item.close,
+          // Keep additional pattern-specific fields
+          ...item
+        }));
+
+        return patterns;
+      }
     } catch (error) {
       console.error('Error fetching pattern data:', error.message);
       return [];

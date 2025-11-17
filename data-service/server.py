@@ -138,7 +138,7 @@ def get_stock_data_vnstock(symbol: str, market: str, start_date: str = None, end
             end_date = datetime.now().strftime('%Y-%m-%d')
         
         # Lấy dữ liệu lịch sử
-        df = stock.quote.history(start=start_date, end=end_date)
+        df = stock.quote.history(start=start_date, end=end_date, interval="1D")
         
         if df is not None and not df.empty:
             logger.info(f"Fetched {len(df)} records for {symbol}")

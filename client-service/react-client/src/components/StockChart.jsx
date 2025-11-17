@@ -178,6 +178,7 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
   // Load pattern data
   const loadPatternData = useCallback(async (patternName) => {
     if (!isChartReady || !candleSeriesRef.current || !originalDataRef.current.length) {
+      console.warn('Chart not ready or no data:', { isChartReady, hasCandleSeries: !!candleSeriesRef.current, dataLength: originalDataRef.current.length });
       return;
     }
 
@@ -187,11 +188,16 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
 
       const patterns = await stockApi.getPatternData(stockSymbol, patternName);
 
-      if (patterns.length > 0) {
+      console.log('Pattern data received:', patterns); // Debug log
+
+      if (patterns && patterns.length > 0) {
         // Check if this is a complex pattern or simple pattern
-        const isComplexPattern = patterns[0].pivotIndices || patterns[0].flagHighs || 
-                                 patterns[0].headIndex !== undefined || patterns[0].pennantHighs ||
-                                 patterns[0].triangleType || patterns[0].upperTrendIndices;
+        const isComplexPattern = patterns[0].candleIndex !== undefined && 
+          (patterns[0].pivotIndices || patterns[0].flagHighs || 
+           patterns[0].headIndex !== undefined || patterns[0].pennantHighs ||
+           patterns[0].triangleType || patterns[0].upperTrendIndices);
+
+        console.log('Is complex pattern:', isComplexPattern, 'Pattern sample:', patterns[0]); // Debug log
 
         if (isComplexPattern) {
           processComplexPattern(patterns, patternName);
@@ -201,6 +207,7 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
 
         onStatusChange(`Tìm thấy ${patterns.length} mô hình ${patternName}.`);
       } else {
+        console.log('No patterns found for:', patternName); // Debug log
         onStatusChange(`Không tìm thấy mô hình ${patternName}.`);
       }
     } catch (error) {
@@ -232,40 +239,56 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
 
   // Process complex patterns (chart patterns with pivot points)
   const processComplexPattern = (patterns, patternName) => {
+    console.log('Processing complex patterns:', patterns.length, 'patterns'); // Debug log
+    
     const allMarkers = [];
     const abbreviation = getPatternAbbreviation(patternName);
     const sentiment = getPatternSentiment(patternName);
 
-    patterns.forEach((pattern) => {
+    patterns.forEach((pattern, index) => {
+      console.log(`Processing pattern ${index + 1}:`, pattern); // Debug log
+      
       // Double Pattern
       if (pattern.pivotIndices && pattern.pivotPoints) {
+        console.log('Detected double pattern'); // Debug log
         processDoublePattern(pattern, allMarkers, abbreviation);
       }
       // Flag Pattern
       else if (pattern.flagHighs && pattern.flagLows) {
+        console.log('Detected flag pattern'); // Debug log
         processFlagPattern(pattern, allMarkers, abbreviation);
       }
       // Head and Shoulders
       else if (pattern.headIndex !== undefined) {
+        console.log('Detected head and shoulders pattern'); // Debug log
         processHeadAndShouldersPattern(pattern, allMarkers, abbreviation);
       }
       // Pennant
       else if (pattern.pennantHighs && pattern.pennantLows) {
+        console.log('Detected pennant pattern'); // Debug log
         processPennantPattern(pattern, allMarkers, abbreviation);
       }
       // Triangle
       else if (pattern.triangleType || pattern.upperTrendIndices) {
+        console.log('Detected triangle pattern'); // Debug log
         processTrianglePattern(pattern, allMarkers, abbreviation);
       }
       // Generic pattern
       else if (pattern.candleIndex !== undefined) {
+        console.log('Detected generic complex pattern'); // Debug log
         processGenericPattern(pattern, allMarkers, patternName);
+      } else {
+        console.warn('Unknown pattern structure:', pattern); // Debug log
       }
     });
 
+    console.log('Total markers created:', allMarkers.length); // Debug log
+    
     if (allMarkers.length > 0) {
       candleSeriesRef.current.setMarkers(allMarkers);
       setupMarkerTooltips(patterns, patternName);
+    } else {
+      console.warn('No markers were created for complex patterns'); // Debug log
     }
   };
 
@@ -273,21 +296,35 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
   const processDoublePattern = (pattern, allMarkers, abbreviation) => {
     const { candleIndex, pivotIndices, pivotPoints, doubleType } = pattern;
 
+    console.log('Processing double pattern:', { 
+      candleIndex, 
+      pivotIndices, 
+      pivotPoints, 
+      doubleType,
+      originalDataLength: originalDataRef.current.length 
+    }); // Debug log
+
     // Add markers for pivot points
     pivotIndices.forEach((pivotIdx, i) => {
       if (pivotIdx >= 0 && pivotIdx < originalDataRef.current.length && pivotPoints[i]) {
         const candleData = originalDataRef.current[pivotIdx];
         if (candleData) {
           const isTop = doubleType === 'tops' || doubleType === 'both';
-          allMarkers.push({
+          const marker = {
             time: candleData.time,
             position: isTop ? 'aboveBar' : 'belowBar',
             color: doubleType === 'tops' ? '#FF4444' : '#44FF44',
             shape: 'circle',
             text: `P${i + 1}: ${pivotPoints[i].toFixed(2)}`,
             size: 1.5
-          });
+          };
+          allMarkers.push(marker);
+          console.log('Added pivot marker:', marker); // Debug log
+        } else {
+          console.warn('Candle data not found at index:', pivotIdx); // Debug log
         }
+      } else {
+        console.warn('Invalid pivot index:', pivotIdx, 'for data length:', originalDataRef.current.length); // Debug log
       }
     });
 
@@ -302,6 +339,8 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
       })
       .filter(point => point !== null);
 
+    console.log('Line data points:', lineData.length); // Debug log
+
     if (lineData.length > 1) {
       const lineColor = doubleType === 'tops' ? 'rgba(255, 68, 68, 0.8)' : 'rgba(68, 255, 68, 0.8)';
       const patternLine = chartRef.current.addLineSeries({
@@ -314,26 +353,43 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
       });
       patternLine.setData(lineData);
       patternLinesRef.current.push(patternLine);
+      console.log('Added pattern line with color:', lineColor); // Debug log
     }
 
     // Main marker
     if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
       const mainCandle = originalDataRef.current[candleIndex];
       if (mainCandle) {
-        allMarkers.push({
+        const mainMarker = {
           time: mainCandle.time,
           position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
           color: doubleType === 'tops' ? '#ef5350' : '#26a69a',
           shape: doubleType === 'tops' ? 'arrowDown' : 'arrowUp',
           text: abbreviation,
           size: 2
-        });
+        };
+        allMarkers.push(mainMarker);
+        console.log('Added main marker:', mainMarker); // Debug log
+      } else {
+        console.warn('Main candle data not found at index:', candleIndex); // Debug log
       }
+    } else {
+      console.warn('Invalid main candle index:', candleIndex); // Debug log
     }
   };
 
   const processFlagPattern = (pattern, allMarkers, abbreviation) => {
     const { candleIndex, flagHighsIdx, flagLowsIdx, flagHighs, flagLows, direction } = pattern;
+
+    console.log('Processing flag pattern:', { 
+      candleIndex, 
+      flagHighsIdx, 
+      flagLowsIdx, 
+      flagHighs, 
+      flagLows, 
+      direction,
+      originalDataLength: originalDataRef.current.length 
+    }); // Debug log
 
     // Process flag highs
     if (flagHighsIdx && flagHighs) {
@@ -341,14 +397,16 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         if (idx >= 0 && idx < originalDataRef.current.length && flagHighs[i]) {
           const candleData = originalDataRef.current[idx];
           if (candleData) {
-            allMarkers.push({
+            const marker = {
               time: candleData.time,
               position: 'aboveBar',
               color: '#FFA500',
               shape: 'circle',
               text: `H${i + 1}: ${flagHighs[i].toFixed(2)}`,
               size: 1
-            });
+            };
+            allMarkers.push(marker);
+            console.log('Added flag high marker:', marker); // Debug log
           }
         }
       });
@@ -363,6 +421,8 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         })
         .filter(point => point !== null);
 
+      console.log('Upper line data points:', upperLineData.length); // Debug log
+
       if (upperLineData.length > 1) {
         const upperLine = chartRef.current.addLineSeries({
           color: 'rgba(255, 165, 0, 0.8)',
@@ -373,6 +433,7 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         });
         upperLine.setData(upperLineData);
         patternLinesRef.current.push(upperLine);
+        console.log('Added upper trendline'); // Debug log
       }
     }
 
@@ -382,14 +443,16 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         if (idx >= 0 && idx < originalDataRef.current.length && flagLows[i]) {
           const candleData = originalDataRef.current[idx];
           if (candleData) {
-            allMarkers.push({
+            const marker = {
               time: candleData.time,
               position: 'belowBar',
               color: '#00CED1',
               shape: 'circle',
               text: `L${i + 1}: ${flagLows[i].toFixed(2)}`,
               size: 1
-            });
+            };
+            allMarkers.push(marker);
+            console.log('Added flag low marker:', marker); // Debug log
           }
         }
       });
@@ -404,6 +467,8 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         })
         .filter(point => point !== null);
 
+      console.log('Lower line data points:', lowerLineData.length); // Debug log
+
       if (lowerLineData.length > 1) {
         const lowerLine = chartRef.current.addLineSeries({
           color: 'rgba(0, 206, 209, 0.8)',
@@ -414,6 +479,7 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         });
         lowerLine.setData(lowerLineData);
         patternLinesRef.current.push(lowerLine);
+        console.log('Added lower trendline'); // Debug log
       }
     }
 
@@ -421,14 +487,16 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
     if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
       const mainCandle = originalDataRef.current[candleIndex];
       if (mainCandle) {
-        allMarkers.push({
+        const mainMarker = {
           time: mainCandle.time,
           position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
           color: direction === 'bullish' ? '#26a69a' : '#ef5350',
           shape: direction === 'bullish' ? 'arrowUp' : 'arrowDown',
           text: abbreviation,
           size: 2
-        });
+        };
+        allMarkers.push(mainMarker);
+        console.log('Added flag main marker:', mainMarker); // Debug log
       }
     }
   };
