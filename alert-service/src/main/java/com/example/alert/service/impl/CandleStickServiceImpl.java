@@ -15,6 +15,6 @@ public class CandleStickServiceImpl implements CandleStickService {
 
     @Override
     public List<CandleStick> getCandlesByStockId(String stockId) {
-        return candleStickRepository.getByStockId(stockId);
+        return candleStickRepository.getByStockIdOrderByIdDesc(stockId);
     }
 }

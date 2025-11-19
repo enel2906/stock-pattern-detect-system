@@ -8,5 +8,5 @@ import java.util.List;
 
 @Repository
 public interface CandleStickRepository extends MongoRepository<CandleStick, String> {
-    List<CandleStick> getByStockId(String stockId);
+    List<CandleStick> getByStockIdOrderByIdDesc(String stockId);
 }
