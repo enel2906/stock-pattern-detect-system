@@ -186,7 +186,8 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
       onStatusChange(`Đang tìm mô hình ${patternName}...`);
       resetPatterns();
 
-      const patterns = await stockApi.getPatternData(stockSymbol, patternName);
+      // Pass cached stock data to avoid refetching
+      const patterns = await stockApi.getPatternData(stockSymbol, patternName, originalDataRef.current);
 
       console.log('Pattern data received:', patterns); // Debug log
 

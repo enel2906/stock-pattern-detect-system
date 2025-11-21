@@ -49,8 +49,8 @@ export const stockApi = {
     }
   },
 
-  // Fetch pattern data - now using client-side detection
-  getPatternData: async (stockSymbol, patternName) => {
+  // Fetch pattern data - now using client-side detection with cached data
+  getPatternData: async (stockSymbol, patternName, cachedStockData = null) => {
     try {
       // Check if pattern is supported for client-side detection
       if (!isPatternSupported(patternName)) {
@@ -100,8 +100,14 @@ export const stockApi = {
       // Client-side pattern detection
       console.log(`Detecting ${patternName} patterns on client-side...`);
       
-      // First, fetch the stock data
-      const stockData = await stockApi.getStockData(stockSymbol);
+      // Use cached data if available, otherwise fetch new data
+      let stockData = cachedStockData;
+      if (!stockData || stockData.length === 0) {
+        console.log('No cached data provided, fetching from API...');
+        stockData = await stockApi.getStockData(stockSymbol);
+      } else {
+        console.log(`Using cached data (${stockData.length} candles) for pattern detection`);
+      }
       
       if (!stockData || stockData.length === 0) {
         console.warn('No stock data available for pattern detection');
