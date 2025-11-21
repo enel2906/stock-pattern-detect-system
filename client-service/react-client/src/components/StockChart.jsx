@@ -3,19 +3,29 @@ import { createChart } from 'lightweight-charts';
 import { PATTERN_DEFINITIONS } from '../constants/patternDefinitions';
 import { getPatternAbbreviation, getPatternSentiment, isValidData } from '../utils/patternUtils';
 import { stockApi } from '../services/api';
+import { getIndicatorConfig } from '../constants/indicatorOptions';
+import { 
+  calculateSMA, 
+  calculateEMA, 
+  calculateRSI, 
+  calculateMACD, 
+  calculateBollingerBands 
+} from '../services/technicalIndicators';
 import './StockChart.css';
 
 const RIGHT_OFFSET = 20;
 
-const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
+const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatusChange, isLight }) => {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
   const originalDataRef = useRef([]);
   const patternLinesRef = useRef([]);
+  const indicatorSeriesRef = useRef([]); // Store indicator line series
   const tooltipRef = useRef(null);
   
   const [isChartReady, setIsChartReady] = useState(false);
+  const [dataLoadCounter, setDataLoadCounter] = useState(0); // Track when new data is loaded
 
   // Initialize chart
   useEffect(() => {
@@ -68,7 +78,17 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
       borderVisible: false,
       wickUpColor: '#26a69a',
       wickDownColor: '#ef5350',
+      priceScaleId: 'right', // Main price scale
     });
+    
+    // Configure main price scale to leave room for indicators
+    candleSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.1, // 10% padding at top
+        bottom: 0.2, // 20% space at bottom for indicators
+      },
+    });
+    
     candleSeriesRef.current = candleSeries;
     
     console.log('Candlestick series added:', candleSeries); // Debug log
@@ -164,6 +184,9 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         chartRef.current.timeScale().setVisibleLogicalRange({ from: 0, to: last });
         console.log('Visible range set:', { from: 0, to: last }); // Debug log
 
+        // Trigger reload of patterns and indicators
+        setDataLoadCounter(prev => prev + 1);
+
         onStatusChange(`Sẵn sàng. Đã tải ${data.length} phiên cho ${stockSymbol}.`);
       } else {
         originalDataRef.current = [];
@@ -175,135 +198,228 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
     }
   }, [stockSymbol, isChartReady, onStatusChange]);
 
-  // Load pattern data
-  const loadPatternData = useCallback(async (patternName) => {
+  // Load multiple pattern data
+  const loadPatternsData = useCallback(async (patternNames) => {
     if (!isChartReady || !candleSeriesRef.current || !originalDataRef.current.length) {
       console.warn('Chart not ready or no data:', { isChartReady, hasCandleSeries: !!candleSeriesRef.current, dataLength: originalDataRef.current.length });
       return;
     }
 
+    // If no patterns selected, just reset
+    if (!patternNames || patternNames.length === 0) {
+      resetPatterns();
+      onStatusChange('Sẵn sàng.');
+      return;
+    }
+
     try {
-      onStatusChange(`Đang tìm mô hình ${patternName}...`);
+      onStatusChange(`Đang tìm ${patternNames.length} mô hình...`);
       resetPatterns();
 
-      // Pass cached stock data to avoid refetching
-      const patterns = await stockApi.getPatternData(stockSymbol, patternName, originalDataRef.current);
+      // Collect all markers and lines from all patterns
+      const allMarkers = [];
+      const allPatternLines = [];
+      let totalPatternsFound = 0;
 
-      console.log('Pattern data received:', patterns); // Debug log
+      // Process each pattern
+      for (const patternName of patternNames) {
+        try {
+          console.log(`Processing pattern: ${patternName}`);
+          
+          // Pass cached stock data to avoid refetching
+          const patterns = await stockApi.getPatternData(stockSymbol, patternName, originalDataRef.current);
 
-      if (patterns && patterns.length > 0) {
-        // Check if this is a complex pattern or simple pattern
-        const isComplexPattern = patterns[0].candleIndex !== undefined && 
-          (patterns[0].pivotIndices || patterns[0].flagHighs || 
-           patterns[0].headIndex !== undefined || patterns[0].pennantHighs ||
-           patterns[0].triangleType || patterns[0].upperTrendIndices);
+          console.log(`Pattern ${patternName} returned:`, patterns.length, 'patterns');
 
-        console.log('Is complex pattern:', isComplexPattern, 'Pattern sample:', patterns[0]); // Debug log
+          if (patterns && patterns.length > 0) {
+            totalPatternsFound += patterns.length;
 
-        if (isComplexPattern) {
-          processComplexPattern(patterns, patternName);
-        } else {
-          processSimplePattern(patterns, patternName);
+            // Check if this is a complex pattern or simple pattern
+            const isComplexPattern = patterns[0].candleIndex !== undefined && 
+              (patterns[0].pivotIndices || patterns[0].flagHighs || 
+               patterns[0].headIndex !== undefined || patterns[0].pennantHighs ||
+               patterns[0].triangleType || patterns[0].upperTrendIndices);
+
+            if (isComplexPattern) {
+              const { markers, lines } = collectComplexPatternData(patterns, patternName);
+              allMarkers.push(...markers);
+              allPatternLines.push(...lines);
+            } else {
+              const markers = collectSimplePatternData(patterns, patternName);
+              allMarkers.push(...markers);
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing pattern ${patternName}:`, error);
         }
-
-        onStatusChange(`Tìm thấy ${patterns.length} mô hình ${patternName}.`);
-      } else {
-        console.log('No patterns found for:', patternName); // Debug log
-        onStatusChange(`Không tìm thấy mô hình ${patternName}.`);
       }
+
+      console.log(`Total markers collected: ${allMarkers.length}`);
+      console.log(`Total lines collected: ${allPatternLines.length}`);
+
+      // Sort markers by time (required by LightweightCharts)
+      // Convert time string to timestamp for sorting
+      allMarkers.sort((a, b) => {
+        const timeA = typeof a.time === 'string' ? new Date(a.time).getTime() / 1000 : a.time;
+        const timeB = typeof b.time === 'string' ? new Date(b.time).getTime() / 1000 : b.time;
+        return timeA - timeB;
+      });
+
+      console.log(`Markers sorted, first time: ${allMarkers[0]?.time}, last time: ${allMarkers[allMarkers.length - 1]?.time}`);
+
+      // Apply all markers at once
+      if (allMarkers.length > 0) {
+        candleSeriesRef.current.setMarkers(allMarkers);
+        // Store markers for tooltip lookup
+        allPatternMarkersRef.current = allMarkers;
+      }
+
+      // Apply all pattern lines
+      allPatternLines.forEach(lineData => {
+        try {
+          const line = chartRef.current.addLineSeries(lineData.options);
+          line.setData(lineData.data);
+          patternLinesRef.current.push(line);
+        } catch (error) {
+          console.error('Error adding line series:', error);
+        }
+      });
+
+      // Setup tooltips for all patterns
+      setupMultiPatternTooltips(patternNames);
+
+      onStatusChange(`Tìm thấy ${totalPatternsFound} mô hình từ ${patternNames.length} loại.`);
     } catch (error) {
-      console.error('Error loading pattern:', error);
+      console.error('Error loading patterns:', error);
       onStatusChange('Lỗi: ' + error.message);
     }
   }, [stockSymbol, isChartReady, onStatusChange]);
 
-  // Process simple patterns (single/two/three candle patterns)
-  const processSimplePattern = (patterns, patternName) => {
-    const allMarkers = [];
+  // Collect simple pattern markers (don't render yet)
+  const collectSimplePatternData = (patterns, patternName) => {
+    const markers = [];
     const abbreviation = getPatternAbbreviation(patternName);
     const sentiment = getPatternSentiment(patternName);
+    
+    // TradingView style: Bright neon colors with arrow shapes
+    let markerConfig = {
+      color: '#FEB019', // Default yellow/orange for neutral
+      shape: 'circle',
+      position: 'aboveBar'
+    };
+
+    if (sentiment === 'bullish') {
+      markerConfig = {
+        color: '#00E396', // Bright green/neon
+        shape: 'arrowUp',
+        position: 'belowBar'
+      };
+    } else if (sentiment === 'bearish') {
+      markerConfig = {
+        color: '#FF4560', // Bright red/neon
+        shape: 'arrowDown',
+        position: 'aboveBar'
+      };
+    }
 
     patterns.forEach((pattern) => {
-      allMarkers.push({
+      markers.push({
         time: pattern.time,
-        position: sentiment === 'bearish' ? 'aboveBar' : 'belowBar',
-        color: sentiment === 'bullish' ? '#26a69a' : sentiment === 'bearish' ? '#ef5350' : '#9933FF',
-        shape: sentiment === 'bearish' ? 'arrowDown' : 'arrowUp',
+        position: markerConfig.position,
+        color: markerConfig.color,
+        shape: markerConfig.shape,
         text: abbreviation,
-        size: 2
+        size: 2, // Larger for better visibility
+        patternName: patternName // Store for tooltip
       });
     });
 
+    return markers;
+  };
+
+  // Process simple patterns (single/two/three candle patterns) - DEPRECATED, use collectSimplePatternData
+  const processSimplePattern = (patterns, patternName) => {
+    const allMarkers = collectSimplePatternData(patterns, patternName);
     candleSeriesRef.current.setMarkers(allMarkers);
     setupMarkerTooltips(patterns, patternName);
   };
 
-  // Process complex patterns (chart patterns with pivot points)
-  const processComplexPattern = (patterns, patternName) => {
-    console.log('Processing complex patterns:', patterns.length, 'patterns'); // Debug log
+  // Collect complex pattern data (markers and lines) without rendering
+  const collectComplexPatternData = (patterns, patternName) => {
+    console.log('Collecting complex patterns data:', patterns.length, 'patterns');
     
     const allMarkers = [];
+    const allLines = [];
     const abbreviation = getPatternAbbreviation(patternName);
-    const sentiment = getPatternSentiment(patternName);
 
     patterns.forEach((pattern, index) => {
-      console.log(`Processing pattern ${index + 1}:`, pattern); // Debug log
+      console.log(`Collecting pattern ${index + 1}:`, pattern);
       
       // Double Pattern
       if (pattern.pivotIndices && pattern.pivotPoints) {
-        console.log('Detected double pattern'); // Debug log
-        processDoublePattern(pattern, allMarkers, abbreviation);
+        const result = collectDoublePatternData(pattern, abbreviation, patternName);
+        allMarkers.push(...result.markers);
+        if (result.line) allLines.push(result.line);
       }
       // Flag Pattern
       else if (pattern.flagHighs && pattern.flagLows) {
-        console.log('Detected flag pattern'); // Debug log
-        processFlagPattern(pattern, allMarkers, abbreviation);
+        const result = collectFlagPatternData(pattern, abbreviation, patternName);
+        allMarkers.push(...result.markers);
+        allLines.push(...result.lines);
       }
       // Head and Shoulders
       else if (pattern.headIndex !== undefined) {
-        console.log('Detected head and shoulders pattern'); // Debug log
-        processHeadAndShouldersPattern(pattern, allMarkers, abbreviation);
+        const result = collectHeadAndShouldersData(pattern, abbreviation, patternName);
+        allMarkers.push(...result.markers);
+        if (result.line) allLines.push(result.line);
       }
       // Pennant
       else if (pattern.pennantHighs && pattern.pennantLows) {
-        console.log('Detected pennant pattern'); // Debug log
-        processPennantPattern(pattern, allMarkers, abbreviation);
+        const result = collectPennantData(pattern, abbreviation, patternName);
+        allMarkers.push(...result.markers);
+        allLines.push(...result.lines);
       }
       // Triangle
       else if (pattern.triangleType || pattern.upperTrendIndices) {
-        console.log('Detected triangle pattern'); // Debug log
-        processTrianglePattern(pattern, allMarkers, abbreviation);
+        const result = collectTriangleData(pattern, abbreviation, patternName);
+        allMarkers.push(...result.markers);
+        allLines.push(...result.lines);
       }
       // Generic pattern
       else if (pattern.candleIndex !== undefined) {
-        console.log('Detected generic complex pattern'); // Debug log
-        processGenericPattern(pattern, allMarkers, patternName);
-      } else {
-        console.warn('Unknown pattern structure:', pattern); // Debug log
+        const result = collectGenericPatternData(pattern, patternName);
+        allMarkers.push(...result.markers);
       }
     });
 
-    console.log('Total markers created:', allMarkers.length); // Debug log
+    console.log('Collected markers:', allMarkers.length, 'lines:', allLines.length);
     
-    if (allMarkers.length > 0) {
-      candleSeriesRef.current.setMarkers(allMarkers);
-      setupMarkerTooltips(patterns, patternName);
-    } else {
-      console.warn('No markers were created for complex patterns'); // Debug log
+    return { markers: allMarkers, lines: allLines };
+  };
+
+  // Process complex patterns (chart patterns with pivot points) - DEPRECATED, use collectComplexPatternData
+  const processComplexPattern = (patterns, patternName) => {
+    const { markers, lines } = collectComplexPatternData(patterns, patternName);
+    
+    if (markers.length > 0) {
+      candleSeriesRef.current.setMarkers(markers);
     }
+    
+    lines.forEach(lineData => {
+      const line = chartRef.current.addLineSeries(lineData.options);
+      line.setData(lineData.data);
+      patternLinesRef.current.push(line);
+    });
+    
+    setupMarkerTooltips(patterns, patternName);
   };
 
   // Helper functions for processing different pattern types
-  const processDoublePattern = (pattern, allMarkers, abbreviation) => {
+  // Collect double pattern data
+  const collectDoublePatternData = (pattern, abbreviation, patternName) => {
     const { candleIndex, pivotIndices, pivotPoints, doubleType } = pattern;
-
-    console.log('Processing double pattern:', { 
-      candleIndex, 
-      pivotIndices, 
-      pivotPoints, 
-      doubleType,
-      originalDataLength: originalDataRef.current.length 
-    }); // Debug log
+    const markers = [];
+    let line = null;
 
     // Add markers for pivot points
     pivotIndices.forEach((pivotIdx, i) => {
@@ -311,25 +427,20 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
         const candleData = originalDataRef.current[pivotIdx];
         if (candleData) {
           const isTop = doubleType === 'tops' || doubleType === 'both';
-          const marker = {
+          markers.push({
             time: candleData.time,
             position: isTop ? 'aboveBar' : 'belowBar',
             color: doubleType === 'tops' ? '#FF4444' : '#44FF44',
             shape: 'circle',
             text: `P${i + 1}: ${pivotPoints[i].toFixed(2)}`,
-            size: 1.5
-          };
-          allMarkers.push(marker);
-          console.log('Added pivot marker:', marker); // Debug log
-        } else {
-          console.warn('Candle data not found at index:', pivotIdx); // Debug log
+            size: 1.5,
+            patternName: patternName
+          });
         }
-      } else {
-        console.warn('Invalid pivot index:', pivotIdx, 'for data length:', originalDataRef.current.length); // Debug log
       }
     });
 
-    // Draw line connecting pivot points
+    // Prepare line data
     const lineData = pivotIndices
       .map((pivotIdx, i) => {
         if (pivotIdx >= 0 && pivotIdx < originalDataRef.current.length && pivotPoints[i]) {
@@ -340,42 +451,48 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
       })
       .filter(point => point !== null);
 
-    console.log('Line data points:', lineData.length); // Debug log
-
     if (lineData.length > 1) {
       const lineColor = doubleType === 'tops' ? 'rgba(255, 68, 68, 0.8)' : 'rgba(68, 255, 68, 0.8)';
-      const patternLine = chartRef.current.addLineSeries({
-        color: lineColor,
-        lineWidth: 2,
-        lineStyle: 2,
-        crosshairMarkerVisible: false,
-        lastValueVisible: false,
-        priceLineVisible: false,
-      });
-      patternLine.setData(lineData);
-      patternLinesRef.current.push(patternLine);
-      console.log('Added pattern line with color:', lineColor); // Debug log
+      line = {
+        data: lineData,
+        options: {
+          color: lineColor,
+          lineWidth: 2,
+          lineStyle: 2,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      };
     }
 
     // Main marker
     if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
       const mainCandle = originalDataRef.current[candleIndex];
       if (mainCandle) {
-        const mainMarker = {
+        markers.push({
           time: mainCandle.time,
           position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
           color: doubleType === 'tops' ? '#ef5350' : '#26a69a',
           shape: doubleType === 'tops' ? 'arrowDown' : 'arrowUp',
           text: abbreviation,
-          size: 2
-        };
-        allMarkers.push(mainMarker);
-        console.log('Added main marker:', mainMarker); // Debug log
-      } else {
-        console.warn('Main candle data not found at index:', candleIndex); // Debug log
+          size: 2,
+          patternName: patternName
+        });
       }
-    } else {
-      console.warn('Invalid main candle index:', candleIndex); // Debug log
+    }
+
+    return { markers, line };
+  };
+
+  // Legacy function - kept for compatibility
+  const processDoublePattern = (pattern, allMarkers, abbreviation) => {
+    const result = collectDoublePatternData(pattern, abbreviation, 'double_pattern');
+    allMarkers.push(...result.markers);
+    if (result.line) {
+      const patternLine = chartRef.current.addLineSeries(result.line.options);
+      patternLine.setData(result.line.data);
+      patternLinesRef.current.push(patternLine);
     }
   };
 
@@ -783,20 +900,440 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
   };
 
   const processGenericPattern = (pattern, allMarkers, patternName) => {
+    const result = collectGenericPatternData(pattern, patternName);
+    allMarkers.push(...result.markers);
+  };
+
+  // Collect generic pattern data
+  const collectGenericPatternData = (pattern, patternName) => {
+    const markers = [];
     if (pattern.candleIndex >= 0 && pattern.candleIndex < originalDataRef.current.length) {
       const mainCandle = originalDataRef.current[pattern.candleIndex];
       if (mainCandle) {
         const sentiment = getPatternSentiment(patternName);
-        allMarkers.push({
+        markers.push({
           time: mainCandle.time,
           position: sentiment === 'bearish' ? 'aboveBar' : 'belowBar',
           color: sentiment === 'bullish' ? '#26a69a' : sentiment === 'bearish' ? '#ef5350' : '#9933FF',
           shape: sentiment === 'bearish' ? 'arrowDown' : sentiment === 'bullish' ? 'arrowUp' : 'circle',
           text: getPatternAbbreviation(patternName),
-          size: 2
+          size: 2,
+          patternName: patternName
         });
       }
     }
+    return { markers };
+  };
+
+  // Collect flag pattern data
+  const collectFlagPatternData = (pattern, abbreviation, patternName) => {
+    const { candleIndex, flagHighsIdx, flagLowsIdx, flagHighs, flagLows, direction } = pattern;
+    const markers = [];
+    const lines = [];
+
+    // Process flag highs
+    if (flagHighsIdx && flagHighs) {
+      flagHighsIdx.forEach((idx, i) => {
+        if (idx >= 0 && idx < originalDataRef.current.length && flagHighs[i]) {
+          const candleData = originalDataRef.current[idx];
+          if (candleData) {
+            markers.push({
+              time: candleData.time,
+              position: 'aboveBar',
+              color: '#FFA500',
+              shape: 'circle',
+              text: `H${i + 1}: ${flagHighs[i].toFixed(2)}`,
+              size: 1,
+              patternName: patternName
+            });
+          }
+        }
+      });
+
+      const upperLineData = flagHighsIdx
+        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && flagHighs[i])
+          ? { time: originalDataRef.current[idx].time, value: flagHighs[i] } : null)
+        .filter(point => point !== null);
+
+      if (upperLineData.length > 1) {
+        lines.push({
+          data: upperLineData,
+          options: {
+            color: 'rgba(255, 165, 0, 0.8)',
+            lineWidth: 2,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        });
+      }
+    }
+
+    // Process flag lows
+    if (flagLowsIdx && flagLows) {
+      flagLowsIdx.forEach((idx, i) => {
+        if (idx >= 0 && idx < originalDataRef.current.length && flagLows[i]) {
+          const candleData = originalDataRef.current[idx];
+          if (candleData) {
+            markers.push({
+              time: candleData.time,
+              position: 'belowBar',
+              color: '#00CED1',
+              shape: 'circle',
+              text: `L${i + 1}: ${flagLows[i].toFixed(2)}`,
+              size: 1,
+              patternName: patternName
+            });
+          }
+        }
+      });
+
+      const lowerLineData = flagLowsIdx
+        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && flagLows[i])
+          ? { time: originalDataRef.current[idx].time, value: flagLows[i] } : null)
+        .filter(point => point !== null);
+
+      if (lowerLineData.length > 1) {
+        lines.push({
+          data: lowerLineData,
+          options: {
+            color: 'rgba(0, 206, 209, 0.8)',
+            lineWidth: 2,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        });
+      }
+    }
+
+    // Main marker
+    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
+      const mainCandle = originalDataRef.current[candleIndex];
+      if (mainCandle) {
+        markers.push({
+          time: mainCandle.time,
+          position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
+          color: direction === 'bullish' ? '#26a69a' : '#ef5350',
+          shape: direction === 'bullish' ? 'arrowUp' : 'arrowDown',
+          text: abbreviation,
+          size: 2,
+          patternName: patternName
+        });
+      }
+    }
+
+    return { markers, lines };
+  };
+
+  // Collect Head and Shoulders data
+  const collectHeadAndShouldersData = (pattern, abbreviation, patternName) => {
+    const { 
+      candleIndex, headIndex, leftShoulderIndex, rightShoulderIndex,
+      headPrice, leftShoulderPrice, rightShoulderPrice, necklinePrice, patternType 
+    } = pattern;
+    const markers = [];
+    let line = null;
+
+    // Add markers for key points
+    const points = [
+      { index: headIndex, price: headPrice, label: 'Head', color: '#FF4444' },
+      { index: leftShoulderIndex, price: leftShoulderPrice, label: 'L.Shoulder', color: '#FFA500' },
+      { index: rightShoulderIndex, price: rightShoulderPrice, label: 'R.Shoulder', color: '#FFA500' }
+    ];
+
+    points.forEach(point => {
+      if (point.index >= 0 && point.index < originalDataRef.current.length) {
+        const candleData = originalDataRef.current[point.index];
+        if (candleData) {
+          markers.push({
+            time: candleData.time,
+            position: patternType === 'inverse' ? 'belowBar' : 'aboveBar',
+            color: point.color,
+            shape: 'circle',
+            text: `${point.label}: ${point.price.toFixed(2)}`,
+            size: 1.5,
+            patternName: patternName
+          });
+        }
+      }
+    });
+
+    // Prepare neckline
+    if (necklinePrice && leftShoulderIndex >= 0 && rightShoulderIndex >= 0) {
+      line = {
+        data: [
+          { time: originalDataRef.current[leftShoulderIndex].time, value: necklinePrice },
+          { time: originalDataRef.current[rightShoulderIndex].time, value: necklinePrice }
+        ],
+        options: {
+          color: 'rgba(255, 255, 0, 0.8)',
+          lineWidth: 2,
+          lineStyle: 1,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      };
+    }
+
+    // Main marker
+    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
+      const mainCandle = originalDataRef.current[candleIndex];
+      if (mainCandle) {
+        markers.push({
+          time: mainCandle.time,
+          position: patternType === 'inverse' ? 'belowBar' : 'aboveBar',
+          color: patternType === 'inverse' ? '#26a69a' : '#ef5350',
+          shape: patternType === 'inverse' ? 'arrowUp' : 'arrowDown',
+          text: abbreviation,
+          size: 2,
+          patternName: patternName
+        });
+      }
+    }
+
+    return { markers, line };
+  };
+
+  // Collect Pennant data
+  const collectPennantData = (pattern, abbreviation, patternName) => {
+    const { candleIndex, pennantHighsIdx, pennantLowsIdx, pennantHighs, pennantLows, direction } = pattern;
+    const markers = [];
+    const lines = [];
+
+    // Process pennant highs
+    if (pennantHighsIdx && pennantHighs) {
+      pennantHighsIdx.forEach((idx, i) => {
+        if (idx >= 0 && idx < originalDataRef.current.length && pennantHighs[i]) {
+          const candleData = originalDataRef.current[idx];
+          if (candleData) {
+            markers.push({
+              time: candleData.time,
+              position: 'aboveBar',
+              color: '#FF6B35',
+              shape: 'circle',
+              text: `PH${i + 1}: ${pennantHighs[i].toFixed(2)}`,
+              size: 1,
+              patternName: patternName
+            });
+          }
+        }
+      });
+
+      const upperLineData = pennantHighsIdx
+        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && pennantHighs[i])
+          ? { time: originalDataRef.current[idx].time, value: pennantHighs[i] } : null)
+        .filter(point => point !== null);
+
+      if (upperLineData.length > 1) {
+        lines.push({
+          data: upperLineData,
+          options: {
+            color: 'rgba(255, 107, 53, 0.8)',
+            lineWidth: 2,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        });
+      }
+    }
+
+    // Process pennant lows
+    if (pennantLowsIdx && pennantLows) {
+      pennantLowsIdx.forEach((idx, i) => {
+        if (idx >= 0 && idx < originalDataRef.current.length && pennantLows[i]) {
+          const candleData = originalDataRef.current[idx];
+          if (candleData) {
+            markers.push({
+              time: candleData.time,
+              position: 'belowBar',
+              color: '#4ECDC4',
+              shape: 'circle',
+              text: `PL${i + 1}: ${pennantLows[i].toFixed(2)}`,
+              size: 1,
+              patternName: patternName
+            });
+          }
+        }
+      });
+
+      const lowerLineData = pennantLowsIdx
+        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && pennantLows[i])
+          ? { time: originalDataRef.current[idx].time, value: pennantLows[i] } : null)
+        .filter(point => point !== null);
+
+      if (lowerLineData.length > 1) {
+        lines.push({
+          data: lowerLineData,
+          options: {
+            color: 'rgba(78, 205, 196, 0.8)',
+            lineWidth: 2,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        });
+      }
+    }
+
+    // Main marker
+    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
+      const mainCandle = originalDataRef.current[candleIndex];
+      if (mainCandle) {
+        markers.push({
+          time: mainCandle.time,
+          position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
+          color: direction === 'bullish' ? '#26a69a' : '#ef5350',
+          shape: direction === 'bullish' ? 'arrowUp' : 'arrowDown',
+          text: abbreviation,
+          size: 2,
+          patternName: patternName
+        });
+      }
+    }
+
+    return { markers, lines };
+  };
+
+  // Collect Triangle data
+  const collectTriangleData = (pattern, abbreviation, patternName) => {
+    const { 
+      candleIndex, triangleType, upperTrendIndices, lowerTrendIndices,
+      upperTrendValues, lowerTrendValues 
+    } = pattern;
+    const markers = [];
+    const lines = [];
+
+    // Color scheme based on triangle type
+    const colors = {
+      'ascending': { upper: '#32CD32', lower: '#32CD32', main: '#00FF00' },
+      'descending': { upper: '#FF6347', lower: '#FF6347', main: '#FF0000' },
+      'symmetrical': { upper: '#FFD700', lower: '#FFD700', main: '#FFA500' }
+    };
+    const color = colors[triangleType] || colors['symmetrical'];
+
+    // Process upper trend
+    if (upperTrendIndices && upperTrendValues) {
+      upperTrendIndices.forEach((idx, i) => {
+        if (idx >= 0 && idx < originalDataRef.current.length && upperTrendValues[i]) {
+          const candleData = originalDataRef.current[idx];
+          if (candleData) {
+            markers.push({
+              time: candleData.time,
+              position: 'aboveBar',
+              color: color.upper,
+              shape: 'circle',
+              text: `U${i + 1}: ${upperTrendValues[i].toFixed(2)}`,
+              size: 1,
+              patternName: patternName
+            });
+          }
+        }
+      });
+
+      const upperLineData = upperTrendIndices
+        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && upperTrendValues[i])
+          ? { time: originalDataRef.current[idx].time, value: upperTrendValues[i] } : null)
+        .filter(point => point !== null);
+
+      if (upperLineData.length > 1) {
+        lines.push({
+          data: upperLineData,
+          options: {
+            color: color.upper + '80',
+            lineWidth: 2,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        });
+      }
+    }
+
+    // Process lower trend
+    if (lowerTrendIndices && lowerTrendValues) {
+      lowerTrendIndices.forEach((idx, i) => {
+        if (idx >= 0 && idx < originalDataRef.current.length && lowerTrendValues[i]) {
+          const candleData = originalDataRef.current[idx];
+          if (candleData) {
+            markers.push({
+              time: candleData.time,
+              position: 'belowBar',
+              color: color.lower,
+              shape: 'circle',
+              text: `L${i + 1}: ${lowerTrendValues[i].toFixed(2)}`,
+              size: 1,
+              patternName: patternName
+            });
+          }
+        }
+      });
+
+      const lowerLineData = lowerTrendIndices
+        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && lowerTrendValues[i])
+          ? { time: originalDataRef.current[idx].time, value: lowerTrendValues[i] } : null)
+        .filter(point => point !== null);
+
+      if (lowerLineData.length > 1) {
+        lines.push({
+          data: lowerLineData,
+          options: {
+            color: color.lower + '80',
+            lineWidth: 2,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        });
+      }
+    }
+
+    // Main marker
+    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
+      const mainCandle = originalDataRef.current[candleIndex];
+      if (mainCandle) {
+        const triSentiment = triangleType === 'ascending' ? 'bullish' :
+                           triangleType === 'descending' ? 'bearish' : 'neutral';
+        markers.push({
+          time: mainCandle.time,
+          position: triSentiment === 'bearish' ? 'aboveBar' : 'belowBar',
+          color: triSentiment === 'bullish' ? '#26a69a' :
+                 triSentiment === 'bearish' ? '#ef5350' : '#9933FF',
+          shape: triSentiment === 'bearish' ? 'arrowDown' : triSentiment === 'bullish' ? 'arrowUp' : 'circle',
+          text: abbreviation,
+          size: 2,
+          patternName: patternName
+        });
+      }
+    }
+
+    return { markers, lines };
+  };
+
+  // Store all pattern markers for tooltip lookup
+  const allPatternMarkersRef = useRef([]);
+
+  // Setup tooltip for multiple patterns
+  const setupMultiPatternTooltips = (patternNames) => {
+    if (!chartRef.current || !tooltipRef.current) return;
+
+    chartRef.current.subscribeCrosshairMove((param) => {
+      if (!param || !param.time || !param.point) {
+        hideTooltip();
+        return;
+      }
+
+      // Find marker at this time from stored markers
+      const hoveredMarker = allPatternMarkersRef.current.find(marker => marker.time === param.time);
+
+      if (hoveredMarker && hoveredMarker.patternName) {
+        showTooltip(hoveredMarker.patternName, param.point.x, param.point.y);
+      } else {
+        hideTooltip();
+      }
+    });
   };
 
   // Setup tooltip listeners
@@ -873,6 +1410,16 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
     });
     patternLinesRef.current = [];
 
+    // Remove all indicator series
+    indicatorSeriesRef.current.forEach(series => {
+      try {
+        chartRef.current.removeSeries(series);
+      } catch (e) {
+        console.warn('Could not remove indicator series:', e);
+      }
+    });
+    indicatorSeriesRef.current = [];
+
     // Clear markers
     candleSeriesRef.current.setMarkers([]);
 
@@ -882,6 +1429,203 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
     }
   }, []);
 
+  // Load indicators
+  const loadIndicators = useCallback(async (indicatorsList) => {
+    if (!isChartReady || !chartRef.current || !originalDataRef.current.length) {
+      console.warn('Chart not ready or no data for indicators');
+      return;
+    }
+
+    // Remove existing indicator series
+    indicatorSeriesRef.current.forEach(series => {
+      try {
+        chartRef.current.removeSeries(series);
+      } catch (e) {
+        console.warn('Could not remove indicator series:', e);
+      }
+    });
+    indicatorSeriesRef.current = [];
+
+    if (!indicatorsList || indicatorsList.length === 0) {
+      return;
+    }
+
+    console.log('Loading indicators:', indicatorsList);
+
+    indicatorsList.forEach(indicatorValue => {
+      const config = getIndicatorConfig(indicatorValue);
+      if (!config) {
+        console.warn(`No config found for indicator: ${indicatorValue}`);
+        return;
+      }
+
+      try {
+        switch (config.type) {
+          case 'sma': {
+            const smaData = calculateSMA(originalDataRef.current, config.period);
+            if (smaData.length > 0) {
+              const smaSeries = chartRef.current.addLineSeries({
+                color: config.color,
+                lineWidth: 2,
+                title: `SMA(${config.period})`,
+                lastValueVisible: true,
+                priceLineVisible: false,
+              });
+              smaSeries.setData(smaData);
+              indicatorSeriesRef.current.push(smaSeries);
+              console.log(`Added SMA(${config.period}) with ${smaData.length} points`);
+            }
+            break;
+          }
+
+          case 'ema': {
+            const emaData = calculateEMA(originalDataRef.current, config.period);
+            if (emaData.length > 0) {
+              const emaSeries = chartRef.current.addLineSeries({
+                color: config.color,
+                lineWidth: 2,
+                title: `EMA(${config.period})`,
+                lastValueVisible: true,
+                priceLineVisible: false,
+              });
+              emaSeries.setData(emaData);
+              indicatorSeriesRef.current.push(emaSeries);
+              console.log(`Added EMA(${config.period}) with ${emaData.length} points`);
+            }
+            break;
+          }
+
+          case 'rsi': {
+            const rsiData = calculateRSI(originalDataRef.current, config.period);
+            if (rsiData.length > 0) {
+              // RSI uses separate price scale (0-100 range)
+              const rsiSeries = chartRef.current.addLineSeries({
+                color: config.color,
+                lineWidth: 2,
+                title: `RSI(${config.period})`,
+                lastValueVisible: true,
+                priceLineVisible: false,
+                priceScaleId: 'rsi', // Use separate price scale
+              });
+              
+              // Configure RSI price scale (0-100)
+              rsiSeries.priceScale().applyOptions({
+                scaleMargins: {
+                  top: 0.8, // Position RSI in bottom 20% of chart
+                  bottom: 0,
+                },
+                borderVisible: false,
+              });
+              
+              rsiSeries.setData(rsiData);
+              indicatorSeriesRef.current.push(rsiSeries);
+              console.log(`Added RSI(${config.period}) with ${rsiData.length} points on separate scale`);
+            }
+            break;
+          }
+
+          case 'macd': {
+            const macdData = calculateMACD(
+              originalDataRef.current,
+              config.fastPeriod,
+              config.slowPeriod,
+              config.signalPeriod
+            );
+            if (macdData.macd.length > 0) {
+              // MACD uses separate price scale
+              const macdSeries = chartRef.current.addLineSeries({
+                color: '#2196F3',
+                lineWidth: 2,
+                title: 'MACD',
+                lastValueVisible: true,
+                priceLineVisible: false,
+                priceScaleId: 'macd', // Use separate price scale
+              });
+              
+              // Configure MACD price scale
+              macdSeries.priceScale().applyOptions({
+                scaleMargins: {
+                  top: 0.85, // Position MACD in bottom 15% of chart
+                  bottom: 0,
+                },
+                borderVisible: false,
+              });
+              
+              macdSeries.setData(macdData.macd);
+              indicatorSeriesRef.current.push(macdSeries);
+
+              const signalSeries = chartRef.current.addLineSeries({
+                color: '#FF9800',
+                lineWidth: 2,
+                title: 'Signal',
+                lastValueVisible: true,
+                priceLineVisible: false,
+                priceScaleId: 'macd', // Same scale as MACD
+              });
+              signalSeries.setData(macdData.signal);
+              indicatorSeriesRef.current.push(signalSeries);
+
+              console.log(`Added MACD with ${macdData.macd.length} points on separate scale`);
+            }
+            break;
+          }
+
+          case 'bollinger_bands': {
+            const bbData = calculateBollingerBands(
+              originalDataRef.current,
+              config.period,
+              config.stdDev
+            );
+            if (bbData.upper.length > 0) {
+              // Upper band
+              const upperSeries = chartRef.current.addLineSeries({
+                color: config.colors.upper,
+                lineWidth: 1,
+                title: `BB Upper(${config.period})`,
+                lastValueVisible: false,
+                priceLineVisible: false,
+              });
+              upperSeries.setData(bbData.upper);
+              indicatorSeriesRef.current.push(upperSeries);
+
+              // Middle band
+              const middleSeries = chartRef.current.addLineSeries({
+                color: config.colors.middle,
+                lineWidth: 2,
+                title: `BB Middle(${config.period})`,
+                lastValueVisible: true,
+                priceLineVisible: false,
+              });
+              middleSeries.setData(bbData.middle);
+              indicatorSeriesRef.current.push(middleSeries);
+
+              // Lower band
+              const lowerSeries = chartRef.current.addLineSeries({
+                color: config.colors.lower,
+                lineWidth: 1,
+                title: `BB Lower(${config.period})`,
+                lastValueVisible: false,
+                priceLineVisible: false,
+              });
+              lowerSeries.setData(bbData.lower);
+              indicatorSeriesRef.current.push(lowerSeries);
+
+              console.log(`Added Bollinger Bands(${config.period}) with ${bbData.upper.length} points`);
+            }
+            break;
+          }
+
+          default:
+            console.warn(`Unknown indicator type: ${config.type}`);
+        }
+      } catch (error) {
+        console.error(`Error adding indicator ${indicatorValue}:`, error);
+      }
+    });
+
+    console.log(`Total indicators loaded: ${indicatorSeriesRef.current.length} series`);
+  }, [isChartReady]);
+
   // Handle stock symbol change
   useEffect(() => {
     if (isChartReady && stockSymbol) {
@@ -889,18 +1633,19 @@ const StockChart = ({ stockSymbol, patternType, onStatusChange, isLight }) => {
     }
   }, [stockSymbol, isChartReady, loadStockData]);
 
-  // Handle pattern type change
+  // Handle selected patterns change
   useEffect(() => {
-    if (!isChartReady || !patternType || patternType === 'reset') {
-      if (patternType === 'reset') {
-        resetPatterns();
-        onStatusChange('Sẵn sàng.');
-      }
-      return;
-    }
+    if (!isChartReady) return;
 
-    loadPatternData(patternType);
-  }, [patternType, isChartReady, loadPatternData, resetPatterns, onStatusChange]);
+    loadPatternsData(selectedPatterns);
+  }, [selectedPatterns, isChartReady, loadPatternsData, dataLoadCounter]);
+
+  // Handle selected indicators change
+  useEffect(() => {
+    if (!isChartReady) return;
+
+    loadIndicators(selectedIndicators);
+  }, [selectedIndicators, isChartReady, loadIndicators, dataLoadCounter]);
 
   return (
     <div className="chart-container">

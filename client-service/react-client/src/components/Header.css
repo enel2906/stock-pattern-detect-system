@@ -94,6 +94,95 @@
   opacity: 0.8;
 }
 
+/* Stock Selector Button */
+.stock-selector-button {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  color: #3b82f6 !important;
+  font-weight: 700;
+  font-size: 14px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.stock-selector-button:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: #3b82f6 !important;
+  opacity: 1 !important;
+}
+
+.stock-selector-button .icon {
+  font-size: 14px;
+}
+
+.stock-selector-button .stock-symbol {
+  letter-spacing: 0.5px;
+  font-size: 14px;
+}
+
+body.light .stock-selector-button {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+body.light .stock-selector-button:hover {
+  background: rgba(59, 130, 246, 0.25) !important;
+}
+
+/* Indicators Button */
+.indicators-button {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px !important;
+  background: rgba(38, 166, 154, 0.1) !important;
+  border: 1px solid rgba(38, 166, 154, 0.3) !important;
+  color: #26a69a !important;
+  font-weight: 600;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.indicators-button:hover {
+  background: rgba(38, 166, 154, 0.2) !important;
+  border-color: #26a69a !important;
+  opacity: 1 !important;
+}
+
+.indicators-button .icon {
+  font-size: 16px;
+  font-weight: bold;
+  font-style: italic;
+}
+
+.indicators-button .label {
+  font-size: 13px;
+}
+
+.indicators-button .badge {
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+}
+
+body.light .indicators-button {
+  background: rgba(38, 166, 154, 0.15) !important;
+  border-color: rgba(38, 166, 154, 0.4) !important;
+}
+
+body.light .indicators-button:hover {
+  background: rgba(38, 166, 154, 0.25) !important;
+}
+
 .user-menu {
   display: flex;
   align-items: center;

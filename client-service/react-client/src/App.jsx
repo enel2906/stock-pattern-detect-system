@@ -10,7 +10,8 @@ import './App.css';
 
 function MainApp() {
   const [stockSymbol, setStockSymbol] = useState('VIC');
-  const [patternType, setPatternType] = useState('reset');
+  const [selectedPatterns, setSelectedPatterns] = useState([]);
+  const [selectedIndicators, setSelectedIndicators] = useState([]);
   const [isLight, setIsLight] = useState(false);
   const [status, setStatus] = useState('Sẵn sàng.');
 
@@ -20,9 +21,39 @@ function MainApp() {
   }, [isLight]);
 
   const handleLoadData = () => {
-    // Trigger refresh by updating key values
-    setPatternType('reset');
+    // Trigger refresh by clearing patterns and indicators, then reloading
+    setSelectedPatterns([]);
+    setSelectedIndicators([]);
     setStatus('Đang tải dữ liệu...');
+  };
+
+  const handleTogglePattern = (patternValue) => {
+    setSelectedPatterns(prev => {
+      if (prev.includes(patternValue)) {
+        // Remove pattern
+        return prev.filter(p => p !== patternValue);
+      } else {
+        // Add pattern
+        return [...prev, patternValue];
+      }
+    });
+  };
+
+  const handleToggleIndicator = (indicatorValue) => {
+    setSelectedIndicators(prev => {
+      if (prev.includes(indicatorValue)) {
+        // Remove indicator
+        return prev.filter(i => i !== indicatorValue);
+      } else {
+        // Add indicator
+        return [...prev, indicatorValue];
+      }
+    });
+  };
+
+  const handleApplyIndicators = (selections) => {
+    setSelectedPatterns(selections.patterns);
+    setSelectedIndicators(selections.indicators);
   };
 
   const handleToggleTheme = () => {
@@ -34,8 +65,11 @@ function MainApp() {
       <Header
         stockSymbol={stockSymbol}
         onStockChange={setStockSymbol}
-        patternType={patternType}
-        onPatternChange={setPatternType}
+        selectedPatterns={selectedPatterns}
+        selectedIndicators={selectedIndicators}
+        onTogglePattern={handleTogglePattern}
+        onToggleIndicator={handleToggleIndicator}
+        onApplyPatterns={handleApplyIndicators}
         onLoadData={handleLoadData}
         onToggleTheme={handleToggleTheme}
         isLight={isLight}
@@ -45,7 +79,8 @@ function MainApp() {
         <div className="card layout">
           <StockChart
             stockSymbol={stockSymbol}
-            patternType={patternType}
+            selectedPatterns={selectedPatterns}
+            selectedIndicators={selectedIndicators}
             onStatusChange={setStatus}
             isLight={isLight}
           />
