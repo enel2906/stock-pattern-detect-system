@@ -40,6 +40,7 @@ export const stockApi = {
         high: item.high,
         low: item.low,
         close: item.close,
+        volume: item.volume
       }));
 
       return cdata;

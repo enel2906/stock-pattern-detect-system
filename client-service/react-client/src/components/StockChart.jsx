@@ -17,15 +17,20 @@ const RIGHT_OFFSET = 20;
 
 const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatusChange, isLight }) => {
   const chartContainerRef = useRef(null);
+  const volumeContainerRef = useRef(null);
   const chartRef = useRef(null);
+  const volChartRef = useRef(null);
   const candleSeriesRef = useRef(null);
+  const volumeSeriesRef = useRef(null);
   const originalDataRef = useRef([]);
+  const volumeMapRef = useRef(new Map()); // Map for O(1) volume lookup
   const patternLinesRef = useRef([]);
   const indicatorSeriesRef = useRef([]); // Store indicator line series
   const tooltipRef = useRef(null);
   
   const [isChartReady, setIsChartReady] = useState(false);
   const [dataLoadCounter, setDataLoadCounter] = useState(0); // Track when new data is loaded
+  const [ohlcvInfo, setOhlcvInfo] = useState(null); // Current OHLCV info
 
   // Initialize chart
   useEffect(() => {
@@ -93,11 +98,90 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     
     console.log('Candlestick series added:', candleSeries); // Debug log
 
+    // Create volume chart
+    const volContainer = volumeContainerRef.current;
+    if (volContainer) {
+      const volWidth = volContainer.offsetWidth || window.innerWidth - 20;
+      const volHeight = volContainer.offsetHeight || 150;
+      
+      const volChart = createChart(volContainer, {
+        width: volWidth,
+        height: volHeight,
+        layout: { 
+          background: { type: 'solid', color: 'transparent' }, 
+          textColor: isLight ? '#1f2937' : '#c7d2e0' 
+        },
+        rightPriceScale: { borderColor: isLight ? '#e5e7eb' : '#2b3240' },
+        timeScale: {
+          borderColor: isLight ? '#e5e7eb' : '#2b3240',
+          timeVisible: true,
+          rightOffset: RIGHT_OFFSET,
+          secondsVisible: false
+        },
+        grid: {
+          vertLines: { color: isLight ? '#e5e7eb' : '#1f242d' },
+          horzLines: { color: isLight ? '#e5e7eb' : '#1f242d' }
+        },
+        handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
+        handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
+      });
+      
+      volChartRef.current = volChart;
+      
+      const volumeSeries = volChart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+        base: 0,
+      });
+      
+      volumeSeriesRef.current = volumeSeries;
+      
+      console.log('Volume chart created:', volChart);
+      
+      // Sync time scales between charts
+      const syncScales = (master, slave) => {
+        let syncing = false;
+        master.timeScale().subscribeVisibleLogicalRangeChange(() => {
+          if (syncing) return;
+          const lr = master.timeScale().getVisibleLogicalRange();
+          if (!lr) return;
+          syncing = true;
+          slave.timeScale().setVisibleLogicalRange(lr);
+          syncing = false;
+        });
+      };
+      
+      syncScales(chart, volChart);
+      syncScales(volChart, chart);
+    }
+
     // Create tooltip element
     const tooltip = document.createElement('div');
     tooltip.className = 'pattern-tooltip';
     document.body.appendChild(tooltip);
     tooltipRef.current = tooltip;
+
+    // Subscribe to crosshair move to update OHLCV info (Optimized with Map O(1))
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.seriesData || param.seriesData.size === 0) {
+        setOhlcvInfo(null);
+        return;
+      }
+
+      const candleData = param.seriesData.get(candleSeries);
+      if (candleData) {
+        // O(1) lookup using Map instead of O(N) find
+        const volume = volumeMapRef.current.get(param.time) || 0;
+        setOhlcvInfo({
+          time: param.time,
+          open: candleData.open,
+          high: candleData.high,
+          low: candleData.low,
+          close: candleData.close,
+          volume: volume
+        });
+      }
+    });
 
     setIsChartReady(true);
     console.log('Chart ready!'); // Debug log
@@ -108,6 +192,12 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
           chart.applyOptions({
             width: chartContainerRef.current.offsetWidth,
             height: chartContainerRef.current.offsetHeight,
+          });
+        }
+        if (volumeContainerRef.current && volChart) {
+          volChart.applyOptions({
+            width: volumeContainerRef.current.offsetWidth,
+            height: volumeContainerRef.current.offsetHeight,
           });
         }
       };
@@ -122,6 +212,9 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
         }
         if (chart) {
           chart.remove();
+        }
+        if (volChart) {
+          volChart.remove();
         }
       };
     };
@@ -148,6 +241,15 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       rightPriceScale: { borderColor: colors.border },
       timeScale: { borderColor: colors.border }
     });
+    
+    if (volChartRef.current) {
+      volChartRef.current.applyOptions({
+        layout: { background: { type: 'solid', color: colors.bg }, textColor: colors.text },
+        grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
+        rightPriceScale: { borderColor: colors.border },
+        timeScale: { borderColor: colors.border }
+      });
+    }
   }, [isLight]);
 
   // Load stock data
@@ -175,13 +277,36 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       if (isValidData(data)) {
         console.log('Setting data to chart, count:', data.length); // Debug log
         originalDataRef.current = [...data];
+        
+        // Populate volume Map for O(1) lookup
+        volumeMapRef.current.clear();
+        const volumeData = [];
+        data.forEach(item => {
+          volumeMapRef.current.set(item.time, item.volume);
+          volumeData.push({
+            time: item.time,
+            value: item.volume,
+            color: (item.close >= item.open) ? '#26a69a' : '#ef5350'
+          });
+        });
+        
         candleSeriesRef.current.setData(originalDataRef.current);
+        
+        // Set volume data
+        if (volumeSeriesRef.current) {
+          volumeSeriesRef.current.setData(volumeData);
+          console.log('Volume data set successfully:', volumeData.length);
+        }
+        
         console.log('Data set successfully'); // Debug log
 
         // Show first 300 candles
         const INIT_BARS = 300;
         const last = Math.min(INIT_BARS - 1, originalDataRef.current.length - 1);
         chartRef.current.timeScale().setVisibleLogicalRange({ from: 0, to: last });
+        if (volChartRef.current) {
+          volChartRef.current.timeScale().setVisibleLogicalRange({ from: 0, to: last });
+        }
         console.log('Visible range set:', { from: 0, to: last }); // Debug log
 
         // Trigger reload of patterns and indicators
@@ -190,6 +315,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
         onStatusChange(`Sẵn sàng. Đã tải ${data.length} phiên cho ${stockSymbol}.`);
       } else {
         originalDataRef.current = [];
+        volumeMapRef.current.clear();
         onStatusChange('Không có dữ liệu để hiển thị.');
       }
     } catch (error) {
@@ -1647,9 +1773,48 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     loadIndicators(selectedIndicators);
   }, [selectedIndicators, isChartReady, loadIndicators, dataLoadCounter]);
 
+  // Format number with comma separator
+  const formatNumber = (num) => {
+    if (!num) return '0';
+    return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  // Format volume with K/M suffix
+  const formatVolume = (vol) => {
+    if (!vol) return '0';
+    if (vol >= 1000000) return (vol / 1000000).toFixed(2) + 'M';
+    if (vol >= 1000) return (vol / 1000).toFixed(2) + 'K';
+    return vol.toFixed(0);
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
   return (
-    <div className="chart-container">
-      <div ref={chartContainerRef} className="chart" />
+    <div className="chart-wrapper">
+      <div className="chart-container">
+        {ohlcvInfo && (
+          <div className="ohlcv-info">
+            <span className="ohlcv-label">{stockSymbol}</span>
+            <span className="ohlcv-time">{formatDate(ohlcvInfo.time)}</span>
+            <span className="ohlcv-item">O <span className="ohlcv-value">{formatNumber(ohlcvInfo.open)}</span></span>
+            <span className="ohlcv-item">H <span className="ohlcv-value">{formatNumber(ohlcvInfo.high)}</span></span>
+            <span className="ohlcv-item">L <span className="ohlcv-value">{formatNumber(ohlcvInfo.low)}</span></span>
+            <span className={`ohlcv-item ${ohlcvInfo.close >= ohlcvInfo.open ? 'up' : 'down'}`}>
+              C <span className="ohlcv-value">{formatNumber(ohlcvInfo.close)}</span>
+            </span>
+            <span className="ohlcv-item">Vol <span className="ohlcv-value">{formatVolume(ohlcvInfo.volume)}</span></span>
+          </div>
+        )}
+        <div ref={chartContainerRef} className="chart" />
+      </div>
+      <div className="volume-container">
+        <div ref={volumeContainerRef} className="volume-chart" />
+      </div>
     </div>
   );
 };
