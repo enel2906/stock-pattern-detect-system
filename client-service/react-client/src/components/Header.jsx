@@ -66,15 +66,23 @@ const Header = ({
             {isLight ? '☀️' : '🌙'}
           </button>
 
-          {user && (
+          {user ? (
             <div className="user-menu">
               <div className="user-info">
                 <span className="user-name">{user.fullName || user.username}</span>
               </div>
               <button className="logout-button" onClick={logout} title="Đăng xuất">
-                🚪
+                🚦
               </button>
             </div>
+          ) : (
+            <button 
+              className="login-button" 
+              onClick={() => window.location.href = '/login'}
+              title="Đăng nhập"
+            >
+              🔑 Đăng nhập
+            </button>
           )}
         </div>
       </header>

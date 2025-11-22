@@ -13,18 +13,17 @@ const getAuthHeaders = () => {
 };
 
 export const stockApi = {
-  // Fetch stock data
+  // Fetch stock data - Public API (no auth required)
   getStockData: async (stockSymbol) => {
     try {
       const res = await fetch(`${API_BASE_URL}/stock?symbol=${stockSymbol}`, {
         method: 'GET',
-        headers: getAuthHeaders()
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
       if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error('Unauthorized - Please login again');
-        }
         throw new Error('Failed to fetch data');
       }
 

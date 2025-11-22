@@ -25,8 +25,15 @@ export const AuthProvider = ({ children }) => {
           const userData = await authApi.getCurrentUser(accessToken);
           setUser(userData);
         } catch (error) {
-          console.error('Failed to load user:', error);
-          logout();
+          console.error('Failed to load user:', error.message);
+          // Only logout if it's an auth error, not network or CORS error
+          if (error.message.includes('Unauthorized') || error.message === 'UNAUTHORIZED') {
+            logout();
+          } else {
+            // For other errors (network, CORS), just clear loading but keep token
+            // User can try again later
+            console.warn('Could not verify token, but keeping it for retry');
+          }
         }
       }
       setLoading(false);

@@ -10,8 +10,14 @@ export const authApi = {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(userData),
       });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Registration failed');
+      }
 
       const response = await res.json();
       
@@ -33,8 +39,14 @@ export const authApi = {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(credentials),
       });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Login failed');
+      }
 
       const response = await res.json();
       
@@ -71,10 +83,28 @@ export const authApi = {
   getCurrentUser: async (token) => {
     try {
       const res = await fetch(`${API_BASE_URL}/user/me`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies if any
       });
+
+      // Check if response is redirect (302/301) or unauthorized (401)
+      if (res.status === 401 || res.status === 302 || res.status === 301) {
+        throw new Error('UNAUTHORIZED');
+      }
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      // Check if response is JSON
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('INVALID_RESPONSE_TYPE');
+      }
 
       const response = await res.json();
       
@@ -84,6 +114,10 @@ export const authApi = {
 
       return response.data;
     } catch (error) {
+      // Don't log full error to avoid exposing redirect URLs
+      if (error.message === 'UNAUTHORIZED') {
+        throw new Error('Unauthorized - Please login again');
+      }
       throw error;
     }
   },

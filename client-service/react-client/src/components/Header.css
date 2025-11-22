@@ -78,6 +78,29 @@
 .controls button {
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.controls button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.login-button {
+  background: linear-gradient(135deg, var(--accent), #2563eb) !important;
+  color: white !important;
+  border: none !important;
+  font-weight: 700 !important;
+  padding: 8px 16px !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.login-button:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5) !important;
 }
 
 .controls button.primary {

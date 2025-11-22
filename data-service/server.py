@@ -364,40 +364,29 @@ async def update_latest_data():
 
 @app.on_event("startup")
 async def startup_event():
-    """Xử lý khi server khởi động"""
+
     global update_task
     
-    logger.info("Server starting up...")
-    
-    # Kết nối MongoDB
     if not init_mongodb():
-        logger.error("Failed to initialize MongoDB")
         return
     
-    # Khởi tạo dữ liệu
     await initialize_data()
-    
-    # Bắt đầu background task cập nhật
+
     update_task = asyncio.create_task(update_latest_data())
     logger.info(f"Server started on port {PORT}")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Xử lý khi server tắt"""
     global update_task
-    
-    logger.info("Server shutting down...")
-    
-    # Hủy background task
+
     if update_task:
         update_task.cancel()
         try:
             await update_task
         except asyncio.CancelledError:
             pass
-    
-    # Đóng kết nối MongoDB
+
     if mongo_client:
         mongo_client.close()
     
