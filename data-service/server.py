@@ -320,7 +320,7 @@ async def update_latest_data():
             
             # Lấy dữ liệu 5 ngày gần nhất (để đảm bảo không bỏ sót)
             end_date = datetime.now().strftime('%Y-%m-%d')
-            start_date = (datetime.now() - timedelta(days=5)).strftime('%Y-%m-%d')
+            start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
             
             updated_count = 0
             for stock in stocks:
