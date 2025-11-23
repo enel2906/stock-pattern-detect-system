@@ -49,7 +49,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/error"
+                                "/error",
+                                "/ws/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/stock").permitAll()
                         .anyRequest().authenticated()

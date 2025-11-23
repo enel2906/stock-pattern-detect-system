@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart } from 'lightweight-charts';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { PATTERN_DEFINITIONS } from '../constants/patternDefinitions';
 import { getPatternAbbreviation, getPatternSentiment, isValidData } from '../utils/patternUtils';
 import { stockApi } from '../services/api';
@@ -27,6 +29,8 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
   const patternLinesRef = useRef([]);
   const indicatorSeriesRef = useRef([]); // Store indicator line series
   const tooltipRef = useRef(null);
+  const stompClientRef = useRef(null);
+  const subscriptionRef = useRef(null);
   
   const [isChartReady, setIsChartReady] = useState(false);
   const [dataLoadCounter, setDataLoadCounter] = useState(0); // Track when new data is loaded
@@ -1751,6 +1755,120 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
 
     console.log(`Total indicators loaded: ${indicatorSeriesRef.current.length} series`);
   }, [isChartReady]);
+
+  // WebSocket connection and subscription
+  useEffect(() => {
+    if (!stockSymbol || !isChartReady) return;
+
+    const connectWebSocket = () => {
+      try {
+        const client = new Client({
+          webSocketFactory: () => new SockJS('http://localhost:60/ws'),
+          debug: (str) => {
+            console.log('STOMP Debug:', str);
+          },
+          reconnectDelay: 5000,
+          heartbeatIncoming: 4000,
+          heartbeatOutgoing: 4000,
+        });
+
+        client.onConnect = () => {
+          console.log('WebSocket connected for symbol:', stockSymbol);
+
+          if (subscriptionRef.current) {
+            subscriptionRef.current.unsubscribe();
+          }
+
+          subscriptionRef.current = client.subscribe(
+            `/topic/stock-updates/${stockSymbol}`,
+            (message) => {
+              try {
+                const stockUpdate = JSON.parse(message.body);
+                console.log('Received stock update:', stockUpdate);
+
+                const newCandle = {
+                  time: new Date(stockUpdate.timestamp * 1000).toISOString().split('T')[0],
+                  open: stockUpdate.open,
+                  high: stockUpdate.high,
+                  low: stockUpdate.low,
+                  close: stockUpdate.close,
+                };
+
+                if (candleSeriesRef.current) {
+                  candleSeriesRef.current.update(newCandle);
+                  console.log('Updated chart with new candle:', newCandle);
+                }
+
+                const existingIndex = originalDataRef.current.findIndex(
+                  (item) => item.time === newCandle.time
+                );
+
+                if (existingIndex >= 0) {
+                  originalDataRef.current[existingIndex] = {
+                    ...newCandle,
+                    volume: stockUpdate.volume,
+                  };
+                } else {
+                  originalDataRef.current.push({
+                    ...newCandle,
+                    volume: stockUpdate.volume,
+                  });
+                }
+
+                volumeMapRef.current.set(newCandle.time, stockUpdate.volume);
+
+                if (volumeSeriesRef.current) {
+                  volumeSeriesRef.current.update({
+                    time: newCandle.time,
+                    value: stockUpdate.volume,
+                    color: newCandle.close >= newCandle.open ? '#26a69a' : '#ef5350',
+                  });
+                }
+
+                if (selectedIndicators && selectedIndicators.length > 0) {
+                  loadIndicators(selectedIndicators);
+                }
+
+                if (selectedPatterns && selectedPatterns.length > 0) {
+                  loadPatternsData(selectedPatterns);
+                }
+
+                onStatusChange(`Cập nhật: ${stockSymbol} - ${newCandle.close}`);
+              } catch (error) {
+                console.error('Error processing stock update:', error);
+              }
+            }
+          );
+        };
+
+        client.onStompError = (frame) => {
+          console.error('STOMP error:', frame);
+        };
+
+        client.onWebSocketError = (error) => {
+          console.error('WebSocket error:', error);
+        };
+
+        client.activate();
+        stompClientRef.current = client;
+      } catch (error) {
+        console.error('Error connecting to WebSocket:', error);
+      }
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+        stompClientRef.current = null;
+      }
+    };
+  }, [stockSymbol, isChartReady, selectedIndicators, selectedPatterns, loadIndicators, loadPatternsData, onStatusChange]);
 
   // Handle stock symbol change
   useEffect(() => {

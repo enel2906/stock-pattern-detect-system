@@ -8,12 +8,15 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict
 import time
+import json
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import PyMongoError
 import uvicorn
+import aio_pika
+from aio_pika import connect_robust, Message, DeliveryMode, ExchangeType
 
 # Import vnstock và vnai
 try:
@@ -31,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 # Cấu hình
 MONGODB_URI = "mongodb://localhost:27017/candlestick_db"
+RABBITMQ_URI = "amqp://guest:guest@localhost:5672/"
 PORT = 8000
 UPDATE_INTERVAL = 60  # 60 giây (1 phút) - tránh vượt rate limit
 
@@ -70,6 +74,11 @@ candlesticks_collection = None
 # Vnstock instance
 vnstock = None
 
+# RabbitMQ connection
+rabbitmq_connection = None
+rabbitmq_channel = None
+rabbitmq_exchange = None
+
 # Background task reference
 update_task = None
 
@@ -96,6 +105,70 @@ def init_mongodb():
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {e}")
         return False
+
+
+async def init_rabbitmq():
+    """Khởi tạo kết nối RabbitMQ"""
+    global rabbitmq_connection, rabbitmq_channel, rabbitmq_exchange
+    
+    try:
+        rabbitmq_connection = await connect_robust(RABBITMQ_URI)
+        rabbitmq_channel = await rabbitmq_connection.channel()
+        
+        # Declare exchange
+        rabbitmq_exchange = await rabbitmq_channel.declare_exchange(
+            'stock.market.data',
+            ExchangeType.TOPIC,
+            durable=True
+        )
+        
+        logger.info("RabbitMQ connected successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to connect to RabbitMQ: {e}")
+        return False
+
+
+async def publish_stock_update(candle_data: dict, symbol: str):
+    """
+    Publish stock update to RabbitMQ
+    
+    Args:
+        candle_data: Dictionary containing candle data (open, high, low, close, volume, time)
+        symbol: Stock symbol
+    """
+    try:
+        if not rabbitmq_exchange:
+            logger.warning("RabbitMQ exchange not initialized, skipping publish")
+            return
+        
+        routing_key = f"stock.update.{symbol}"
+        
+        message_body = json.dumps({
+            "symbol": symbol,
+            "timestamp": candle_data.get("date", int(datetime.now().timestamp())),
+            "open": candle_data.get("open"),
+            "high": candle_data.get("high"),
+            "low": candle_data.get("low"),
+            "close": candle_data.get("close"),
+            "volume": candle_data.get("volume"),
+            "dateStr": candle_data.get("date_str")
+        })
+        
+        message = Message(
+            body=message_body.encode(),
+            delivery_mode=DeliveryMode.PERSISTENT,
+            content_type='application/json'
+        )
+        
+        await rabbitmq_exchange.publish(
+            message,
+            routing_key=routing_key
+        )
+        
+        logger.info(f"Published update for {symbol}: {routing_key}")
+    except Exception as e:
+        logger.error(f"Error publishing stock update for {symbol}: {e}")
 
 
 def clear_database():
@@ -343,6 +416,45 @@ async def update_latest_data():
                             {"_id": stock['_id']},
                             {"$set": {"updated_at": datetime.now()}}
                         )
+                        
+                        # Publish to RabbitMQ for each new/updated candle
+                        df_reset = df.reset_index()
+                        for _, row in df_reset.iterrows():
+                            try:
+                                if 'time' in row:
+                                    date_val = row['time']
+                                elif 'date' in row:
+                                    date_val = row['date']
+                                else:
+                                    date_val = row.iloc[0]
+                                
+                                if isinstance(date_val, (int, float)):
+                                    dt = datetime.fromtimestamp(int(date_val))
+                                elif hasattr(date_val, 'to_pydatetime'):
+                                    dt = date_val.to_pydatetime()
+                                elif hasattr(date_val, 'timestamp'):
+                                    dt = date_val
+                                else:
+                                    date_str = str(date_val)[:10]
+                                    dt = datetime.strptime(date_str, '%Y-%m-%d')
+                                
+                                timestamp = int(dt.timestamp())
+                                date_str = dt.strftime('%Y%m%d')
+                                
+                                candle_data = {
+                                    "date": timestamp,
+                                    "date_str": date_str,
+                                    "open": float(row.get('open', 0)),
+                                    "high": float(row.get('high', 0)),
+                                    "low": float(row.get('low', 0)),
+                                    "close": float(row.get('close', 0)),
+                                    "volume": float(row.get('volume', 0))
+                                }
+                                
+                                await publish_stock_update(candle_data, symbol)
+                            except Exception as e:
+                                logger.warning(f"Error publishing candle for {symbol}: {e}")
+                                continue
                     
                     # Delay ngắn giữa các request
                     await asyncio.sleep(2)
@@ -370,6 +482,9 @@ async def startup_event():
     if not init_mongodb():
         return
     
+    if not await init_rabbitmq():
+        logger.warning("RabbitMQ initialization failed, will continue without message publishing")
+    
     await initialize_data()
 
     update_task = asyncio.create_task(update_latest_data())
@@ -378,7 +493,7 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    global update_task
+    global update_task, rabbitmq_connection
 
     if update_task:
         update_task.cancel()
@@ -387,6 +502,9 @@ async def shutdown_event():
         except asyncio.CancelledError:
             pass
 
+    if rabbitmq_connection:
+        await rabbitmq_connection.close()
+    
     if mongo_client:
         mongo_client.close()
     
