@@ -304,14 +304,23 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
         
         console.log('Data set successfully'); // Debug log
 
-        // Show first 300 candles
-        const INIT_BARS = 300;
-        const last = Math.min(INIT_BARS - 1, originalDataRef.current.length - 1);
-        chartRef.current.timeScale().setVisibleLogicalRange({ from: 0, to: last });
-        if (volChartRef.current) {
-          volChartRef.current.timeScale().setVisibleLogicalRange({ from: 0, to: last });
-        }
-        console.log('Visible range set:', { from: 0, to: last }); // Debug log
+        // Scroll to the most recent candles (like TradingView)
+        // Optimal range: 80-120 candles for good balance between detail and overview
+        const VISIBLE_BARS = 150; // Show last 100 candles (default comfortable zoom)
+        const totalBars = originalDataRef.current.length;
+        const from = Math.max(0, totalBars - VISIBLE_BARS);
+        const to = totalBars - 1;
+        
+        // Use setTimeout to ensure data is rendered before scrolling
+        setTimeout(() => {
+          if (chartRef.current) {
+            chartRef.current.timeScale().setVisibleLogicalRange({ from, to });
+          }
+          if (volChartRef.current) {
+            volChartRef.current.timeScale().setVisibleLogicalRange({ from, to });
+          }
+          console.log('Scrolled to most recent candles:', { from, to, total: totalBars }); // Debug log
+        }, 50);
 
         // Trigger reload of patterns and indicators
         setDataLoadCounter(prev => prev + 1);
@@ -1459,10 +1468,25 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       const hoveredMarker = allPatternMarkersRef.current.find(marker => marker.time === param.time);
 
       if (hoveredMarker && hoveredMarker.patternName) {
-        showTooltip(hoveredMarker.patternName, param.point.x, param.point.y);
-      } else {
-        hideTooltip();
+        // Get the marker position using chart's coordinate system
+        const markerPrice = hoveredMarker.position === 'aboveBar' 
+          ? param.seriesData.get(candleSeriesRef.current)?.high 
+          : param.seriesData.get(candleSeriesRef.current)?.low;
+        
+        if (markerPrice) {
+          const markerY = candleSeriesRef.current.priceToCoordinate(markerPrice);
+          
+          // Only show tooltip if mouse is near the marker (within 30px vertically)
+          const verticalDistance = Math.abs(param.point.y - markerY);
+          
+          if (verticalDistance <= 30) {
+            showTooltip(hoveredMarker.patternName, param.point.x, param.point.y);
+            return;
+          }
+        }
       }
+      
+      hideTooltip();
     });
   };
 
@@ -1484,10 +1508,27 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       });
 
       if (hoveredPattern) {
-        showTooltip(patternName, param.point.x, param.point.y);
-      } else {
-        hideTooltip();
+        // Get candle data at this time
+        const candleData = param.seriesData.get(candleSeriesRef.current);
+        if (candleData) {
+          // Determine marker position based on pattern sentiment
+          const isBullish = ['bullish_engulfing', 'hammer', 'inverted_hammer', 'morning_star', 
+                            'piercing_line', 'three_white_soldiers', 'bullish_harami',
+                            'tweezer_bottom', 'dragonfly_doji'].includes(patternName);
+          const markerPrice = isBullish ? candleData.low : candleData.high;
+          const markerY = candleSeriesRef.current.priceToCoordinate(markerPrice);
+          
+          // Only show tooltip if mouse is near the marker (within 30px vertically)
+          const verticalDistance = Math.abs(param.point.y - markerY);
+          
+          if (verticalDistance <= 30) {
+            showTooltip(patternName, param.point.x, param.point.y);
+            return;
+          }
+        }
       }
+      
+      hideTooltip();
     });
   };
 

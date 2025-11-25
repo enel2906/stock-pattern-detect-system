@@ -62,7 +62,11 @@ public class SecurityConfig {
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService)
                         )
-                        .defaultSuccessUrl("/api/auth/google/callback", true)
+                        .successHandler(oAuth2SuccessHandler())
+                        .failureHandler((request, response, exception) -> {
+                            String frontendUrl = allowedOrigins.split(",")[0];
+                            response.sendRedirect(frontendUrl + "/login?error=" + exception.getMessage());
+                        })
                 )
                 // Return 401 instead of redirecting for REST API calls
                 .exceptionHandling(exception -> exception
@@ -117,5 +121,30 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+    
+    @Bean
+    public org.springframework.security.web.authentication.AuthenticationSuccessHandler oAuth2SuccessHandler() {
+        return (request, response, authentication) -> {
+            try {
+                org.springframework.security.oauth2.core.user.OAuth2User oauth2User = 
+                    (org.springframework.security.oauth2.core.user.OAuth2User) authentication.getPrincipal();
+                
+                com.example.alert.dto.AuthResponse authResponse = customOAuth2UserService.handleOAuth2Success(oauth2User);
+                
+                String frontendUrl = allowedOrigins.split(",")[0];
+                String redirectUrl = String.format(
+                    "%s/auth/callback?accessToken=%s&refreshToken=%s",
+                    frontendUrl,
+                    authResponse.getAccessToken(),
+                    authResponse.getRefreshToken()
+                );
+                
+                response.sendRedirect(redirectUrl);
+            } catch (Exception e) {
+                String frontendUrl = allowedOrigins.split(",")[0];
+                response.sendRedirect(frontendUrl + "/login?error=" + e.getMessage());
+            }
+        };
     }
 }
