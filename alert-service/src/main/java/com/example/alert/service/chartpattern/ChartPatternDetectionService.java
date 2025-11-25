@@ -5,6 +5,7 @@ import com.example.alert.model.chartpattern.*;
 import com.example.alert.service.CandleStickService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -253,6 +254,8 @@ public class ChartPatternDetectionService {
         return triangleService.findTrianglePatterns(
             ohlcDataList, lookback, minPoints, rlimit, 0.00001, 0.00001, triangleType);
     }
+
+    @Transactional
     
     /**
      * Convert từ CandleStick sang OhlcData

@@ -1,5 +1,6 @@
 // API Service
 import { detectCandlePattern, isPatternSupported } from './patternDetectionService';
+import apiInterceptor from './apiInterceptor';
 
 const API_BASE_URL = 'http://localhost:60';
 
@@ -57,7 +58,7 @@ export const stockApi = {
         console.warn(`Pattern ${patternName} is not yet supported for client-side detection. Falling back to server API.`);
         
         // Fallback to server API for unsupported patterns (complex patterns like cup_with_handle, etc.)
-        const res = await fetch(
+        const res = await apiInterceptor.fetch(
           `${API_BASE_URL}/alert/candle-stick/${stockSymbol}?candlePattern=${patternName}`,
           {
             method: 'GET',
@@ -85,14 +86,28 @@ export const stockApi = {
         if (isComplexPattern) {
           return response.data;
         } else {
-          const patterns = response.data.map(item => ({
-            time: new Date(item.date * 1000).toISOString().split('T')[0],
-            open: item.open,
-            high: item.high,
-            low: item.low,
-            close: item.close,
-            ...item
-          }));
+          const patterns = response.data.map(item => {
+            // Convert dateStr (yyyyMMdd) to yyyy-MM-dd if available
+            let time;
+            if (item.dateStr) {
+              time = `${item.dateStr.substring(0, 4)}-${item.dateStr.substring(4, 6)}-${item.dateStr.substring(6, 8)}`;
+            } else if (item.date) {
+              // Fallback to timestamp if dateStr not available
+              time = new Date(item.date * 1000).toISOString().split('T')[0];
+            } else {
+              console.warn('No date information in pattern data:', item);
+              return null;
+            }
+            
+            return {
+              time,
+              open: item.open,
+              high: item.high,
+              low: item.low,
+              close: item.close,
+              ...item
+            };
+          }).filter(item => item !== null);
           return patterns;
         }
       }

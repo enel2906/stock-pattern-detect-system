@@ -192,14 +192,14 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
 
       // Handle resize
       const handleResize = () => {
-        if (chartContainerRef.current && chart) {
-          chart.applyOptions({
+        if (chartContainerRef.current && chartRef.current) {
+          chartRef.current.applyOptions({
             width: chartContainerRef.current.offsetWidth,
             height: chartContainerRef.current.offsetHeight,
           });
         }
-        if (volumeContainerRef.current && volChart) {
-          volChart.applyOptions({
+        if (volumeContainerRef.current && volChartRef.current) {
+          volChartRef.current.applyOptions({
             width: volumeContainerRef.current.offsetWidth,
             height: volumeContainerRef.current.offsetHeight,
           });
@@ -214,11 +214,11 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
         if (tooltip && tooltip.parentNode) {
           tooltip.parentNode.removeChild(tooltip);
         }
-        if (chart) {
-          chart.remove();
+        if (chartRef.current) {
+          chartRef.current.remove();
         }
-        if (volChart) {
-          volChart.remove();
+        if (volChartRef.current) {
+          volChartRef.current.remove();
         }
       };
     };
@@ -1786,45 +1786,118 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
                 const stockUpdate = JSON.parse(message.body);
                 console.log('Received stock update:', stockUpdate);
 
+                // Convert dateStr (yyyyMMdd) to yyyy-MM-dd format
+                const newTime = stockUpdate.dateStr 
+                  ? `${stockUpdate.dateStr.substring(0, 4)}-${stockUpdate.dateStr.substring(4, 6)}-${stockUpdate.dateStr.substring(6, 8)}`
+                  : stockUpdate.timestamp; // Fallback to timestamp if dateStr not available
+                
                 const newCandle = {
-                  time: new Date(stockUpdate.timestamp * 1000).toISOString().split('T')[0],
+                  time: newTime,
                   open: stockUpdate.open,
                   high: stockUpdate.high,
                   low: stockUpdate.low,
                   close: stockUpdate.close,
                 };
 
-                if (candleSeriesRef.current) {
-                  candleSeriesRef.current.update(newCandle);
-                  console.log('Updated chart with new candle:', newCandle);
-                }
+                // Get the last candle
+                const lastCandle = originalDataRef.current.length > 0 
+                  ? originalDataRef.current[originalDataRef.current.length - 1]
+                  : null;
 
-                const existingIndex = originalDataRef.current.findIndex(
-                  (item) => item.time === newCandle.time
-                );
+                if (lastCandle) {
+                  const lastTime = lastCandle.time;
 
-                if (existingIndex >= 0) {
-                  originalDataRef.current[existingIndex] = {
+                  console.log('Last candle time:', lastTime, 'New time:', newTime);
+
+                  // Compare dates (both should be in yyyy-MM-dd format)
+                  const lastDate = typeof lastTime === 'string' ? lastTime : lastTime;
+                  const newDate = newTime;
+
+                  if (lastDate === newDate) {
+                    // Update existing candle (same day)
+                    const updatedCandle = {
+                      ...lastCandle,
+                      time: newTime, // Keep same date format yyyy-MM-dd
+                      high: stockUpdate.high,
+                      low: stockUpdate.low,
+                      close: stockUpdate.close,
+                      volume: stockUpdate.volume,
+                    };
+                    
+                    originalDataRef.current[originalDataRef.current.length - 1] = updatedCandle;
+                    
+                    if (candleSeriesRef.current) {
+                      candleSeriesRef.current.update({
+                        time: updatedCandle.time,
+                        open: updatedCandle.open,
+                        high: updatedCandle.high,
+                        low: updatedCandle.low,
+                        close: updatedCandle.close,
+                      });
+                      console.log('Updated existing candle (same day):', updatedCandle);
+                    }
+
+                    // Update volume
+                    volumeMapRef.current.set(updatedCandle.time, stockUpdate.volume);
+                    if (volumeSeriesRef.current) {
+                      volumeSeriesRef.current.update({
+                        time: updatedCandle.time,
+                        value: stockUpdate.volume,
+                        color: updatedCandle.close >= updatedCandle.open ? '#26a69a' : '#ef5350',
+                      });
+                    }
+                  } else if (newTime > lastTime) {
+                    // New candle (different day)
+                    const newCandleData = {
+                      ...newCandle,
+                      volume: stockUpdate.volume,
+                    };
+                    
+                    originalDataRef.current.push(newCandleData);
+                    
+                    if (candleSeriesRef.current) {
+                      candleSeriesRef.current.update(newCandle);
+                      console.log('Added new candle (new day):', newCandleData);
+                    }
+
+                    // Update volume
+                    volumeMapRef.current.set(newTime, stockUpdate.volume);
+                    if (volumeSeriesRef.current) {
+                      volumeSeriesRef.current.update({
+                        time: newTime,
+                        value: stockUpdate.volume,
+                        color: newCandle.close >= newCandle.open ? '#26a69a' : '#ef5350',
+                      });
+                    }
+                  } else {
+                    console.warn('Received old data, ignoring. Last:', lastTime, 'New:', newTime);
+                    return;
+                  }
+                } else {
+                  // First candle
+                  const newCandleData = {
                     ...newCandle,
                     volume: stockUpdate.volume,
                   };
-                } else {
-                  originalDataRef.current.push({
-                    ...newCandle,
-                    volume: stockUpdate.volume,
-                  });
+                  
+                  originalDataRef.current.push(newCandleData);
+                  
+                  if (candleSeriesRef.current) {
+                    candleSeriesRef.current.update(newCandle);
+                    console.log('Added first candle:', newCandleData);
+                  }
+
+                  volumeMapRef.current.set(newTime, stockUpdate.volume);
+                  if (volumeSeriesRef.current) {
+                    volumeSeriesRef.current.update({
+                      time: newTime,
+                      value: stockUpdate.volume,
+                      color: newCandle.close >= newCandle.open ? '#26a69a' : '#ef5350',
+                    });
+                  }
                 }
 
-                volumeMapRef.current.set(newCandle.time, stockUpdate.volume);
-
-                if (volumeSeriesRef.current) {
-                  volumeSeriesRef.current.update({
-                    time: newCandle.time,
-                    value: stockUpdate.volume,
-                    color: newCandle.close >= newCandle.open ? '#26a69a' : '#ef5350',
-                  });
-                }
-
+                // Reload indicators and patterns if needed
                 if (selectedIndicators && selectedIndicators.length > 0) {
                   loadIndicators(selectedIndicators);
                 }
@@ -1879,16 +1952,35 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
 
   // Handle selected patterns change
   useEffect(() => {
-    if (!isChartReady) return;
+    if (!isChartReady || !originalDataRef.current.length) return;
 
-    loadPatternsData(selectedPatterns);
-  }, [selectedPatterns, isChartReady, loadPatternsData, dataLoadCounter]);
+    if (selectedPatterns && selectedPatterns.length > 0) {
+      loadPatternsData(selectedPatterns);
+    } else {
+      // Clear patterns if none selected
+      resetPatterns();
+    }
+  }, [selectedPatterns, isChartReady, loadPatternsData, resetPatterns, dataLoadCounter]);
 
   // Handle selected indicators change
   useEffect(() => {
-    if (!isChartReady) return;
+    if (!isChartReady || !originalDataRef.current.length) {
+      return;
+    }
 
-    loadIndicators(selectedIndicators);
+    if (selectedIndicators && selectedIndicators.length > 0) {
+      loadIndicators(selectedIndicators);
+    } else {
+      // Clear indicators if none selected
+      indicatorSeriesRef.current.forEach(series => {
+        try {
+          chartRef.current.removeSeries(series);
+        } catch (e) {
+          console.warn('Could not remove indicator series:', e);
+        }
+      });
+      indicatorSeriesRef.current = [];
+    }
   }, [selectedIndicators, isChartReady, loadIndicators, dataLoadCounter]);
 
   // Format number with comma separator
@@ -1906,6 +1998,15 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
   };
 
   // Format date
+  // Helper function to convert dateStr (yyyyMMdd) to yyyy-MM-dd
+  const convertDateStrToFormat = (dateStr) => {
+    if (!dateStr) return null;
+    if (typeof dateStr === 'string' && dateStr.length === 8) {
+      return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+    }
+    return dateStr; // Already in correct format
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const [year, month, day] = dateString.split('-');

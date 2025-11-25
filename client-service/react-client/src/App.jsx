@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Header from './components/Header';
 import StockChart from './components/StockChart';
+import TokenStatus from './components/TokenStatus';
 import AuthPage from './pages/AuthPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import './App.css';
@@ -10,29 +11,73 @@ import './App.css';
 function MainApp() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [stockSymbol, setStockSymbol] = useState('VIC');
-  const [selectedPatterns, setSelectedPatterns] = useState([]);
-  const [selectedIndicators, setSelectedIndicators] = useState([]);
-  const [isLight, setIsLight] = useState(false);
+  
+  // Initialize state from localStorage or defaults
+  const [stockSymbol, setStockSymbol] = useState(() => {
+    return localStorage.getItem('stockSymbol') || 'VIC';
+  });
+  const [selectedPatterns, setSelectedPatterns] = useState(() => {
+    const saved = localStorage.getItem('selectedPatterns');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [selectedIndicators, setSelectedIndicators] = useState(() => {
+    const saved = localStorage.getItem('selectedIndicators');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isLight, setIsLight] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved === 'light';
+  });
   const [status, setStatus] = useState('Sẵn sàng.');
   const [showAuthWarning, setShowAuthWarning] = useState(false);
 
-  // Apply theme to body
+  // Save stockSymbol to localStorage
+  useEffect(() => {
+    localStorage.setItem('stockSymbol', stockSymbol);
+  }, [stockSymbol]);
+
+  // Save selectedPatterns to localStorage
+  useEffect(() => {
+    localStorage.setItem('selectedPatterns', JSON.stringify(selectedPatterns));
+  }, [selectedPatterns]);
+
+  // Save selectedIndicators to localStorage
+  useEffect(() => {
+    localStorage.setItem('selectedIndicators', JSON.stringify(selectedIndicators));
+  }, [selectedIndicators]);
+
+  // Apply theme to body and save to localStorage
   useEffect(() => {
     document.body.classList.toggle('light', isLight);
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
   }, [isLight]);
 
-  // Clear indicators and patterns when user logs out
+  // Track previous auth state to detect logout events (but not initial load)
+  const prevAuthStateRef = useRef(null);
+  
   useEffect(() => {
-    if (!isAuthenticated) {
+    // On first mount, just record the auth state
+    if (prevAuthStateRef.current === null) {
+      prevAuthStateRef.current = isAuthenticated;
+      return;
+    }
+
+    // Only clear when user actively logs out (transition from true to false)
+    if (prevAuthStateRef.current === true && isAuthenticated === false) {
       // Clear all selected indicators and patterns when logged out
       if (selectedPatterns.length > 0 || selectedIndicators.length > 0) {
         setSelectedPatterns([]);
         setSelectedIndicators([]);
         setStatus('Sẵn sàng.');
+        // Also clear from localStorage
+        localStorage.removeItem('selectedPatterns');
+        localStorage.removeItem('selectedIndicators');
       }
     }
-  }, [isAuthenticated]);
+    
+    // Update previous auth state
+    prevAuthStateRef.current = isAuthenticated;
+  }, [isAuthenticated, selectedPatterns.length, selectedIndicators.length]);
 
   const handleLoadData = () => {
     // Trigger refresh by clearing patterns and indicators, then reloading
@@ -127,6 +172,8 @@ function MainApp() {
           />
         </div>
       </main>
+      {/* Token Status Debug Component - Remove in production */}
+      <TokenStatus />
     </div>
   );
 }

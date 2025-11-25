@@ -1,4 +1,6 @@
 // Auth API Service
+import apiInterceptor from './apiInterceptor';
+
 const API_BASE_URL = 'http://localhost:60/api';
 
 export const authApi = {
@@ -82,7 +84,7 @@ export const authApi = {
   // Get current user
   getCurrentUser: async (token) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/user/me`, {
+      const res = await apiInterceptor.fetch(`${API_BASE_URL}/user/me`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
