@@ -13,6 +13,7 @@ import {
   calculateMACD, 
   calculateBollingerBands 
 } from '../services/technicalIndicators';
+import AlertRuleManager from './AlertRuleManager';
 import './StockChart.css';
 
 const RIGHT_OFFSET = 20;
@@ -35,6 +36,8 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
   const [isChartReady, setIsChartReady] = useState(false);
   const [dataLoadCounter, setDataLoadCounter] = useState(0); // Track when new data is loaded
   const [ohlcvInfo, setOhlcvInfo] = useState(null); // Current OHLCV info
+  const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
+  const [alertSignals, setAlertSignals] = useState([]); // Store generated alert signals
 
   // Initialize chart
   useEffect(() => {
@@ -1792,8 +1795,57 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     return `${day}/${month}/${year}`;
   };
 
+  // Handle alert signals update
+  const handleAlertsignalsUpdate = useCallback((signals) => {
+    setAlertSignals(signals);
+    
+    // Render signals on chart
+    if (candleSeriesRef.current && signals.length > 0) {
+      const signalMarkers = signals.map(signal => ({
+        time: originalDataRef.current[signal.candleIndex]?.time,
+        position: signal.signalType === 'BUY' || signal.signalType === 'EXIT_SELL' ? 'belowBar' : 'aboveBar',
+        color: signal.signalType === 'BUY' || signal.signalType === 'EXIT_SELL' ? '#00E396' : '#FF4560',
+        shape: signal.signalType === 'BUY' || signal.signalType === 'EXIT_SELL' ? 'arrowUp' : 'arrowDown',
+        text: signal.signalType === 'BUY' ? 'MUA' : signal.signalType === 'SELL' ? 'BÁN' : 
+              signal.signalType === 'EXIT_BUY' ? 'THOÁT' : 'THOÁT',
+        size: 2,
+        id: signal.ruleId
+      })).filter(marker => marker.time);
+      
+      // Get existing pattern markers
+      const existingMarkers = allPatternMarkersRef.current || [];
+      
+      // Combine with signal markers
+      candleSeriesRef.current.setMarkers([...existingMarkers, ...signalMarkers]);
+    }
+  }, []);
+
   return (
     <div className="chart-wrapper">
+      {/* Alert Rule Manager Toggle Button */}
+      <button 
+        className={`alert-rule-toggle ${isAlertPanelOpen ? 'active' : ''}`}
+        onClick={() => setIsAlertPanelOpen(!isAlertPanelOpen)}
+        title="Quản lý quy tắc cảnh báo"
+      >
+        🔔 Alert Rules
+        {alertSignals.length > 0 && (
+          <span className="alert-count">{alertSignals.length}</span>
+        )}
+      </button>
+
+      {/* Alert Rule Manager Panel */}
+      {isAlertPanelOpen && (
+        <div className="alert-panel-overlay" onClick={() => setIsAlertPanelOpen(false)}>
+          <div className="alert-panel" onClick={(e) => e.stopPropagation()}>
+            <AlertRuleManager 
+              stockSymbol={stockSymbol}
+              onSignalsUpdate={handleAlertsignalsUpdate}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="chart-container">
         {ohlcvInfo && (
           <div className="ohlcv-info">

@@ -51,4 +51,9 @@ public class UserPrincipal implements UserDetails {
     public User getUser() {
         return user;
     }
+    
+    // Add method to get user ID
+    public String getId() {
+        return user.getId();
+    }
 }
