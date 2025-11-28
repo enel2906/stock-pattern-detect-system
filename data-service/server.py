@@ -32,6 +32,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Import international data service
+try:
+    from international_data_service import initialize_international_data
+except ImportError:
+    logger.warning("international_data_service not found")
+    initialize_international_data = None
+
 # Cấu hình
 MONGODB_URI = "mongodb://localhost:27017/candlestick_db"
 RABBITMQ_URI = "amqp://guest:guest@localhost:5672/"
@@ -346,7 +353,8 @@ async def initialize_data():
     total_stocks = 0
     total_candles = 0
     
-    # Lấy dữ liệu cho từng mã
+    # === Phần 1: Lấy dữ liệu cổ phiếu Việt Nam ===
+    logger.info("=== Initializing Vietnam stock data ===")
     for market, symbols in STOCK_SYMBOLS.items():
         logger.info(f"Processing {market} market with {len(symbols)} stocks")
         
@@ -379,7 +387,25 @@ async def initialize_data():
                 logger.error(f"Error processing {symbol}: {e}")
                 continue
     
-    logger.info(f"Initialization completed: {total_stocks} stocks, {total_candles} candlesticks")
+    logger.info(f"Vietnam data initialization completed: {total_stocks} stocks, {total_candles} candlesticks")
+    
+    # === Phần 2: Lấy dữ liệu quốc tế ===
+    if initialize_international_data:
+        logger.info("=== Initializing international stock data ===")
+        try:
+            intl_stocks, intl_candles = await initialize_international_data(
+                stocks_collection=stocks_collection,
+                candlesticks_collection=candlesticks_collection
+            )
+            total_stocks += intl_stocks
+            total_candles += intl_candles
+            logger.info(f"International data added: {intl_stocks} stocks, {intl_candles} candlesticks")
+        except Exception as e:
+            logger.error(f"Error initializing international data: {e}")
+    else:
+        logger.warning("International data service not available, skipping")
+    
+    logger.info(f"=== Total initialization completed: {total_stocks} stocks, {total_candles} candlesticks ===")
 
 
 async def update_latest_data():
