@@ -130,10 +130,7 @@ public class AlterController {
 
             //Complex candle patterns
             case CandleNames.CUP_WITH_HANDLE -> {
-                List<CandleStick> candleSticks = candleStickService.getCandlesByStockId(stockId);
-                List<Double> smaValues = Indicator.calculateSMA(candleSticks, 20);
-                CupWithHandle cupWithHandle = complexPatternDetectorService.getNearestCupWithHandle(smaValues);
-                yield new Response(cupWithHandle);
+                yield new Response(null);
             }
             
             // Chart patterns

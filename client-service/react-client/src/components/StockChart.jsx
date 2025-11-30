@@ -377,7 +377,8 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
             const isComplexPattern = patterns[0].candleIndex !== undefined && 
               (patterns[0].pivotIndices || patterns[0].flagHighs || 
                patterns[0].headIndex !== undefined || patterns[0].pennantHighs ||
-               patterns[0].triangleType || patterns[0].upperTrendIndices);
+               patterns[0].triangleType || patterns[0].upperTrendIndices ||
+               patterns[0].cupBoundaryPoints);
 
             if (isComplexPattern) {
               const { markers, lines } = collectComplexPatternData(patterns, patternName);
@@ -416,11 +417,29 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       // Apply all pattern lines
       allPatternLines.forEach(lineData => {
         try {
-          const line = chartRef.current.addLineSeries(lineData.options);
-          line.setData(lineData.data);
-          patternLinesRef.current.push(line);
+          // Check if this is an area series
+          if (lineData.options.type === 'area' && lineData.options.bottomData) {
+            // Create area series for filled regions
+            const areaSeries = chartRef.current.addAreaSeries({
+              topColor: lineData.options.topColor || 'rgba(38, 198, 218, 0.28)',
+              bottomColor: lineData.options.bottomColor || 'rgba(38, 198, 218, 0.05)',
+              lineColor: lineData.options.lineColor || 'rgba(38, 198, 218, 1)',
+              lineWidth: lineData.options.lineWidth || 2,
+              crosshairMarkerVisible: false,
+              lastValueVisible: false,
+              priceLineVisible: false,
+            });
+            // Area series uses simple value data
+            areaSeries.setData(lineData.data);
+            patternLinesRef.current.push(areaSeries);
+          } else {
+            // Regular line series
+            const line = chartRef.current.addLineSeries(lineData.options);
+            line.setData(lineData.data);
+            patternLinesRef.current.push(line);
+          }
         } catch (error) {
-          console.error('Error adding line series:', error);
+          console.error('Error adding line/area series:', error);
         }
       });
 
@@ -483,6 +502,199 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     setupMarkerTooltips(patterns, patternName);
   };
 
+  // Collect Cup with Handle data
+  const collectCupWithHandleData = (pattern, abbreviation, patternName) => {
+    const {
+      leftHighIndex, rightHighIndex, handleEndIndex,
+      cupBoundaryPoints, leftHighValue, rightHighValue, handleLowValue
+    } = pattern;
+    const markers = [];
+    const lines = [];
+
+    if (!cupBoundaryPoints || cupBoundaryPoints.length === 0) {
+      console.warn('No cup boundary points available');
+      return { markers, lines };
+    }
+
+    // Draw the cup shape using boundary points
+    // Top boundary line
+    const topBoundaryData = cupBoundaryPoints
+      .filter(point => point && point.topValue != null)
+      .map(point => ({ time: point.time, value: point.topValue }));
+
+    if (topBoundaryData.length > 1) {
+      lines.push({
+        data: topBoundaryData,
+        options: {
+          color: 'rgba(255, 193, 7, 0.8)', // Golden yellow for top
+          lineWidth: 2,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
+    }
+
+    // Bottom boundary line
+    const bottomBoundaryData = cupBoundaryPoints
+      .filter(point => point && point.bottomValue != null)
+      .map(point => ({ time: point.time, value: point.bottomValue }));
+
+    if (bottomBoundaryData.length > 1) {
+      lines.push({
+        data: bottomBoundaryData,
+        options: {
+          color: 'rgba(255, 193, 7, 0.8)', // Golden yellow for bottom
+          lineWidth: 2,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
+    }
+
+    // Create area series data to fill the cup region
+    // We'll create two area series that fill between boundaries
+    const cupAreaTopData = cupBoundaryPoints.map(point => ({
+      time: point.time,
+      value: point.topValue
+    }));
+
+    const cupAreaBottomData = cupBoundaryPoints.map(point => ({
+      time: point.time,
+      value: point.bottomValue
+    }));
+
+    // Add area series as special line type for rendering
+    if (cupAreaTopData.length > 1 && cupAreaBottomData.length > 1) {
+      lines.push({
+        data: cupAreaTopData,
+        options: {
+          type: 'area', // Special marker for area series
+          bottomData: cupAreaBottomData,
+          topColor: 'rgba(255, 193, 7, 0.15)',
+          bottomColor: 'rgba(255, 193, 7, 0.05)',
+          lineColor: 'rgba(255, 193, 7, 0)',
+          lineWidth: 0,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
+    }
+
+    // Draw handle area box (right high to handle end)
+    // Right high horizontal line (handle top)
+    if (rightHighIndex >= 0 && handleEndIndex >= 0 && rightHighIndex < originalDataRef.current.length && handleEndIndex < originalDataRef.current.length) {
+      lines.push({
+        data: [
+          { time: originalDataRef.current[rightHighIndex].time, value: rightHighValue },
+          { time: originalDataRef.current[handleEndIndex].time, value: rightHighValue }
+        ],
+        options: {
+          color: 'rgba(255, 152, 0, 0.6)', // Orange for handle top
+          lineWidth: 2,
+          lineStyle: 2, // Dashed
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
+
+      // Handle bottom line (handle low)
+      if (handleLowValue) {
+        lines.push({
+          data: [
+            { time: originalDataRef.current[rightHighIndex].time, value: handleLowValue },
+            { time: originalDataRef.current[handleEndIndex].time, value: handleLowValue }
+          ],
+          options: {
+            color: 'rgba(255, 152, 0, 0.6)', // Orange for handle bottom
+            lineWidth: 2,
+            lineStyle: 2, // Dashed
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        });
+
+        // Fill handle area
+        const handleAreaData = [
+          { time: originalDataRef.current[rightHighIndex].time, value: rightHighValue },
+          { time: originalDataRef.current[handleEndIndex].time, value: rightHighValue }
+        ];
+        lines.push({
+          data: handleAreaData,
+          options: {
+            type: 'area',
+            bottomData: [
+              { time: originalDataRef.current[rightHighIndex].time, value: handleLowValue },
+              { time: originalDataRef.current[handleEndIndex].time, value: handleLowValue }
+            ],
+            topColor: 'rgba(255, 152, 0, 0.2)',
+            bottomColor: 'rgba(255, 152, 0, 0.1)',
+            lineColor: 'rgba(255, 152, 0, 0)',
+            lineWidth: 0,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        });
+      }
+    }
+
+    // Add small markers for key points
+    // Left high point
+    if (leftHighIndex >= 0 && leftHighIndex < originalDataRef.current.length) {
+      const leftCandle = originalDataRef.current[leftHighIndex];
+      if (leftCandle) {
+        markers.push({
+          time: leftCandle.time,
+          position: 'aboveBar',
+          color: 'rgba(255, 193, 7, 0.7)',
+          shape: 'circle',
+          text: 'L',
+          size: 0.8,
+          patternName: patternName
+        });
+      }
+    }
+
+    // Right high point
+    if (rightHighIndex >= 0 && rightHighIndex < originalDataRef.current.length) {
+      const rightCandle = originalDataRef.current[rightHighIndex];
+      if (rightCandle) {
+        markers.push({
+          time: rightCandle.time,
+          position: 'aboveBar',
+          color: 'rgba(255, 193, 7, 0.7)',
+          shape: 'circle',
+          text: 'R',
+          size: 0.8,
+          patternName: patternName
+        });
+      }
+    }
+
+    // Main marker at handle end (breakout point)
+    if (handleEndIndex >= 0 && handleEndIndex < originalDataRef.current.length) {
+      const handleCandle = originalDataRef.current[handleEndIndex];
+      if (handleCandle) {
+        markers.push({
+          time: handleCandle.time,
+          position: 'belowBar',
+          color: '#00E396',
+          shape: 'arrowUp',
+          text: abbreviation,
+          size: 1.5,
+          patternName: patternName
+        });
+      }
+    }
+
+    return { markers, lines };
+  };
+
   // Collect complex pattern data (markers and lines) without rendering
   const collectComplexPatternData = (patterns, patternName) => {
     console.log('Collecting complex patterns data:', patterns.length, 'patterns');
@@ -494,8 +706,14 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     patterns.forEach((pattern, index) => {
       console.log(`Collecting pattern ${index + 1}:`, pattern);
       
+      // Cup with Handle Pattern
+      if (pattern.cupBoundaryPoints && pattern.leftHighIndex !== undefined) {
+        const result = collectCupWithHandleData(pattern, abbreviation, patternName);
+        allMarkers.push(...result.markers);
+        allLines.push(...result.lines);
+      }
       // Double Pattern
-      if (pattern.pivotIndices && pattern.pivotPoints) {
+      else if (pattern.pivotIndices && pattern.pivotPoints) {
         const result = collectDoublePatternData(pattern, abbreviation, patternName);
         allMarkers.push(...result.markers);
         if (result.line) allLines.push(result.line);

@@ -63,6 +63,8 @@ import {
   detectRisingThreeMethods
 } from './candlePatternDetectorPart3';
 
+import { detectCupWithHandlePattern } from './cupWithHandleDetector';
+
 /**
  * Pattern detector mapping
  * Maps pattern names to their detection functions
@@ -143,6 +145,9 @@ const PATTERN_DETECTORS = {
   // Five candle three methods patterns
   'falling_three_methods': detectFallingThreeMethods,
   'rising_three_methods': detectRisingThreeMethods,
+
+  // Complex chart patterns (client-side detection)
+  'cup_with_handle': detectCupWithHandlePattern,
 };
 
 /**

@@ -18,12 +18,18 @@ import uvicorn
 import aio_pika
 from aio_pika import connect_robust, Message, DeliveryMode, ExchangeType
 
-# Import vnstock và vnai
+# Import vnstock và yfinance
 try:
     from vnstock import Vnstock
 except ImportError:
     print("Warning: vnstock not installed. Install with: pip install vnstock")
     Vnstock = None
+
+try:
+    import yfinance as yf
+except ImportError:
+    print("Warning: yfinance not installed. Install with: pip install yfinance")
+    yf = None
 
 # Cấu hình logging
 logging.basicConfig(
@@ -32,12 +38,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import international data service
-try:
-    from international_data_service import initialize_international_data
-except ImportError:
-    logger.warning("international_data_service not found")
-    initialize_international_data = None
+# International stock symbols (US stocks via vnstock)
+INTERNATIONAL_SYMBOLS = ['AMZN', 'TSLA', 'MSFT', 'AAPL', 'GOOG', 'NVDA']
 
 # Cấu hình
 MONGODB_URI = "mongodb://localhost:27017/candlestick_db"
@@ -194,6 +196,36 @@ def clear_database():
         return False
 
 
+def get_stock_data_yfinance(symbol: str, period: str = "5y"):
+    """
+    Lấy dữ liệu lịch sử từ yfinance
+    
+    Args:
+        symbol: Mã cổ phiếu
+        period: Khoảng thời gian (mặc định 5y)
+    """
+    try:
+        if yf is None:
+            logger.error("yfinance is not installed")
+            return None
+        
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, interval="1d", prepost=True)
+        
+        if df is not None and not df.empty:
+            df = df.dropna()
+            df.columns = df.columns.str.lower()
+            logger.info(f"Fetched {len(df)} records for {symbol} using yfinance")
+            return df
+        else:
+            logger.warning(f"No data returned for {symbol}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error fetching data for {symbol} with yfinance: {e}")
+        return None
+
+
 def get_stock_data_vnstock(symbol: str, market: str, start_date: str = None, end_date: str = None):
     """
     Lấy dữ liệu lịch sử từ vnstock
@@ -208,8 +240,6 @@ def get_stock_data_vnstock(symbol: str, market: str, start_date: str = None, end
         if Vnstock is None:
             logger.error("vnstock is not installed")
             return None
-            
-        stock = Vnstock().stock(symbol=symbol, source='VCI')
         
         # Nếu không có ngày, lấy tất cả dữ liệu có thể (từ 10 năm trước)
         if start_date is None:
@@ -217,8 +247,28 @@ def get_stock_data_vnstock(symbol: str, market: str, start_date: str = None, end
         if end_date is None:
             end_date = datetime.now().strftime('%Y-%m-%d')
         
-        # Lấy dữ liệu lịch sử
-        df = stock.quote.history(start=start_date, end=end_date, interval="1D")
+        # Nếu là thị trường US, dùng MSN source
+        if market == 'US':
+            # 1. Tìm symbol_id qua search
+            search = Vnstock().stock(source='MSN').listing.search_symbol_id(symbol)
+            
+            if search is None or len(search) == 0:
+                logger.error(f"Không tìm thấy symbol_id cho {symbol}")
+                return None
+            
+            symbol_id = search.iloc[0]["symbol_id"]
+            logger.info(f"Found symbol_id for {symbol}: {symbol_id}")
+            
+            # 2. Lấy lịch sử giá
+            df = Vnstock().stock(symbol=symbol_id, source='MSN').quote.history(
+                start=start_date,
+                end=end_date,
+                interval="1D"
+            )
+        else:
+            # Thị trường Việt Nam dùng VCI source
+            stock = Vnstock().stock(symbol=symbol, source='VCI')
+            df = stock.quote.history(start=start_date, end=end_date, interval="1D")
         
         if df is not None and not df.empty:
             logger.info(f"Fetched {len(df)} records for {symbol}")
@@ -389,33 +439,50 @@ async def initialize_data():
     
     logger.info(f"Vietnam data initialization completed: {total_stocks} stocks, {total_candles} candlesticks")
     
-    # === Phần 2: Lấy dữ liệu quốc tế ===
-    if initialize_international_data:
-        logger.info("=== Initializing international stock data ===")
+    # === Phần 2: Lấy dữ liệu cổ phiếu quốc tế (US stocks) ===
+    logger.info("=== Initializing international stock data ===")
+    
+    for symbol in INTERNATIONAL_SYMBOLS:
         try:
-            intl_stocks, intl_candles = await initialize_international_data(
-                stocks_collection=stocks_collection,
-                candlesticks_collection=candlesticks_collection
+            logger.info(f"Fetching historical data for {symbol} (US) using yfinance")
+            
+            # Lưu thông tin stock
+            stock_id = save_stock_to_db(
+                symbol=symbol,
+                name=f"{symbol} - US",
+                market="US",
+                country="United States"
             )
-            total_stocks += intl_stocks
-            total_candles += intl_candles
-            logger.info(f"International data added: {intl_stocks} stocks, {intl_candles} candlesticks")
+            
+            if stock_id:
+                total_stocks += 1
+                
+                # Lấy dữ liệu lịch sử 5 năm bằng yfinance
+                df = get_stock_data_yfinance(symbol, period="5y")
+                
+                if df is not None:
+                    # Lưu candlesticks
+                    count = save_candlesticks_to_db(stock_id, df)
+                    total_candles += count
+                
+                # Delay để tránh rate limit
+                await asyncio.sleep(2)
+            
         except Exception as e:
-            logger.error(f"Error initializing international data: {e}")
-    else:
-        logger.warning("International data service not available, skipping")
+            logger.error(f"Error processing international stock {symbol}: {e}")
+            continue
     
     logger.info(f"=== Total initialization completed: {total_stocks} stocks, {total_candles} candlesticks ===")
 
 
 async def update_latest_data():
-    """Cập nhật dữ liệu mới nhất cho tất cả cổ phiếu"""
+    """Cập nhật dữ liệu mới nhất cho cổ phiếu Việt Nam (không cập nhật cổ phiếu nước ngoài)"""
     while True:
         try:
             logger.info("Starting periodic update...")
             
-            # Lấy danh sách stocks từ DB
-            stocks = list(stocks_collection.find({}))
+            # Chỉ lấy danh sách stocks Việt Nam (không lấy US stocks)
+            stocks = list(stocks_collection.find({"market": {"$ne": "US"}}))
             
             # Lấy dữ liệu 5 ngày gần nhất (để đảm bảo không bỏ sót)
             end_date = datetime.now().strftime('%Y-%m-%d')

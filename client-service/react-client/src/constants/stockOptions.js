@@ -50,17 +50,14 @@ export const STOCK_OPTIONS = [
   },
   // International Stocks
   {
-    group: '🌍 International Stocks (US Market)',
+    group: '🌍 International Stocks',
     options: [
       { value: 'AAPL', label: 'AAPL - Apple Inc.' },
       { value: 'GOOG', label: 'GOOG - Alphabet Inc.' },
       { value: 'AMZN', label: 'AMZN - Amazon.com Inc.' },
       { value: 'MSFT', label: 'MSFT - Microsoft Corporation' },
       { value: 'TSLA', label: 'TSLA - Tesla Inc.' },
-      { value: 'NVDA', label: 'NVDA - NVIDIA Corporation' },
-      { value: 'META', label: 'META - Meta Platforms Inc.' },
-      { value: 'JBL', label: 'JBL - Jabil Inc.' },
-      { value: 'EURUSD', label: 'EUR/USD' },
+      {value: 'NVDA', label: 'NVDA - NVIDIA Corporation' },
     ]
   }
 ];
