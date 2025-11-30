@@ -54,9 +54,9 @@ const Header = ({
             )}
           </button>
           
-          <button className="primary" onClick={onLoadData}>
+          {/* <button className="primary" onClick={onLoadData}>
             Tải dữ liệu
-          </button>
+          </button> */}
           
           <button 
             id="toggle-theme" 

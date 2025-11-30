@@ -1523,7 +1523,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     }
   };
 
-  // Reset patterns
+  // Reset patterns only (without touching indicators or candle data)
   const resetPatterns = useCallback(() => {
     if (!candleSeriesRef.current) return;
 
@@ -1537,23 +1537,8 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     });
     patternLinesRef.current = [];
 
-    // Remove all indicator series
-    indicatorSeriesRef.current.forEach(series => {
-      try {
-        chartRef.current.removeSeries(series);
-      } catch (e) {
-        console.warn('Could not remove indicator series:', e);
-      }
-    });
-    indicatorSeriesRef.current = [];
-
-    // Clear markers
+    // Clear markers only (don't touch candle data - it's already correct)
     candleSeriesRef.current.setMarkers([]);
-
-    // Restore original data
-    if (isValidData(originalDataRef.current)) {
-      candleSeriesRef.current.setData([...originalDataRef.current]);
-    }
   }, []);
 
   // Load indicators
@@ -1796,6 +1781,9 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
                   close: stockUpdate.close,
                 };
 
+                // Track if this is a new candle (new day)
+                let isNewCandle = false;
+
                 // Get the last candle
                 const lastCandle = originalDataRef.current.length > 0 
                   ? originalDataRef.current[originalDataRef.current.length - 1]
@@ -1811,13 +1799,14 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
                   const newDate = newTime;
 
                   if (lastDate === newDate) {
-                    // Update existing candle (same day)
+                    // Update existing candle (same day) - intraday update
                     const updatedCandle = {
                       ...lastCandle,
                       time: newTime, // Keep same date format yyyy-MM-dd
-                      high: stockUpdate.high,
-                      low: stockUpdate.low,
-                      close: stockUpdate.close,
+                      high: stockUpdate.high, // Accumulate high
+                      low: stockUpdate.low, // Accumulate low
+                      open: stockUpdate.open, // Keep original open
+                      close: stockUpdate.close, // Update close
                       volume: stockUpdate.volume,
                     };
                     
@@ -1845,6 +1834,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
                     }
                   } else if (newTime > lastTime) {
                     // New candle (different day)
+                    isNewCandle = true; // Mark as new candle
                     const newCandleData = {
                       ...newCandle,
                       volume: stockUpdate.volume,
@@ -1894,13 +1884,11 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
                   }
                 }
 
-                // Reload indicators and patterns if needed
-                if (selectedIndicators && selectedIndicators.length > 0) {
-                  loadIndicators(selectedIndicators);
-                }
-
+                // Always reload patterns to detect newly formed patterns
+                // Indicators are NOT reloaded to prevent crosshair crash
                 if (selectedPatterns && selectedPatterns.length > 0) {
                   loadPatternsData(selectedPatterns);
+                  console.log('Reloaded patterns after candle update');
                 }
 
                 onStatusChange(`Cập nhật: ${stockSymbol} - ${newCandle.close}`);

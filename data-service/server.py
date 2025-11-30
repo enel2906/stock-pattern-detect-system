@@ -146,10 +146,19 @@ async def publish_stock_update(candle_data: dict, symbol: str):
         candle_data: Dictionary containing candle data (open, high, low, close, volume, time)
         symbol: Stock symbol
     """
+    global rabbitmq_exchange
+    
     try:
+        # Nếu chưa có exchange, thử kết nối lại
         if not rabbitmq_exchange:
-            logger.warning("RabbitMQ exchange not initialized, skipping publish")
-            return
+            logger.info("RabbitMQ exchange not initialized, attempting to reconnect...")
+            reconnected = await init_rabbitmq()
+            
+            if not reconnected or not rabbitmq_exchange:
+                logger.warning("Failed to reconnect to RabbitMQ, skipping publish")
+                return
+            
+            logger.info("Successfully reconnected to RabbitMQ")
         
         routing_key = f"stock.update.{symbol}"
         
@@ -178,6 +187,8 @@ async def publish_stock_update(candle_data: dict, symbol: str):
         logger.info(f"Published update for {symbol}: {routing_key}")
     except Exception as e:
         logger.error(f"Error publishing stock update for {symbol}: {e}")
+        # Reset exchange để trigger reconnect ở lần tiếp theo
+        rabbitmq_exchange = None
 
 
 def clear_database():
@@ -384,13 +395,34 @@ def save_candlesticks_to_db(stock_id: str, df):
         if operations:
             result = candlesticks_collection.bulk_write(operations)
             logger.info(f"Saved/Updated {result.upserted_count + result.modified_count} candlesticks for stock_id: {stock_id}")
-            return result.upserted_count + result.modified_count
+            
+            # Trả về list các candle mới được insert/update
+            # Chỉ trả về những candle có upserted hoặc modified
+            new_candles = []
+            
+            # Lấy các candle được upserted (mới tạo)
+            if result.upserted_count > 0:
+                for idx, candle_id in result.upserted_ids.items():
+                    if idx < len(candlesticks):
+                        new_candles.append(candlesticks[idx])
+            
+            # Lấy các candle được modified (cập nhật)
+            # Vì bulk_write không trả về modified IDs, ta sẽ lấy tất cả candles có trong batch
+            # và kiểm tra updated_at (hoặc đơn giản trả về tất cả nếu có modified)
+            if result.modified_count > 0:
+                # Lấy candles không nằm trong upserted_ids
+                upserted_indices = set(result.upserted_ids.keys())
+                for idx, candle in enumerate(candlesticks):
+                    if idx not in upserted_indices:
+                        new_candles.append(candle)
+            
+            return new_candles
         
-        return 0
+        return []
         
     except Exception as e:
         logger.error(f"Error saving candlesticks for stock_id {stock_id}: {e}")
-        return 0
+        return []
 
 
 async def initialize_data():
@@ -426,9 +458,9 @@ async def initialize_data():
                     df = get_stock_data_vnstock(symbol, market)
                     
                     if df is not None:
-                        # Lưu candlesticks
-                        count = save_candlesticks_to_db(stock_id, df)
-                        total_candles += count
+                        # Lưu candlesticks (trả về list candles)
+                        new_candles = save_candlesticks_to_db(stock_id, df)
+                        total_candles += len(new_candles)
                     
                     # Delay để tránh rate limit
                     await asyncio.sleep(2)
@@ -461,9 +493,9 @@ async def initialize_data():
                 df = get_stock_data_yfinance(symbol, period="5y")
                 
                 if df is not None:
-                    # Lưu candlesticks
-                    count = save_candlesticks_to_db(stock_id, df)
-                    total_candles += count
+                    # Lưu candlesticks (trả về list candles)
+                    new_candles = save_candlesticks_to_db(stock_id, df)
+                    total_candles += len(new_candles)
                 
                 # Delay để tránh rate limit
                 await asyncio.sleep(2)
@@ -499,55 +531,26 @@ async def update_latest_data():
                     df = get_stock_data_vnstock(symbol, market, start_date, end_date)
                     
                     if df is not None and not df.empty:
-                        # Lưu vào DB (sẽ update nếu đã tồn tại)
-                        count = save_candlesticks_to_db(stock_id, df)
-                        if count > 0:
+                        # Lưu vào DB và nhận về list các candle mới được insert/update
+                        new_candles = save_candlesticks_to_db(stock_id, df)
+                        
+                        if len(new_candles) > 0:
                             updated_count += 1
-                        
-                        # Update timestamp
-                        stocks_collection.update_one(
-                            {"_id": stock['_id']},
-                            {"$set": {"updated_at": datetime.now()}}
-                        )
-                        
-                        # Publish to RabbitMQ for each new/updated candle
-                        df_reset = df.reset_index()
-                        for _, row in df_reset.iterrows():
-                            try:
-                                if 'time' in row:
-                                    date_val = row['time']
-                                elif 'date' in row:
-                                    date_val = row['date']
-                                else:
-                                    date_val = row.iloc[0]
-                                
-                                if isinstance(date_val, (int, float)):
-                                    dt = datetime.fromtimestamp(int(date_val))
-                                elif hasattr(date_val, 'to_pydatetime'):
-                                    dt = date_val.to_pydatetime()
-                                elif hasattr(date_val, 'timestamp'):
-                                    dt = date_val
-                                else:
-                                    date_str = str(date_val)[:10]
-                                    dt = datetime.strptime(date_str, '%Y-%m-%d')
-                                
-                                timestamp = int(dt.timestamp())
-                                date_str = dt.strftime('%Y%m%d')
-                                
-                                candle_data = {
-                                    "date": timestamp,
-                                    "date_str": date_str,
-                                    "open": float(row.get('open', 0)),
-                                    "high": float(row.get('high', 0)),
-                                    "low": float(row.get('low', 0)),
-                                    "close": float(row.get('close', 0)),
-                                    "volume": float(row.get('volume', 0))
-                                }
-                                
-                                await publish_stock_update(candle_data, symbol)
-                            except Exception as e:
-                                logger.warning(f"Error publishing candle for {symbol}: {e}")
-                                continue
+                            
+                            # Update timestamp
+                            stocks_collection.update_one(
+                                {"_id": stock['_id']},
+                                {"$set": {"updated_at": datetime.now()}}
+                            )
+                            
+                            # Chỉ publish các candle MỚI được insert/update
+                            logger.info(f"Publishing {len(new_candles)} new/updated candles for {symbol}")
+                            for candle in new_candles:
+                                try:
+                                    await publish_stock_update(candle, symbol)
+                                except Exception as e:
+                                    logger.warning(f"Error publishing candle for {symbol}: {e}")
+                                    continue
                     
                     # Delay ngắn giữa các request
                     await asyncio.sleep(2)
