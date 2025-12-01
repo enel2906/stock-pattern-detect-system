@@ -65,6 +65,15 @@ import {
 
 import { detectCupWithHandlePattern } from './cupWithHandleDetector';
 import { detectDoublePatterns, detectDoubleTops, detectDoubleBottoms } from './doublePatternDetector';
+import { detectFlagPatterns } from './flagPatternDetector';
+import { detectPennantPatterns } from './pennantPatternDetector';
+import { detectHeadAndShoulders, detectInverseHeadAndShoulders } from './headAndShouldersDetector';
+import { 
+  detectTrianglePatterns, 
+  detectAscendingTriangles, 
+  detectDescendingTriangles, 
+  detectSymmetricalTriangles 
+} from './trianglePatternDetector';
 
 /**
  * Pattern detector mapping
@@ -154,6 +163,27 @@ const PATTERN_DETECTORS = {
   'double_tops': detectDoubleTops,
   'double_bottoms': detectDoubleBottoms,
   'double_pattern': detectDoublePatterns, // Detects both tops and bottoms
+  
+  // Flag pattern (client-side detection with linear regression)
+  'flag_pattern': detectFlagPatterns,
+  
+  // Pennant pattern (client-side detection with converging lines)
+  'pennant': detectPennantPatterns,
+  'pennant_pattern': detectPennantPatterns,
+  
+  // Head and Shoulders patterns (client-side detection)
+  'head_and_shoulders': detectHeadAndShoulders,
+  'inverse_head_and_shoulders': detectInverseHeadAndShoulders,
+  
+  // Triangle patterns (client-side detection)
+  'triangle': detectTrianglePatterns, // Detects all triangle types
+  'triangle_pattern': detectTrianglePatterns,
+  'triangle_ascending': detectAscendingTriangles,
+  'ascending_triangle': detectAscendingTriangles,
+  'triangle_descending': detectDescendingTriangles,
+  'descending_triangle': detectDescendingTriangles,
+  'triangle_symmetrical': detectSymmetricalTriangles,
+  'symmetrical_triangle': detectSymmetricalTriangles,
 };
 
 /**

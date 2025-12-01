@@ -1167,66 +1167,90 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
 
   // Collect flag pattern data
   const collectFlagPatternData = (pattern, abbreviation, patternName) => {
-    const { candleIndex, flagHighsIdx, flagLowsIdx, flagHighs, flagLows, direction } = pattern;
+    const { candleIndex, flagHighsIdx, flagLowsIdx, flagHighs, flagLows, flagHighsData, flagLowsData, direction } = pattern;
     const markers = [];
     const lines = [];
 
-    // Don't add flag high markers - only show the trendline
-    if (flagHighsIdx && flagHighs) {
-      const upperLineData = flagHighsIdx
+    // Use time-based data if available (preferred method)
+    let upperLineData = [];
+    if (flagHighsData && flagHighsData.length > 0) {
+      upperLineData = flagHighsData
+        .filter(point => point && point.time && point.value != null)
+        .map(point => ({ time: point.time, value: point.value }));
+    } else if (flagHighsIdx && flagHighs) {
+      // Fallback to index-based method
+      upperLineData = flagHighsIdx
         .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && flagHighs[i])
           ? { time: originalDataRef.current[idx].time, value: flagHighs[i] } : null)
         .filter(point => point !== null);
-
-      if (upperLineData.length > 1) {
-        lines.push({
-          data: upperLineData,
-          options: {
-            color: 'rgba(255, 167, 38, 0.5)',
-            lineWidth: 1.5,
-            crosshairMarkerVisible: false,
-            lastValueVisible: false,
-            priceLineVisible: false,
-          }
-        });
-      }
     }
 
-    // Don't add flag low markers - only show the trendline
-    if (flagLowsIdx && flagLows) {
-      const lowerLineData = flagLowsIdx
+    if (upperLineData.length > 1) {
+      lines.push({
+        data: upperLineData,
+        options: {
+          color: 'rgba(255, 167, 38, 0.8)', // Brighter color
+          lineWidth: 2, // Thicker line
+          lineStyle: 0, // Solid line
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
+    }
+
+    // Use time-based data if available (preferred method)
+    let lowerLineData = [];
+    if (flagLowsData && flagLowsData.length > 0) {
+      lowerLineData = flagLowsData
+        .filter(point => point && point.time && point.value != null)
+        .map(point => ({ time: point.time, value: point.value }));
+    } else if (flagLowsIdx && flagLows) {
+      // Fallback to index-based method
+      lowerLineData = flagLowsIdx
         .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && flagLows[i])
           ? { time: originalDataRef.current[idx].time, value: flagLows[i] } : null)
         .filter(point => point !== null);
-
-      if (lowerLineData.length > 1) {
-        lines.push({
-          data: lowerLineData,
-          options: {
-            color: 'rgba(38, 198, 218, 0.5)',
-            lineWidth: 1.5,
-            crosshairMarkerVisible: false,
-            lastValueVisible: false,
-            priceLineVisible: false,
-          }
-        });
-      }
     }
 
-    // Main marker - prominent
-    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
-      const mainCandle = originalDataRef.current[candleIndex];
-      if (mainCandle) {
-        markers.push({
-          time: mainCandle.time,
-          position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
-          color: direction === 'bullish' ? '#00E396' : '#FF4560',
-          shape: direction === 'bullish' ? 'arrowUp' : 'arrowDown',
-          text: abbreviation,
-          size: 1.5,
-          patternName: patternName
-        });
+    if (lowerLineData.length > 1) {
+      lines.push({
+        data: lowerLineData,
+        options: {
+          color: 'rgba(38, 198, 218, 0.8)', // Brighter color
+          lineWidth: 2, // Thicker line
+          lineStyle: 0, // Solid line
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
+    }
+
+    // Main marker - should be at the last pivot point for consistency
+    let markerTime = null;
+    
+    if (flagHighsData && flagHighsData.length > 0) {
+      // Use the last flag high point's time
+      markerTime = flagHighsData[flagHighsData.length - 1].time;
+    } else if (flagHighsIdx && flagHighsIdx.length > 0) {
+      // Fallback to index-based
+      const lastPivotIdx = flagHighsIdx[flagHighsIdx.length - 1];
+      if (lastPivotIdx >= 0 && lastPivotIdx < originalDataRef.current.length) {
+        markerTime = originalDataRef.current[lastPivotIdx].time;
       }
+    }
+    
+    if (markerTime) {
+      markers.push({
+        time: markerTime,
+        position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
+        color: direction === 'bullish' ? '#00E396' : '#FF4560',
+        shape: direction === 'bullish' ? 'arrowUp' : 'arrowDown',
+        text: abbreviation,
+        size: 1.5,
+        patternName: patternName
+      });
     }
 
     return { markers, lines };
@@ -1235,114 +1259,152 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
   // Collect Head and Shoulders data
   const collectHeadAndShouldersData = (pattern, abbreviation, patternName) => {
     const { 
-      candleIndex, headIndex, leftShoulderIndex, rightShoulderIndex,
+      candleIndex, patternPointsData, patternIndices, patternPoints, 
+      headIndex, leftShoulderIndex, rightShoulderIndex,
       headPrice, leftShoulderPrice, rightShoulderPrice, necklinePrice, patternType 
     } = pattern;
     const markers = [];
     let line = null;
 
-    // Don't add key point markers - they clutter the chart
-    // Just show the neckline and main marker
+    // Try to use time-based data first (new detector format)
+    if (patternPointsData && patternPointsData.length >= 5) {
+      // Pattern structure: [left shoulder, left neckline, head, right neckline, right shoulder]
+      const leftNeckline = patternPointsData[1];
+      const rightNeckline = patternPointsData[3];
+      const rightShoulder = patternPointsData[4];
 
-    // Prepare neckline
-    if (necklinePrice && leftShoulderIndex >= 0 && rightShoulderIndex >= 0) {
+      // Neckline connecting the two low points
       line = {
         data: [
-          { time: originalDataRef.current[leftShoulderIndex].time, value: necklinePrice },
-          { time: originalDataRef.current[rightShoulderIndex].time, value: necklinePrice }
+          { time: leftNeckline.time, value: leftNeckline.value },
+          { time: rightNeckline.time, value: rightNeckline.value }
         ],
         options: {
-          color: 'rgba(255, 235, 59, 0.5)',
-          lineWidth: 1.5,
-          lineStyle: 2,
+          color: 'rgba(255, 235, 59, 0.8)',
+          lineWidth: 2,
+          lineStyle: 0, // Solid line
           crosshairMarkerVisible: false,
           lastValueVisible: false,
           priceLineVisible: false,
         }
       };
-    }
 
-    // Main marker - prominent
-    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
-      const mainCandle = originalDataRef.current[candleIndex];
-      if (mainCandle) {
-        markers.push({
-          time: mainCandle.time,
-          position: patternType === 'inverse' ? 'belowBar' : 'aboveBar',
-          color: patternType === 'inverse' ? '#00E396' : '#FF4560',
-          shape: patternType === 'inverse' ? 'arrowUp' : 'arrowDown',
-          text: abbreviation,
-          size: 1.5,
-          patternName: patternName
-        });
+      // Main marker at right shoulder (pattern confirmation)
+      markers.push({
+        time: rightShoulder.time,
+        position: patternType === 'inverse_head_and_shoulders' ? 'belowBar' : 'aboveBar',
+        color: patternType === 'inverse_head_and_shoulders' ? '#00E396' : '#FF4560',
+        shape: patternType === 'inverse_head_and_shoulders' ? 'arrowUp' : 'arrowDown',
+        text: abbreviation,
+        size: 1.5,
+        patternName: patternName
+      });
+    } else {
+      // Fallback to old format
+      if (necklinePrice && leftShoulderIndex >= 0 && rightShoulderIndex >= 0) {
+        line = {
+          data: [
+            { time: originalDataRef.current[leftShoulderIndex].time, value: necklinePrice },
+            { time: originalDataRef.current[rightShoulderIndex].time, value: necklinePrice }
+          ],
+          options: {
+            color: 'rgba(255, 235, 59, 0.5)',
+            lineWidth: 1.5,
+            lineStyle: 2,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        };
+      }
+
+      if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
+        const mainCandle = originalDataRef.current[candleIndex];
+        if (mainCandle) {
+          markers.push({
+            time: mainCandle.time,
+            position: patternType === 'inverse' ? 'belowBar' : 'aboveBar',
+            color: patternType === 'inverse' ? '#00E396' : '#FF4560',
+            shape: patternType === 'inverse' ? 'arrowUp' : 'arrowDown',
+            text: abbreviation,
+            size: 1.5,
+            patternName: patternName
+          });
+        }
       }
     }
 
     return { markers, line };
   };
 
-  // Collect Pennant data
   const collectPennantData = (pattern, abbreviation, patternName) => {
-    const { candleIndex, pennantHighsIdx, pennantLowsIdx, pennantHighs, pennantLows, direction } = pattern;
+    const { candleIndex, pennantHighsData, pennantLowsData, pennantHighsIdx, pennantLowsIdx, pennantHighs, pennantLows } = pattern;
     const markers = [];
     const lines = [];
 
-    // Don't add pennant high markers - only show the trendline
-    if (pennantHighsIdx && pennantHighs) {
-      const upperLineData = pennantHighsIdx
-        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && pennantHighs[i])
-          ? { time: originalDataRef.current[idx].time, value: pennantHighs[i] } : null)
-        .filter(point => point !== null);
+    // Try to use time-based data first (new detector format), fallback to index-based (old format)
+    const upperLineData = pennantHighsData || (pennantHighsIdx && pennantHighs
+      ? pennantHighsIdx
+          .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && pennantHighs[i])
+            ? { time: originalDataRef.current[idx].time, value: pennantHighs[i] } : null)
+          .filter(point => point !== null)
+      : []);
 
-      if (upperLineData.length > 1) {
-        lines.push({
-          data: upperLineData,
-          options: {
-            color: 'rgba(255, 112, 67, 0.5)',
-            lineWidth: 1.5,
-            crosshairMarkerVisible: false,
-            lastValueVisible: false,
-            priceLineVisible: false,
-          }
-        });
-      }
+    const lowerLineData = pennantLowsData || (pennantLowsIdx && pennantLows
+      ? pennantLowsIdx
+          .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && pennantLows[i])
+            ? { time: originalDataRef.current[idx].time, value: pennantLows[i] } : null)
+          .filter(point => point !== null)
+      : []);
+
+    // Upper trendline
+    if (upperLineData.length > 1) {
+      lines.push({
+        data: upperLineData,
+        options: {
+          color: 'rgba(255, 167, 38, 0.8)',
+          lineWidth: 2,
+          lineStyle: 0, // Solid line
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
     }
 
-    // Don't add pennant low markers - only show the trendline
-    if (pennantLowsIdx && pennantLows) {
-      const lowerLineData = pennantLowsIdx
-        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && pennantLows[i])
-          ? { time: originalDataRef.current[idx].time, value: pennantLows[i] } : null)
-        .filter(point => point !== null);
-
-      if (lowerLineData.length > 1) {
-        lines.push({
-          data: lowerLineData,
-          options: {
-            color: 'rgba(77, 208, 225, 0.5)',
-            lineWidth: 1.5,
-            crosshairMarkerVisible: false,
-            lastValueVisible: false,
-            priceLineVisible: false,
-          }
-        });
-      }
+    // Lower trendline
+    if (lowerLineData.length > 1) {
+      lines.push({
+        data: lowerLineData,
+        options: {
+          color: 'rgba(38, 198, 218, 0.8)',
+          lineWidth: 2,
+          lineStyle: 0, // Solid line
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
     }
 
-    // Main marker - prominent
-    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
-      const mainCandle = originalDataRef.current[candleIndex];
-      if (mainCandle) {
-        markers.push({
-          time: mainCandle.time,
-          position: direction === 'bullish' ? 'belowBar' : 'aboveBar',
-          color: direction === 'bullish' ? '#00E396' : '#FF4560',
-          shape: direction === 'bullish' ? 'arrowUp' : 'arrowDown',
-          text: abbreviation,
-          size: 1.5,
-          patternName: patternName
-        });
-      }
+    // Main marker at last pennant high point (pattern confirmation)
+    let markerTime = null;
+    if (pennantHighsData && pennantHighsData.length > 0) {
+      markerTime = pennantHighsData[pennantHighsData.length - 1].time;
+    } else if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
+      markerTime = originalDataRef.current[candleIndex].time;
+    }
+
+    if (markerTime) {
+      markers.push({
+        time: markerTime,
+        position: 'aboveBar',
+        color: '#AB47BC',
+        shape: 'circle',
+        text: abbreviation,
+        size: 1.5,
+        patternName: patternName
+      });
     }
 
     return { markers, lines };
@@ -1351,13 +1413,13 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
   // Collect Triangle data
   const collectTriangleData = (pattern, abbreviation, patternName) => {
     const { 
-      candleIndex, triangleType, upperTrendIndices, lowerTrendIndices,
-      upperTrendValues, lowerTrendValues 
+      candleIndex, triangleType, triangleHighsData, triangleLowsData,
+      upperTrendIndices, lowerTrendIndices, upperTrendValues, lowerTrendValues 
     } = pattern;
     const markers = [];
     const lines = [];
 
-    // Color scheme based on triangle type - softer colors
+    // Color scheme based on triangle type - brighter colors
     const colors = {
       'ascending': { upper: '#66BB6A', lower: '#66BB6A', main: '#4CAF50' },
       'descending': { upper: '#EF5350', lower: '#EF5350', main: '#F44336' },
@@ -1365,65 +1427,72 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     };
     const color = colors[triangleType] || colors['symmetrical'];
 
-    // Don't add upper trend markers - only show the trendline
-    if (upperTrendIndices && upperTrendValues) {
-      const upperLineData = upperTrendIndices
-        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && upperTrendValues[i])
-          ? { time: originalDataRef.current[idx].time, value: upperTrendValues[i] } : null)
-        .filter(point => point !== null);
+    // Try to use time-based data first (new detector format), fallback to index-based (old format)
+    const upperLineData = triangleHighsData || (upperTrendIndices && upperTrendValues
+      ? upperTrendIndices
+          .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && upperTrendValues[i])
+            ? { time: originalDataRef.current[idx].time, value: upperTrendValues[i] } : null)
+          .filter(point => point !== null)
+      : []);
 
-      if (upperLineData.length > 1) {
-        lines.push({
-          data: upperLineData,
-          options: {
-            color: color.upper + '60',
-            lineWidth: 1.5,
-            crosshairMarkerVisible: false,
-            lastValueVisible: false,
-            priceLineVisible: false,
-          }
-        });
-      }
+    const lowerLineData = triangleLowsData || (lowerTrendIndices && lowerTrendValues
+      ? lowerTrendIndices
+          .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && lowerTrendValues[i])
+            ? { time: originalDataRef.current[idx].time, value: lowerTrendValues[i] } : null)
+          .filter(point => point !== null)
+      : []);
+
+    // Upper trendline
+    if (upperLineData.length > 1) {
+      lines.push({
+        data: upperLineData,
+        options: {
+          color: color.upper + 'CC', // Higher opacity
+          lineWidth: 2,
+          lineStyle: 0, // Solid line
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
     }
 
-    // Don't add lower trend markers - only show the trendline
-    if (lowerTrendIndices && lowerTrendValues) {
-      const lowerLineData = lowerTrendIndices
-        .map((idx, i) => (idx >= 0 && idx < originalDataRef.current.length && lowerTrendValues[i])
-          ? { time: originalDataRef.current[idx].time, value: lowerTrendValues[i] } : null)
-        .filter(point => point !== null);
-
-      if (lowerLineData.length > 1) {
-        lines.push({
-          data: lowerLineData,
-          options: {
-            color: color.lower + '60',
-            lineWidth: 1.5,
-            crosshairMarkerVisible: false,
-            lastValueVisible: false,
-            priceLineVisible: false,
-          }
-        });
-      }
+    // Lower trendline
+    if (lowerLineData.length > 1) {
+      lines.push({
+        data: lowerLineData,
+        options: {
+          color: color.lower + 'CC', // Higher opacity
+          lineWidth: 2,
+          lineStyle: 0, // Solid line
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }
+      });
     }
 
-    // Main marker - prominent
-    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
-      const mainCandle = originalDataRef.current[candleIndex];
-      if (mainCandle) {
-        const triSentiment = triangleType === 'ascending' ? 'bullish' :
-                           triangleType === 'descending' ? 'bearish' : 'neutral';
-        markers.push({
-          time: mainCandle.time,
-          position: triSentiment === 'bearish' ? 'aboveBar' : 'belowBar',
-          color: triSentiment === 'bullish' ? '#00E396' :
-                 triSentiment === 'bearish' ? '#FF4560' : '#AB47BC',
-          shape: triSentiment === 'bearish' ? 'arrowDown' : triSentiment === 'bullish' ? 'arrowUp' : 'circle',
-          text: abbreviation,
-          size: 1.5,
-          patternName: patternName
-        });
-      }
+    // Main marker at last triangle high point (pattern confirmation)
+    let markerTime = null;
+    if (triangleHighsData && triangleHighsData.length > 0) {
+      markerTime = triangleHighsData[triangleHighsData.length - 1].time;
+    } else if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
+      markerTime = originalDataRef.current[candleIndex].time;
+    }
+
+    if (markerTime) {
+      const triSentiment = triangleType === 'ascending' ? 'bullish' :
+                         triangleType === 'descending' ? 'bearish' : 'neutral';
+      markers.push({
+        time: markerTime,
+        position: triSentiment === 'bearish' ? 'aboveBar' : 'belowBar',
+        color: triSentiment === 'bullish' ? '#00E396' :
+               triSentiment === 'bearish' ? '#FF4560' : '#AB47BC',
+        shape: triSentiment === 'bearish' ? 'arrowDown' : triSentiment === 'bullish' ? 'arrowUp' : 'circle',
+        text: abbreviation,
+        size: 1.5,
+        patternName: patternName
+      });
     }
 
     return { markers, lines };
