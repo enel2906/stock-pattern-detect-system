@@ -676,17 +676,18 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       }
     }
 
-    // Main marker at handle end (breakout point)
-    if (handleEndIndex >= 0 && handleEndIndex < originalDataRef.current.length) {
-      const handleCandle = originalDataRef.current[handleEndIndex];
-      if (handleCandle) {
+    // Main marker at right high (where cup pattern is confirmed)
+    // This is more consistent with other patterns that show marker at confirmation point
+    if (rightHighIndex >= 0 && rightHighIndex < originalDataRef.current.length) {
+      const rightCandle = originalDataRef.current[rightHighIndex + 1]; // Marker at next candle after right high
+      if (rightCandle) {
         markers.push({
-          time: handleCandle.time,
+          time: rightCandle.time,
           position: 'belowBar',
           color: '#00E396',
           shape: 'arrowUp',
           text: abbreviation,
-          size: 1.5,
+          size: 3,
           patternName: patternName
         });
       }
