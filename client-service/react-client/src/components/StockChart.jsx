@@ -774,29 +774,39 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
   // Helper functions for processing different pattern types
   // Collect double pattern data
   const collectDoublePatternData = (pattern, abbreviation, patternName) => {
-    const { candleIndex, pivotIndices, pivotPoints, doubleType } = pattern;
+    const { candleIndex, pivotIndices, pivotPoints, pivotPointsData, doubleType } = pattern;
     const markers = [];
     let line = null;
 
-    // Prepare line data
-    const lineData = pivotIndices
-      .map((pivotIdx, i) => {
-        if (pivotIdx >= 0 && pivotIdx < originalDataRef.current.length && pivotPoints[i]) {
-          const candleData = originalDataRef.current[pivotIdx];
-          return candleData ? { time: candleData.time, value: pivotPoints[i] } : null;
-        }
-        return null;
-      })
-      .filter(point => point !== null);
+    // Prepare line data using time-based pivot points (more accurate than index-based)
+    let lineData = [];
+    
+    if (pivotPointsData && pivotPointsData.length > 0) {
+      // Use time-based data if available (preferred method)
+      lineData = pivotPointsData
+        .filter(point => point && point.time && point.value != null)
+        .map(point => ({ time: point.time, value: point.value }));
+    } else {
+      // Fallback to index-based method (legacy)
+      lineData = pivotIndices
+        .map((pivotIdx, i) => {
+          if (pivotIdx >= 0 && pivotIdx < originalDataRef.current.length && pivotPoints[i]) {
+            const candleData = originalDataRef.current[pivotIdx];
+            return candleData ? { time: candleData.time, value: pivotPoints[i] } : null;
+          }
+          return null;
+        })
+        .filter(point => point !== null);
+    }
 
     if (lineData.length > 1) {
-      const lineColor = doubleType === 'tops' ? 'rgba(255, 107, 157, 0.6)' : 'rgba(0, 217, 255, 0.6)';
+      const lineColor = doubleType === 'tops' ? 'rgba(255, 107, 157, 0.8)' : 'rgba(0, 217, 255, 0.8)';
       line = {
         data: lineData,
         options: {
           color: lineColor,
-          lineWidth: 1.5,
-          lineStyle: 2,
+          lineWidth: 2, // Thicker line
+          lineStyle: 0, // Solid line (0 = solid, 1 = dotted, 2 = dashed)
           crosshairMarkerVisible: false,
           lastValueVisible: false,
           priceLineVisible: false,
@@ -804,20 +814,31 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       };
     }
 
-    // Main marker - prominent
-    if (candleIndex >= 0 && candleIndex < originalDataRef.current.length) {
-      const mainCandle = originalDataRef.current[candleIndex];
-      if (mainCandle) {
-        markers.push({
-          time: mainCandle.time,
-          position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
-          color: doubleType === 'tops' ? '#FF4560' : '#00E396',
-          shape: doubleType === 'tops' ? 'arrowDown' : 'arrowUp',
-          text: abbreviation,
-          size: 1.5,
-          patternName: patternName
-        });
+    // Main marker - should be at the LAST pivot point (index 4), not at candleIndex
+    // The last pivot is where the pattern is confirmed
+    let markerTime = null;
+    
+    if (pivotPointsData && pivotPointsData.length > 0) {
+      // Use the last pivot point's time (index 4 - the 5th pivot)
+      markerTime = pivotPointsData[pivotPointsData.length - 1].time;
+    } else if (pivotIndices && pivotIndices.length > 0) {
+      // Fallback to index-based
+      const lastPivotIdx = pivotIndices[pivotIndices.length - 1];
+      if (lastPivotIdx >= 0 && lastPivotIdx < originalDataRef.current.length) {
+        markerTime = originalDataRef.current[lastPivotIdx].time;
       }
+    }
+    
+    if (markerTime) {
+      markers.push({
+        time: markerTime,
+        position: doubleType === 'tops' ? 'aboveBar' : 'belowBar',
+        color: doubleType === 'tops' ? '#FF4560' : '#00E396',
+        shape: doubleType === 'tops' ? 'arrowDown' : 'arrowUp',
+        text: abbreviation,
+        size: 1.5,
+        patternName: patternName
+      });
     }
 
     return { markers, line };

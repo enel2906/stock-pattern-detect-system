@@ -64,6 +64,7 @@ import {
 } from './candlePatternDetectorPart3';
 
 import { detectCupWithHandlePattern } from './cupWithHandleDetector';
+import { detectDoublePatterns, detectDoubleTops, detectDoubleBottoms } from './doublePatternDetector';
 
 /**
  * Pattern detector mapping
@@ -148,6 +149,11 @@ const PATTERN_DETECTORS = {
 
   // Complex chart patterns (client-side detection)
   'cup_with_handle': detectCupWithHandlePattern,
+  
+  // Double patterns (client-side detection with pivot points)
+  'double_tops': detectDoubleTops,
+  'double_bottoms': detectDoubleBottoms,
+  'double_pattern': detectDoublePatterns, // Detects both tops and bottoms
 };
 
 /**
