@@ -45,9 +45,9 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       const container = chartContainerRef.current;
       if (!container) return;
 
-      // Calculate dimensions, fallback to window height minus header and padding
-      const width = container.offsetWidth || window.innerWidth - 20;
-      const height = container.offsetHeight || window.innerHeight - 200;
+      // Calculate dimensions from container
+      const width = container.clientWidth;
+      const height = container.clientHeight;
       
       console.log('Initializing chart with dimensions:', { width, height, container }); // Debug log
       
@@ -105,8 +105,8 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     // Create volume chart
     const volContainer = volumeContainerRef.current;
     if (volContainer) {
-      const volWidth = volContainer.offsetWidth || window.innerWidth - 20;
-      const volHeight = volContainer.offsetHeight || 150;
+      const volWidth = volContainer.clientWidth;
+      const volHeight = volContainer.clientHeight;
       
       const volChart = createChart(volContainer, {
         width: volWidth,
@@ -190,27 +190,54 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     setIsChartReady(true);
     console.log('Chart ready!'); // Debug log
 
-      // Handle resize
+      // Handle resize with ResizeObserver for better performance and accuracy
       const handleResize = () => {
         if (chartContainerRef.current && chartRef.current) {
+          const newWidth = chartContainerRef.current.clientWidth;
+          const newHeight = chartContainerRef.current.clientHeight;
           chartRef.current.applyOptions({
-            width: chartContainerRef.current.offsetWidth,
-            height: chartContainerRef.current.offsetHeight,
+            width: newWidth,
+            height: newHeight,
           });
+          console.log('Chart resized:', { newWidth, newHeight });
         }
         if (volumeContainerRef.current && volChartRef.current) {
+          const newWidth = volumeContainerRef.current.clientWidth;
+          const newHeight = volumeContainerRef.current.clientHeight;
           volChartRef.current.applyOptions({
-            width: volumeContainerRef.current.offsetWidth,
-            height: volumeContainerRef.current.offsetHeight,
+            width: newWidth,
+            height: newHeight,
           });
+          console.log('Volume chart resized:', { newWidth, newHeight });
         }
       };
       
+      // Use ResizeObserver for precise container size changes
+      const resizeObserver = new ResizeObserver(() => {
+        // Debounce resize to avoid too many updates
+        if (window.resizeTimeout) {
+          clearTimeout(window.resizeTimeout);
+        }
+        window.resizeTimeout = setTimeout(handleResize, 100);
+      });
+      
+      if (chartContainerRef.current) {
+        resizeObserver.observe(chartContainerRef.current);
+      }
+      if (volumeContainerRef.current) {
+        resizeObserver.observe(volumeContainerRef.current);
+      }
+      
+      // Also listen to window resize as backup
       window.addEventListener('resize', handleResize);
 
       // Cleanup
       return () => {
+        resizeObserver.disconnect();
         window.removeEventListener('resize', handleResize);
+        if (window.resizeTimeout) {
+          clearTimeout(window.resizeTimeout);
+        }
         if (tooltip && tooltip.parentNode) {
           tooltip.parentNode.removeChild(tooltip);
         }
