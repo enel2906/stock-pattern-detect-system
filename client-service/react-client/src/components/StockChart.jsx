@@ -19,9 +19,7 @@ const RIGHT_OFFSET = 20;
 
 const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatusChange, isLight }) => {
   const chartContainerRef = useRef(null);
-  const volumeContainerRef = useRef(null);
   const chartRef = useRef(null);
-  const volChartRef = useRef(null);
   const candleSeriesRef = useRef(null);
   const volumeSeriesRef = useRef(null);
   const originalDataRef = useRef([]);
@@ -87,77 +85,37 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       borderVisible: false,
       wickUpColor: '#26a69a',
       wickDownColor: '#ef5350',
-      priceScaleId: 'right', // Main price scale
+      priceScaleId: 'right',
     });
     
-    // Configure main price scale to leave room for indicators
+    // Configure main price scale to leave room for volume at bottom
     candleSeries.priceScale().applyOptions({
       scaleMargins: {
-        top: 0.1, // 10% padding at top
-        bottom: 0.2, // 20% space at bottom for indicators
+        top: 0.1,
+        bottom: 0.3, // 30% space at bottom for volume
       },
     });
     
     candleSeriesRef.current = candleSeries;
     
-    console.log('Candlestick series added:', candleSeries); // Debug log
+    console.log('Candlestick series added:', candleSeries);
 
-    // Create volume chart
-    const volContainer = volumeContainerRef.current;
-    if (volContainer) {
-      const volWidth = volContainer.clientWidth;
-      const volHeight = volContainer.clientHeight;
-      
-      const volChart = createChart(volContainer, {
-        width: volWidth,
-        height: volHeight,
-        layout: { 
-          background: { type: 'solid', color: 'transparent' }, 
-          textColor: isLight ? '#1f2937' : '#c7d2e0' 
-        },
-        rightPriceScale: { borderColor: isLight ? '#e5e7eb' : '#2b3240' },
-        timeScale: {
-          borderColor: isLight ? '#e5e7eb' : '#2b3240',
-          timeVisible: true,
-          rightOffset: RIGHT_OFFSET,
-          secondsVisible: false
-        },
-        grid: {
-          vertLines: { color: isLight ? '#e5e7eb' : '#1f242d' },
-          horzLines: { color: isLight ? '#e5e7eb' : '#1f242d' }
-        },
-        handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
-        handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
-      });
-      
-      volChartRef.current = volChart;
-      
-      const volumeSeries = volChart.addHistogramSeries({
-        priceFormat: { type: 'volume' },
-        priceScaleId: '',
-        base: 0,
-      });
-      
-      volumeSeriesRef.current = volumeSeries;
-      
-      console.log('Volume chart created:', volChart);
-      
-      // Sync time scales between charts
-      const syncScales = (master, slave) => {
-        let syncing = false;
-        master.timeScale().subscribeVisibleLogicalRangeChange(() => {
-          if (syncing) return;
-          const lr = master.timeScale().getVisibleLogicalRange();
-          if (!lr) return;
-          syncing = true;
-          slave.timeScale().setVisibleLogicalRange(lr);
-          syncing = false;
-        });
-      };
-      
-      syncScales(chart, volChart);
-      syncScales(volChart, chart);
-    }
+    // Add volume series to the same chart
+    const volumeSeries = chart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: '', // Separate scale for volume
+    });
+    
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.7, // Start volume at 70% from top (in bottom 30%)
+        bottom: 0,
+      },
+    });
+    
+    volumeSeriesRef.current = volumeSeries;
+    
+    console.log('Volume series added to chart');
 
     // Create tooltip element
     const tooltip = document.createElement('div');
@@ -201,15 +159,6 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
           });
           console.log('Chart resized:', { newWidth, newHeight });
         }
-        if (volumeContainerRef.current && volChartRef.current) {
-          const newWidth = volumeContainerRef.current.clientWidth;
-          const newHeight = volumeContainerRef.current.clientHeight;
-          volChartRef.current.applyOptions({
-            width: newWidth,
-            height: newHeight,
-          });
-          console.log('Volume chart resized:', { newWidth, newHeight });
-        }
       };
       
       // Use ResizeObserver for precise container size changes
@@ -223,9 +172,6 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       
       if (chartContainerRef.current) {
         resizeObserver.observe(chartContainerRef.current);
-      }
-      if (volumeContainerRef.current) {
-        resizeObserver.observe(volumeContainerRef.current);
       }
       
       // Also listen to window resize as backup
@@ -243,9 +189,6 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
         }
         if (chartRef.current) {
           chartRef.current.remove();
-        }
-        if (volChartRef.current) {
-          volChartRef.current.remove();
         }
       };
     };
@@ -272,15 +215,6 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
       rightPriceScale: { borderColor: colors.border },
       timeScale: { borderColor: colors.border }
     });
-    
-    if (volChartRef.current) {
-      volChartRef.current.applyOptions({
-        layout: { background: { type: 'solid', color: colors.bg }, textColor: colors.text },
-        grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
-        rightPriceScale: { borderColor: colors.border },
-        timeScale: { borderColor: colors.border }
-      });
-    }
   }, [isLight]);
 
   // Load stock data
@@ -317,7 +251,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
           volumeData.push({
             time: item.time,
             value: item.volume,
-            color: (item.close >= item.open) ? '#26a69a' : '#ef5350'
+            color: (item.close >= item.open) ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
           });
         });
         
@@ -331,23 +265,24 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
         
         console.log('Data set successfully'); // Debug log
 
-        // Scroll to the most recent candles (like TradingView)
-        // Optimal range: 80-120 candles for good balance between detail and overview
-        const VISIBLE_BARS = 150; // Show last 100 candles (default comfortable zoom)
-        const totalBars = originalDataRef.current.length;
-        const from = Math.max(0, totalBars - VISIBLE_BARS);
-        const to = totalBars - 1;
-        
-        // Use setTimeout to ensure data is rendered before scrolling
+        // Use setTimeout to ensure data is rendered before adjusting viewport
         setTimeout(() => {
           if (chartRef.current) {
+            // First, fit the content to ensure all data is visible (critical for price range changes)
+            chartRef.current.timeScale().fitContent();
+            console.log('Chart content fitted to viewport');
+            
+            // Then scroll to show the most recent candles with optimal zoom
+            // This ensures the right side shows recent data while maintaining good zoom level
+            const VISIBLE_BARS = 150; // Show last 150 candles (comfortable default)
+            const totalBars = originalDataRef.current.length;
+            const from = Math.max(0, totalBars - VISIBLE_BARS);
+            const to = totalBars - 1;
+            
             chartRef.current.timeScale().setVisibleLogicalRange({ from, to });
+            console.log('Scrolled to most recent candles:', { from, to, total: totalBars });
           }
-          if (volChartRef.current) {
-            volChartRef.current.timeScale().setVisibleLogicalRange({ from, to });
-          }
-          console.log('Scrolled to most recent candles:', { from, to, total: totalBars }); // Debug log
-        }, 50);
+        }, 100); // Increased timeout to ensure rendering is complete
 
         // Trigger reload of patterns and indicators
         setDataLoadCounter(prev => prev + 1);
@@ -1947,7 +1882,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
                       volumeSeriesRef.current.update({
                         time: updatedCandle.time,
                         value: stockUpdate.volume,
-                        color: updatedCandle.close >= updatedCandle.open ? '#26a69a' : '#ef5350',
+                        color: updatedCandle.close >= updatedCandle.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
                       });
                     }
                   } else if (newTime > lastTime) {
@@ -1971,7 +1906,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
                       volumeSeriesRef.current.update({
                         time: newTime,
                         value: stockUpdate.volume,
-                        color: newCandle.close >= newCandle.open ? '#26a69a' : '#ef5350',
+                        color: newCandle.close >= newCandle.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
                       });
                     }
                   } else {
@@ -1997,7 +1932,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
                     volumeSeriesRef.current.update({
                       time: newTime,
                       value: stockUpdate.volume,
-                      color: newCandle.close >= newCandle.open ? '#26a69a' : '#ef5350',
+                      color: newCandle.close >= newCandle.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
                     });
                   }
                 }
@@ -2133,9 +2068,6 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
           </div>
         )}
         <div ref={chartContainerRef} className="chart" />
-      </div>
-      <div className="volume-container">
-        <div ref={volumeContainerRef} className="volume-chart" />
       </div>
     </div>
   );

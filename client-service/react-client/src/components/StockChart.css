@@ -1,10 +1,7 @@
-/* Chart Wrapper - Contains both candlestick and volume */
+/* Chart Wrapper - Contains chart with integrated volume */
 .chart-wrapper {
   width: 100%;
   height: calc(100vh - 140px); /* Fixed height based on viewport */
-  display: grid;
-  grid-template-rows: 78% 22%;
-  gap: 0;
   position: relative;
   overflow: hidden; /* Prevent scrollbars */
 }
@@ -17,18 +14,6 @@
 }
 
 .chart {
-  width: 100%;
-  height: 100%;
-}
-
-.volume-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  overflow: hidden; /* Prevent internal scrollbars */
-}
-
-.volume-chart {
   width: 100%;
   height: 100%;
 }

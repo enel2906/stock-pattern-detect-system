@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Header from './components/Header';
 import StockChart from './components/StockChart';
-import TokenStatus from './components/TokenStatus';
 import AuthPage from './pages/AuthPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import './App.css';
@@ -172,8 +171,6 @@ function MainApp() {
           />
         </div>
       </main>
-      {/* Token Status Debug Component - Remove in production */}
-      <TokenStatus />
     </div>
   );
 }
