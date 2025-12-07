@@ -1,0 +1,5 @@
+# .gitignore
+data-service/venv/
+.venv/
+__pycache__/
+*.pyc
