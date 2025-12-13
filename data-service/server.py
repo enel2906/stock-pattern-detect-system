@@ -50,16 +50,23 @@ UPDATE_INTERVAL = 60  # 60 giây (1 phút) - tránh vượt rate limit
 # Danh sách mã cổ phiếu cần theo dõi
 STOCK_SYMBOLS = {
     'HOSE': [
-        'VCB', 'VHM', 'VNM', 'VIC', 'GAS', 'MSN', 'HPG', 'TCB', 
-        'VPB', 'MWG', 'FPT', 'BID', 'CTG', 'MBB', 'ACB'
-    ],  # 15 mã HOSE
+        # Banking
+        'VCB', 'BID', 'CTG', 'TCB', 'VPB', 'MBB', 'ACB', 'SHB', 'STB', 'HDB', 'TPB', 'VIB', 'LPB',
+        # Real Estate
+        'VHM', 'VIC', 'VRE', 'KDH', 'NVL', 'PDR', 'DIG', 'DXG',
+        # Securities
+        'SSI', 'VND', 'VIX', 'HCM', 'VCI', 'FTS', 'BSI',
+        # Retail & Consumer
+        'MWG', 'MSN', 'VNM', 'PNJ', 'DGW', 'FRT',
+        # Industrial & Others
+        'HPG', 'FPT', 'GVR', 'DGC', 'VGC', 'GAS'
+    ],  # 40 mã HOSE
     'HNX': [
-        'PVS', 'SHS', 'VCS', 'CEO', 'NVB', 'PVX', 
-        'TNG', 'BAB', 'VGC', 'SHB'
+        'PVS', 'SHS', 'CEO', 'IDC', 'MBS', 'TNG', 'HUT', 'VC3', 'LAS', 'TIG'
     ],  # 10 mã HNX
     'UPCOM': [
-        'BSI', 'FTS', 'ART', 'MCK', 'OIL'
-    ]  # 5 mã UPCOM
+        'BSR', 'OIL', 'VGI', 'VEA', 'ACV', 'QNS', 'MCH', 'VTP', 'FOX', 'C4G'
+    ]  # 10 mã UPCOM
 }
 
 # FastAPI app
