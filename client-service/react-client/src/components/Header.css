@@ -274,6 +274,84 @@ body.light .stock-selector-button:hover {
   background: rgba(59, 130, 246, 0.25) !important;
 }
 
+/* News Button */
+.news-button {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px !important;
+  background: rgba(245, 158, 11, 0.1) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  color: #f59e0b !important;
+  font-weight: 600;
+  transition: all 0.2s;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.news-button:hover {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border-color: #f59e0b !important;
+  opacity: 1 !important;
+  transform: translateY(-1px);
+}
+
+.news-button .icon {
+  font-size: 16px;
+}
+
+.news-button .label {
+  font-size: 13px;
+}
+
+body.light .news-button {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+body.light .news-button:hover {
+  background: rgba(245, 158, 11, 0.25) !important;
+}
+
+/* Financial Report Button */
+.financial-button {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px !important;
+  background: rgba(168, 85, 247, 0.1) !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  color: #a855f7 !important;
+  font-weight: 600;
+  transition: all 0.2s;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.financial-button:hover {
+  background: rgba(168, 85, 247, 0.2) !important;
+  border-color: #a855f7 !important;
+  opacity: 1 !important;
+  transform: translateY(-1px);
+}
+
+.financial-button .icon {
+  font-size: 16px;
+}
+
+.financial-button .label {
+  font-size: 13px;
+}
+
+body.light .financial-button {
+  background: rgba(168, 85, 247, 0.15) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+body.light .financial-button:hover {
+  background: rgba(168, 85, 247, 0.25) !important;
+}
+
 /* Indicators Button */
 .indicators-button {
   display: flex !important;

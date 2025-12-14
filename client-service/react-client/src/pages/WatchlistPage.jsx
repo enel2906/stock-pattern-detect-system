@@ -38,13 +38,13 @@ const WatchlistPage = () => {
     fetchPriceBoard();
   }, [fetchPriceBoard]);
 
-  // Auto refresh every 30 seconds
+  // Auto refresh every 2 seconds (real-time price board)
   useEffect(() => {
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
       fetchPriceBoard();
-    }, 30000); // 30 seconds
+    }, 3000); // 2 seconds for real-time updates
 
     return () => clearInterval(interval);
   }, [autoRefresh, fetchPriceBoard]);
@@ -112,33 +112,16 @@ const WatchlistPage = () => {
   return (
     <div className="watchlist-page">
       <div className="watchlist-header">
-        <h1 className="watchlist-title">📊 Bảng Giá Cổ Phiếu</h1>
+        <h1 className="watchlist-title">⚡ Price Board</h1>
         
-        <div className="watchlist-controls">
-          <button 
-            className={`refresh-button ${isRefreshing ? 'loading' : ''}`}
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <span>🔄</span>
-            <span>{isRefreshing ? 'Đang cập nhật...' : 'Làm mới'}</span>
-          </button>
-          
-          <label className="auto-refresh-toggle">
-            <input 
-              type="checkbox" 
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-            />
-            <span>Tự động làm mới (30s)</span>
-          </label>
-          
-          {lastUpdate && (
-            <div className="last-update">
-              Cập nhật lúc: {formatTime(lastUpdate)}
-            </div>
-          )}
-        </div>
+        <button 
+          className="header-chart-button"
+          onClick={() => handleStockClick('VCB')}
+          title="Xem biểu đồ VCB"
+        >
+          <span>📊</span>
+          <span>Chart</span>
+        </button>
       </div>
 
       {error && (
@@ -176,13 +159,12 @@ const WatchlistPage = () => {
             <tbody>
               {priceData.map((stock) => (
                 <tr key={stock.symbol}>
-                  <td>
-                    <div 
-                      className="symbol-cell"
-                      onClick={() => handleStockClick(stock.symbol)}
-                    >
-                      {stock.symbol}
-                    </div>
+                  <td 
+                    className="symbol-cell clickable"
+                    onClick={() => handleStockClick(stock.symbol)}
+                    title={`Xem biểu đồ ${stock.symbol}`}
+                  >
+                    {stock.symbol}
                   </td>
                   <td className="price-ref">
                     {formatPrice(stock.refPrice)}

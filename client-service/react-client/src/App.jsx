@@ -7,6 +7,8 @@ import AuthPage from './pages/AuthPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import WatchlistPage from './pages/WatchlistPage';
 import AboutPage from './pages/AboutPage';
+import NewsModal from './components/NewsModal';
+import FinancialReportModal from './components/FinancialReportModal';
 import './App.css';
 
 function MainApp() {
@@ -36,6 +38,8 @@ function MainApp() {
   });
   const [status, setStatus] = useState('Sẵn sàng.');
   const [showAuthWarning, setShowAuthWarning] = useState(false);
+  const [showNewsModal, setShowNewsModal] = useState(false);
+  const [showFinancialModal, setShowFinancialModal] = useState(false);
 
   // Listen to URL parameter changes and update stockSymbol
   useEffect(() => {
@@ -176,6 +180,8 @@ function MainApp() {
         onToggleTheme={handleToggleTheme}
         isLight={isLight}
         status={status}
+        onShowNews={() => setShowNewsModal(true)}
+        onShowFinancial={() => setShowFinancialModal(true)}
       />
       {showAuthWarning && (
         <div className="auth-warning">
@@ -194,6 +200,20 @@ function MainApp() {
           />
         </div>
       </main>
+
+      {/* News Modal */}
+      <NewsModal
+        isOpen={showNewsModal}
+        onClose={() => setShowNewsModal(false)}
+        stockSymbol={stockSymbol}
+      />
+
+      {/* Financial Report Modal */}
+      <FinancialReportModal
+        isOpen={showFinancialModal}
+        onClose={() => setShowFinancialModal(false)}
+        stockSymbol={stockSymbol}
+      />
     </div>
   );
 }

@@ -16,7 +16,9 @@ const Header = ({
   onLoadData, 
   onToggleTheme, 
   isLight, 
-  status 
+  status,
+  onShowNews,
+  onShowFinancial
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -50,21 +52,12 @@ const Header = ({
         
         <div className="controls">
           <button 
-            className={`nav-button ${location.pathname === '/' ? 'active' : ''}`}
-            onClick={() => navigate('/')}
-            title="Chart View"
-          >
-            <span className="icon">📈</span>
-            <span className="label">Chart</span>
-          </button>
-          
-          <button 
             className={`nav-button ${isWatchlistPage ? 'active' : ''}`}
             onClick={() => navigate('/watchlist')}
-            title="Watchlist"
+            title="Real-time Price Board"
           >
-            <span className="icon">📊</span>
-            <span className="label">Watchlist</span>
+            <span className="icon">⚡</span>
+            <span className="label">Price Board</span>
           </button>
           
           {!isWatchlistPage && !isAboutPage && (
@@ -76,6 +69,24 @@ const Header = ({
               >
                 <span className="icon">🔍</span>
                 <span className="stock-symbol">{stockSymbol}</span>
+              </button>
+              
+              <button 
+                className="news-button" 
+                onClick={onShowNews}
+                title="Company News"
+              >
+                <span className="icon">📰</span>
+                <span className="label">Tin tức</span>
+              </button>
+              
+              <button 
+                className="financial-button" 
+                onClick={onShowFinancial}
+                title="Financial Report"
+              >
+                <span className="icon">📈</span>
+                <span className="label">BCTC</span>
               </button>
               
               <button 

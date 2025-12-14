@@ -2,7 +2,10 @@
 import { detectCandlePattern, isPatternSupported } from './patternDetectionService';
 import apiInterceptor from './apiInterceptor';
 
-const API_BASE_URL = 'http://localhost:60';
+// Java backend cho stock chart data
+const JAVA_API_URL = 'http://localhost:60';
+// Python backend cho news và financial reports
+const PYTHON_API_URL = 'http://localhost:8000';
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {
@@ -17,7 +20,7 @@ export const stockApi = {
   // Fetch stock data - Public API (no auth required)
   getStockData: async (stockSymbol) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/stock?symbol=${stockSymbol}`, {
+      const res = await fetch(`${JAVA_API_URL}/stock?symbol=${stockSymbol}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -59,7 +62,7 @@ export const stockApi = {
         
         // Fallback to server API for unsupported patterns (complex patterns like cup_with_handle, etc.)
         const res = await apiInterceptor.fetch(
-          `${API_BASE_URL}/alert/candle-stick/${stockSymbol}?candlePattern=${patternName}`,
+          `${JAVA_API_URL}/alert/candle-stick/${stockSymbol}?candlePattern=${patternName}`,
           {
             method: 'GET',
             headers: getAuthHeaders()
@@ -138,6 +141,50 @@ export const stockApi = {
     } catch (error) {
       console.error('Error fetching pattern data:', error.message);
       return [];
+    }
+  },
+
+  // Fetch company news
+  getCompanyNews: async (stockSymbol, limit = 20) => {
+    try {
+      const res = await fetch(`${PYTHON_API_URL}/api/company/news/${stockSymbol}?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch news');
+      }
+
+      const response = await res.json();
+      return response;
+    } catch (error) {
+      console.error('Error fetching news:', error.message);
+      throw error;
+    }
+  },
+
+  // Fetch financial reports
+  getFinancialReport: async (stockSymbol, period = 'year') => {
+    try {
+      const res = await fetch(`${PYTHON_API_URL}/api/company/financial/${stockSymbol}?period=${period}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch financial report');
+      }
+
+      const response = await res.json();
+      return response;
+    } catch (error) {
+      console.error('Error fetching financial report:', error.message);
+      throw error;
     }
   }
 };

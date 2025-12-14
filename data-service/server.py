@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict
 import time
 import json
+import pandas as pd
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,11 +21,14 @@ from aio_pika import connect_robust, Message, DeliveryMode, ExchangeType
 
 # Import vnstock và yfinance
 try:
-    from vnstock import Vnstock, Trading
+    from vnstock import Vnstock, Trading, Company, Finance
 except ImportError:
     print("Warning: vnstock not installed. Install with: pip install vnstock")
     Vnstock = None
     Trading = None
+    Company = None
+    Finance = None
+    Crawler = None
 
 try:
     import yfinance as yf
@@ -722,7 +726,7 @@ async def force_update():
 @app.get("/api/price-board")
 async def get_price_board(symbols: str = None):
     """
-    Lấy bảng giá real-time của các mã cổ phiếu
+    Lấy bảng giá real-time của các mã cổ phiếu (TỐI ƯU HÓA với Pandas Vectorization)
     
     Args:
         symbols: Danh sách mã cổ phiếu, cách nhau bởi dấu phẩy (VD: VCB,ACB,TCB)
@@ -737,12 +741,15 @@ async def get_price_board(symbols: str = None):
         
         # Lấy danh sách mã cổ phiếu
         if symbols:
-            symbols_list = [s.strip().upper() for s in symbols.split(',')]
+            symbols_list = [s.strip().upper() for s in symbols.split(',') if s.strip()]
         else:
             # Lấy tất cả mã Việt Nam (không bao gồm international stocks)
             symbols_list = []
             for market_symbols in STOCK_SYMBOLS.values():
                 symbols_list.extend(market_symbols)
+        
+        if not symbols_list:
+            return {"data": [], "total": 0}
         
         logger.info(f"Fetching price board for {len(symbols_list)} symbols")
         
@@ -755,59 +762,63 @@ async def get_price_board(symbols: str = None):
         if df is None or df.empty:
             return {"data": [], "total": 0}
         
-        # Chuyển đổi DataFrame thành list of dicts
-        result = []
-        for idx, row in df.iterrows():
-            try:
-                stock_data = {
-                    "symbol": str(row[('listing', 'symbol')]) if ('listing', 'symbol') in row else "",
-                    "refPrice": float(row[('listing', 'ref_price')]) if ('listing', 'ref_price') in row else 0,
-                    "ceilingPrice": float(row[('listing', 'ceiling')]) if ('listing', 'ceiling') in row else 0,
-                    "floorPrice": float(row[('listing', 'floor')]) if ('listing', 'floor') in row else 0,
-                    "matchPrice": float(row[('match', 'match_price')]) if ('match', 'match_price') in row else 0,
-                    "matchVolume": int(row[('match', 'accumulated_volume')]) if ('match', 'accumulated_volume') in row else 0,
-                    "matchValue": float(row[('match', 'accumulated_value')]) if ('match', 'accumulated_value') in row else 0,
-                    "highest": float(row[('match', 'highest')]) if ('match', 'highest') in row else 0,
-                    "lowest": float(row[('match', 'lowest')]) if ('match', 'lowest') in row else 0,
-                    "openPrice": float(row[('match', 'open_price')]) if ('match', 'open_price') in row else 0,
-                    "avgPrice": float(row[('match', 'avg_match_price')]) if ('match', 'avg_match_price') in row else 0,
-                    "change": 0,
-                    "changePercent": 0,
-                    "bid1Price": float(row[('bid_ask', 'bid_1_price')]) if ('bid_ask', 'bid_1_price') in row else 0,
-                    "bid1Volume": int(row[('bid_ask', 'bid_1_volume')]) if ('bid_ask', 'bid_1_volume') in row else 0,
-                    "bid2Price": float(row[('bid_ask', 'bid_2_price')]) if ('bid_ask', 'bid_2_price') in row else 0,
-                    "bid2Volume": int(row[('bid_ask', 'bid_2_volume')]) if ('bid_ask', 'bid_2_volume') in row else 0,
-                    "bid3Price": float(row[('bid_ask', 'bid_3_price')]) if ('bid_ask', 'bid_3_price') in row else 0,
-                    "bid3Volume": int(row[('bid_ask', 'bid_3_volume')]) if ('bid_ask', 'bid_3_volume') in row else 0,
-                    "ask1Price": float(row[('bid_ask', 'ask_1_price')]) if ('bid_ask', 'ask_1_price') in row else 0,
-                    "ask1Volume": int(row[('bid_ask', 'ask_1_volume')]) if ('bid_ask', 'ask_1_volume') in row else 0,
-                    "ask2Price": float(row[('bid_ask', 'ask_2_price')]) if ('bid_ask', 'ask_2_price') in row else 0,
-                    "ask2Volume": int(row[('bid_ask', 'ask_2_volume')]) if ('bid_ask', 'ask_2_volume') in row else 0,
-                    "ask3Price": float(row[('bid_ask', 'ask_3_price')]) if ('bid_ask', 'ask_3_price') in row else 0,
-                    "ask3Volume": int(row[('bid_ask', 'ask_3_volume')]) if ('bid_ask', 'ask_3_volume') in row else 0,
-                }
-                
-                # Tính change và changePercent
-                if stock_data['refPrice'] > 0:
-                    stock_data['change'] = round(stock_data['matchPrice'] - stock_data['refPrice'], 2)
-                    stock_data['changePercent'] = round((stock_data['change'] / stock_data['refPrice']) * 100, 2)
-                
-                result.append(stock_data)
-            except Exception as e:
-                logger.error(f"Error processing row {idx}: {e}")
-                continue
+        # === TỐI ƯU HÓA: Sử dụng Pandas Vectorization thay vì vòng lặp ===
         
-        logger.info(f"Successfully fetched price board for {len(result)} symbols")
+        # Tạo DataFrame mới với cấu trúc phẳng (flatten columns)
+        result_df = pd.DataFrame()
+        
+        # Trích xuất dữ liệu từ multi-level columns (nhanh hơn vòng lặp)
+        try:
+            result_df['symbol'] = df[('listing', 'symbol')].astype(str)
+            result_df['refPrice'] = df[('listing', 'ref_price')].astype(float).fillna(0)
+            result_df['ceilingPrice'] = df[('listing', 'ceiling')].astype(float).fillna(0)
+            result_df['floorPrice'] = df[('listing', 'floor')].astype(float).fillna(0)
+            result_df['matchPrice'] = df[('match', 'match_price')].astype(float).fillna(0)
+            result_df['matchVolume'] = df[('match', 'accumulated_volume')].astype(int).fillna(0)
+            result_df['matchValue'] = df[('match', 'accumulated_value')].astype(float).fillna(0)
+            result_df['highest'] = df[('match', 'highest')].astype(float).fillna(0)
+            result_df['lowest'] = df[('match', 'lowest')].astype(float).fillna(0)
+            result_df['openPrice'] = df[('match', 'open_price')].astype(float).fillna(0)
+            result_df['avgPrice'] = df[('match', 'avg_match_price')].astype(float).fillna(0)
+            result_df['bid1Price'] = df[('bid_ask', 'bid_1_price')].astype(float).fillna(0)
+            result_df['bid1Volume'] = df[('bid_ask', 'bid_1_volume')].astype(int).fillna(0)
+            result_df['bid2Price'] = df[('bid_ask', 'bid_2_price')].astype(float).fillna(0)
+            result_df['bid2Volume'] = df[('bid_ask', 'bid_2_volume')].astype(int).fillna(0)
+            result_df['bid3Price'] = df[('bid_ask', 'bid_3_price')].astype(float).fillna(0)
+            result_df['bid3Volume'] = df[('bid_ask', 'bid_3_volume')].astype(int).fillna(0)
+            result_df['ask1Price'] = df[('bid_ask', 'ask_1_price')].astype(float).fillna(0)
+            result_df['ask1Volume'] = df[('bid_ask', 'ask_1_volume')].astype(int).fillna(0)
+            result_df['ask2Price'] = df[('bid_ask', 'ask_2_price')].astype(float).fillna(0)
+            result_df['ask2Volume'] = df[('bid_ask', 'ask_2_volume')].astype(int).fillna(0)
+            result_df['ask3Price'] = df[('bid_ask', 'ask_3_price')].astype(float).fillna(0)
+            result_df['ask3Volume'] = df[('bid_ask', 'ask_3_volume')].astype(int).fillna(0)
+        except KeyError as e:
+            logger.error(f"Missing column in price board data: {e}")
+            return {"data": [], "total": 0, "error": f"Data structure error: {str(e)}"}
+        
+        # Tính change và changePercent (VECTORIZED - nhanh gấp nhiều lần)
+        result_df['change'] = (result_df['matchPrice'] - result_df['refPrice']).round(2)
+        result_df['changePercent'] = (
+            (result_df['change'] / result_df['refPrice'].replace(0, 1)) * 100
+        ).round(2)
+        # Đặt changePercent = 0 nếu refPrice = 0
+        result_df.loc[result_df['refPrice'] == 0, 'changePercent'] = 0
+        
+        # Chuyển đổi sang list of dicts (nhanh nhất với orient='records')
+        data = result_df.to_dict(orient='records')
+        
+        logger.info(f"Successfully fetched price board for {len(data)} symbols")
         
         return {
-            "data": result,
-            "total": len(result),
+            "data": data,
+            "total": len(data),
             "timestamp": datetime.now().isoformat()
         }
         
     except Exception as e:
         logger.error(f"Error fetching price board: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Trả về empty data thay vì 500 error để UI vẫn hoạt động
+        return {"data": [], "total": 0, "error": str(e)}
 
 
 @app.get("/api/candlestick")
@@ -879,6 +890,162 @@ async def update_latest_data_once():
             await asyncio.sleep(2)
         except Exception as e:
             logger.error(f"Error in force update for {stock.get('symbol')}: {e}")
+
+
+@app.get("/api/company/news/{symbol}")
+async def get_company_news(symbol: str, limit: int = 20):
+    """
+    Lấy tin tức liên quan đến mã cổ phiếu
+    
+    Args:
+        symbol: Mã cổ phiếu (VD: VCI, ACB, TCB)
+        limit: Số lượng tin tức tối đa (mặc định 20)
+    
+    Returns:
+        List of news articles with title, url, publish_time, summary
+    """
+    try:
+        if Company is None:
+            raise HTTPException(status_code=503, detail="Company API not available")
+        
+        symbol = symbol.upper()
+        logger.info(f"Fetching news for {symbol}")
+        
+        # Sử dụng Company API để lấy tin tức
+        company = Company(source="vci", symbol=symbol)
+        news_df = company.news()
+        
+        if news_df is None or news_df.empty:
+            return {"symbol": symbol, "news": [], "total": 0}
+        
+        # Lấy top N bài mới nhất
+        news_df = news_df.head(limit)
+        
+        # Chuyển đổi DataFrame sang list of dicts
+        news_list = []
+        for _, row in news_df.iterrows():
+            try:
+                # Parse timestamp
+                publish_time = None
+                if 'public_date' in row and row['public_date']:
+                    try:
+                        # Chuyển timestamp sang datetime
+                        publish_time = datetime.fromtimestamp(int(row['public_date'])/1000).isoformat()
+                    except:
+                        publish_time = None
+                
+                news_item = {
+                    "id": str(row.get('news_id', row.get('id', ''))),
+                    "title": str(row.get('news_title', '')),
+                    "subTitle": str(row.get('news_sub_title', '')),
+                    "summary": str(row.get('news_short_content', ''))[:500],  # Limit summary length
+                    "url": str(row.get('news_source_link', '')),
+                    "imageUrl": str(row.get('news_image_url', '')),
+                    "publishTime": publish_time,
+                    "priceChange": float(row.get('price_change_pct', 0)),
+                }
+                news_list.append(news_item)
+            except Exception as e:
+                logger.error(f"Error processing news row: {e}")
+                continue
+        
+        logger.info(f"Successfully fetched {len(news_list)} news for {symbol}")
+        
+        return {
+            "symbol": symbol,
+            "news": news_list,
+            "total": len(news_list),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching news for {symbol}: {e}")
+        return {"symbol": symbol, "news": [], "total": 0, "error": str(e)}
+
+
+@app.get("/api/company/financial/{symbol}")
+async def get_financial_report(symbol: str, period: str = "year"):
+    """
+    Lấy báo cáo tài chính của công ty
+    
+    Args:
+        symbol: Mã cổ phiếu (VD: VCI, ACB, TCB)
+        period: Chu kỳ báo cáo ("year" hoặc "quarter")
+    
+    Returns:
+        Financial reports including balance sheet, income statement, cash flow, and ratios
+    """
+    try:
+        if Finance is None:
+            raise HTTPException(status_code=503, detail="Finance API not available")
+        
+        symbol = symbol.upper()
+        logger.info(f"Fetching financial report for {symbol}, period: {period}")
+        
+        # Khởi tạo Finance adapter
+        finance = Finance(source="vci", symbol=symbol)
+        
+        # Lấy các báo cáo tài chính
+        balance_sheet = finance.balance_sheet(period=period)
+        income_statement = finance.income_statement(period=period)
+        cash_flow = finance.cash_flow(period=period)
+        ratios = finance.ratio()
+        
+        # Helper function to safely convert DataFrame to JSON-serializable format
+        def df_to_json_safe(df, limit=None):
+            if df is None or df.empty:
+                return []
+            try:
+                # Lấy số dòng giới hạn
+                data = df.head(limit) if limit else df
+                
+                # Flatten multi-level columns if present (convert tuples to strings)
+                if isinstance(data.columns, pd.MultiIndex):
+                    # Join tuple column names with underscore
+                    data.columns = ['_'.join(map(str, col)).strip() for col in data.columns.values]
+                
+                # Reset index to make it a regular column
+                data = data.reset_index()
+                
+                # Replace NaN with None for proper JSON serialization
+                data = data.fillna('')
+                
+                # Convert to dict with orient='records'
+                result = data.to_dict(orient='records')
+                
+                # Clean up the data - convert numpy types to Python types
+                import json
+                return json.loads(json.dumps(result, default=str))
+            except Exception as e:
+                logger.error(f"Error converting DataFrame: {e}")
+                return []
+        
+        # Chuyển đổi sang dict (lấy 5 năm/quý gần nhất)
+        result = {
+            "symbol": symbol,
+            "period": period,
+            "balanceSheet": df_to_json_safe(balance_sheet, 5),
+            "incomeStatement": df_to_json_safe(income_statement, 5),
+            "cashFlow": df_to_json_safe(cash_flow, 5),
+            "ratios": df_to_json_safe(ratios, 20),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        logger.info(f"Successfully fetched financial report for {symbol}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error fetching financial report for {symbol}: {e}")
+        return {
+            "symbol": symbol,
+            "period": period,
+            "balanceSheet": [],
+            "incomeStatement": [],
+            "cashFlow": [],
+            "ratios": [],
+            "error": str(e)
+        }
 
 
 if __name__ == "__main__":

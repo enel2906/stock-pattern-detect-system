@@ -23,44 +23,62 @@
   font-weight: 700;
   color: #fff;
   margin: 0;
-}
-
-.watchlist-controls {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-}
-
-.refresh-button {
-  padding: 10px 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-chart-button {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border: none !important;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 14px;
   transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
-.refresh-button:hover {
+.header-chart-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
-.refresh-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.header-chart-button span:first-child {
+  font-size: 18px;
 }
 
-.auto-refresh-toggle {
-  display: flex;
+.header-chart-button {
+  display: flex !important;
   align-items: center;
-  gap: 10px;
-  color: #fff;
+  gap: 8px;
+  padding: 10px 20px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
   font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.header-chart-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.header-chart-button span:first-child {
+  font-size: 18px;
+}
+
+.auto-refresh-toggle:hover {
+  background: rgba(102, 126, 234, 0.25);
 }
 
 .auto-refresh-toggle input[type="checkbox"] {
@@ -147,12 +165,41 @@
   font-weight: 700;
   color: #667eea;
   font-size: 15px;
-  cursor: pointer;
 }
 
-.symbol-cell:hover {
+.symbol-cell.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chart-button {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+.chart-button:active {
+  transform: translateY(0);
+}
+
+
+.symbol-cell.clickable:hover {
   color: #764ba2;
   text-decoration: underline;
+  transform: scale(1.05);
 }
 
 .price-cell {
