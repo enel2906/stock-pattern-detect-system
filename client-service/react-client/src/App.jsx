@@ -1,18 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Header from './components/Header';
 import StockChart from './components/StockChart';
 import AuthPage from './pages/AuthPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
+import WatchlistPage from './pages/WatchlistPage';
+import AboutPage from './pages/AboutPage';
 import './App.css';
 
 function MainApp() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
-  // Initialize state from localStorage or defaults
+  // Initialize state from URL param or localStorage or defaults
   const [stockSymbol, setStockSymbol] = useState(() => {
+    const urlSymbol = searchParams.get('symbol');
+    if (urlSymbol) {
+      return urlSymbol.toUpperCase();
+    }
     return localStorage.getItem('stockSymbol') || 'VIC';
   });
   const [selectedPatterns, setSelectedPatterns] = useState(() => {
@@ -30,9 +37,25 @@ function MainApp() {
   const [status, setStatus] = useState('Sẵn sàng.');
   const [showAuthWarning, setShowAuthWarning] = useState(false);
 
-  // Save stockSymbol to localStorage
+  // Listen to URL parameter changes and update stockSymbol
+  useEffect(() => {
+    const urlSymbol = searchParams.get('symbol');
+    if (urlSymbol) {
+      const upperSymbol = urlSymbol.toUpperCase();
+      if (upperSymbol !== stockSymbol) {
+        setStockSymbol(upperSymbol);
+      }
+    }
+  }, [searchParams]);
+
+  // Save stockSymbol to localStorage and update URL
   useEffect(() => {
     localStorage.setItem('stockSymbol', stockSymbol);
+    // Update URL with current symbol
+    const currentSymbol = searchParams.get('symbol');
+    if (currentSymbol !== stockSymbol) {
+      setSearchParams({ symbol: stockSymbol }, { replace: true });
+    }
   }, [stockSymbol]);
 
   // Save selectedPatterns to localStorage
@@ -180,6 +203,8 @@ function App() {
     <Routes>
       <Route path="/login" element={<AuthPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/watchlist" element={<WatchlistPage />} />
+      <Route path="/about" element={<AboutPage />} />
       <Route path="/" element={<MainApp />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

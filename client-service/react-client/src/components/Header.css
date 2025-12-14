@@ -22,9 +22,34 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   font-weight: 700;
   letter-spacing: 0.2px;
+  transition: all 0.3s ease;
+}
+
+.brand:hover {
+  transform: translateX(2px);
+}
+
+.header-logo-icon {
+  font-size: 36px;
+  animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.header-brand-name {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.3px;
 }
 
 .brand .dot {
@@ -33,6 +58,53 @@
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 12px var(--accent);
+}
+
+.about-link {
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px !important;
+  background: rgba(100, 116, 139, 0.1) !important;
+  border: 1px solid rgba(100, 116, 139, 0.2) !important;
+  color: #94a3b8 !important;
+  font-weight: 600;
+  font-size: 12px;
+  transition: all 0.2s;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.about-link.active {
+  background: rgba(102, 126, 234, 0.15) !important;
+  border-color: #667eea !important;
+  color: #667eea !important;
+}
+
+.about-link:hover {
+  background: rgba(100, 116, 139, 0.2) !important;
+  border-color: rgba(100, 116, 139, 0.4) !important;
+  opacity: 1 !important;
+}
+
+.about-link .icon {
+  font-size: 13px;
+}
+
+.about-link .label {
+  font-size: 12px;
+}
+
+body.light .about-link {
+  background: rgba(100, 116, 139, 0.08) !important;
+  border-color: rgba(100, 116, 139, 0.15) !important;
+  color: #475569 !important;
+}
+
+body.light .about-link.active {
+  background: rgba(102, 126, 234, 0.12) !important;
+  border-color: #667eea !important;
+  color: #667eea !important;
 }
 
 .status {
@@ -118,6 +190,40 @@
 }
 
 /* Stock Selector Button */
+.nav-button {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px !important;
+  background: rgba(100, 116, 139, 0.1) !important;
+  border: 1px solid rgba(100, 116, 139, 0.2) !important;
+  color: #94a3b8 !important;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.nav-button.active {
+  background: rgba(102, 126, 234, 0.15) !important;
+  border-color: #667eea !important;
+  color: #667eea !important;
+}
+
+.nav-button:hover {
+  background: rgba(100, 116, 139, 0.2) !important;
+  border-color: rgba(100, 116, 139, 0.4) !important;
+  opacity: 1 !important;
+}
+
+.nav-button .icon {
+  font-size: 14px;
+}
+
+.nav-button .label {
+  font-size: 13px;
+}
+
 .stock-selector-button {
   display: flex !important;
   align-items: center;
@@ -145,6 +251,18 @@
 .stock-selector-button .stock-symbol {
   letter-spacing: 0.5px;
   font-size: 14px;
+}
+
+body.light .nav-button {
+  background: rgba(100, 116, 139, 0.08) !important;
+  border-color: rgba(100, 116, 139, 0.15) !important;
+  color: #475569 !important;
+}
+
+body.light .nav-button.active {
+  background: rgba(102, 126, 234, 0.12) !important;
+  border-color: #667eea !important;
+  color: #667eea !important;
 }
 
 body.light .stock-selector-button {

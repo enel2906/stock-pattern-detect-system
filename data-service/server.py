@@ -20,10 +20,11 @@ from aio_pika import connect_robust, Message, DeliveryMode, ExchangeType
 
 # Import vnstock và yfinance
 try:
-    from vnstock import Vnstock
+    from vnstock import Vnstock, Trading
 except ImportError:
     print("Warning: vnstock not installed. Install with: pip install vnstock")
     Vnstock = None
+    Trading = None
 
 try:
     import yfinance as yf
@@ -715,6 +716,97 @@ async def force_update():
         asyncio.create_task(update_latest_data_once())
         return {"message": "Update started"}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/price-board")
+async def get_price_board(symbols: str = None):
+    """
+    Lấy bảng giá real-time của các mã cổ phiếu
+    
+    Args:
+        symbols: Danh sách mã cổ phiếu, cách nhau bởi dấu phẩy (VD: VCB,ACB,TCB)
+                 Nếu không truyền sẽ lấy tất cả 60 mã trong STOCK_SYMBOLS
+    
+    Returns:
+        List of stock quotes with trading information
+    """
+    try:
+        if Trading is None:
+            raise HTTPException(status_code=503, detail="Trading API not available")
+        
+        # Lấy danh sách mã cổ phiếu
+        if symbols:
+            symbols_list = [s.strip().upper() for s in symbols.split(',')]
+        else:
+            # Lấy tất cả mã Việt Nam (không bao gồm international stocks)
+            symbols_list = []
+            for market_symbols in STOCK_SYMBOLS.values():
+                symbols_list.extend(market_symbols)
+        
+        logger.info(f"Fetching price board for {len(symbols_list)} symbols")
+        
+        # Khởi tạo Trading adapter
+        trading = Trading(source="vci")
+        
+        # Lấy bảng giá
+        df = trading.price_board(symbols_list=symbols_list)
+        
+        if df is None or df.empty:
+            return {"data": [], "total": 0}
+        
+        # Chuyển đổi DataFrame thành list of dicts
+        result = []
+        for idx, row in df.iterrows():
+            try:
+                stock_data = {
+                    "symbol": str(row[('listing', 'symbol')]) if ('listing', 'symbol') in row else "",
+                    "refPrice": float(row[('listing', 'ref_price')]) if ('listing', 'ref_price') in row else 0,
+                    "ceilingPrice": float(row[('listing', 'ceiling')]) if ('listing', 'ceiling') in row else 0,
+                    "floorPrice": float(row[('listing', 'floor')]) if ('listing', 'floor') in row else 0,
+                    "matchPrice": float(row[('match', 'match_price')]) if ('match', 'match_price') in row else 0,
+                    "matchVolume": int(row[('match', 'accumulated_volume')]) if ('match', 'accumulated_volume') in row else 0,
+                    "matchValue": float(row[('match', 'accumulated_value')]) if ('match', 'accumulated_value') in row else 0,
+                    "highest": float(row[('match', 'highest')]) if ('match', 'highest') in row else 0,
+                    "lowest": float(row[('match', 'lowest')]) if ('match', 'lowest') in row else 0,
+                    "openPrice": float(row[('match', 'open_price')]) if ('match', 'open_price') in row else 0,
+                    "avgPrice": float(row[('match', 'avg_match_price')]) if ('match', 'avg_match_price') in row else 0,
+                    "change": 0,
+                    "changePercent": 0,
+                    "bid1Price": float(row[('bid_ask', 'bid_1_price')]) if ('bid_ask', 'bid_1_price') in row else 0,
+                    "bid1Volume": int(row[('bid_ask', 'bid_1_volume')]) if ('bid_ask', 'bid_1_volume') in row else 0,
+                    "bid2Price": float(row[('bid_ask', 'bid_2_price')]) if ('bid_ask', 'bid_2_price') in row else 0,
+                    "bid2Volume": int(row[('bid_ask', 'bid_2_volume')]) if ('bid_ask', 'bid_2_volume') in row else 0,
+                    "bid3Price": float(row[('bid_ask', 'bid_3_price')]) if ('bid_ask', 'bid_3_price') in row else 0,
+                    "bid3Volume": int(row[('bid_ask', 'bid_3_volume')]) if ('bid_ask', 'bid_3_volume') in row else 0,
+                    "ask1Price": float(row[('bid_ask', 'ask_1_price')]) if ('bid_ask', 'ask_1_price') in row else 0,
+                    "ask1Volume": int(row[('bid_ask', 'ask_1_volume')]) if ('bid_ask', 'ask_1_volume') in row else 0,
+                    "ask2Price": float(row[('bid_ask', 'ask_2_price')]) if ('bid_ask', 'ask_2_price') in row else 0,
+                    "ask2Volume": int(row[('bid_ask', 'ask_2_volume')]) if ('bid_ask', 'ask_2_volume') in row else 0,
+                    "ask3Price": float(row[('bid_ask', 'ask_3_price')]) if ('bid_ask', 'ask_3_price') in row else 0,
+                    "ask3Volume": int(row[('bid_ask', 'ask_3_volume')]) if ('bid_ask', 'ask_3_volume') in row else 0,
+                }
+                
+                # Tính change và changePercent
+                if stock_data['refPrice'] > 0:
+                    stock_data['change'] = round(stock_data['matchPrice'] - stock_data['refPrice'], 2)
+                    stock_data['changePercent'] = round((stock_data['change'] / stock_data['refPrice']) * 100, 2)
+                
+                result.append(stock_data)
+            except Exception as e:
+                logger.error(f"Error processing row {idx}: {e}")
+                continue
+        
+        logger.info(f"Successfully fetched price board for {len(result)} symbols")
+        
+        return {
+            "data": result,
+            "total": len(result),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching price board: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

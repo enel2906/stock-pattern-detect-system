@@ -7,7 +7,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
-@AllArgsConstructor
+@AllArgsConstructor 
 public class StockMarketServiceImpl implements StockMarketService {
 
     private final StockMarketRepository stockMarketRepository;

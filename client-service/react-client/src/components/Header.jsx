@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import IndicatorsModal from './IndicatorsModal';
 import StockSearchModal from './StockSearchModal';
@@ -18,41 +19,78 @@ const Header = ({
   status 
 }) => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
   const [isStockSearchModalOpen, setIsStockSearchModalOpen] = useState(false);
+
+  const isWatchlistPage = location.pathname === '/watchlist';
+  const isAboutPage = location.pathname === '/about';
 
   return (
     <>
       <header className="app-header">
         <div className="header-left">
-          <div className="brand">
-            <div className="dot"></div>
-            <div>Stock Pattern Detection - ChungKhoanNT.com</div>
+          <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+            <div className="header-logo-icon">📡</div>
+            <div className="header-brand-name">SignalScope</div>
           </div>
-          <div className="status">{status}</div>
+          
+          <button 
+            className={`about-link ${isAboutPage ? 'active' : ''}`}
+            onClick={() => navigate('/about')}
+            title="About Us"
+          >
+            <span className="icon">ℹ️</span>
+            <span className="label">About Us</span>
+          </button>
+          
+          {!isWatchlistPage && !isAboutPage && <div className="status">{status}</div>}
         </div>
         
         <div className="controls">
           <button 
-            className="stock-selector-button" 
-            onClick={() => setIsStockSearchModalOpen(true)}
-            title="Search Stocks"
+            className={`nav-button ${location.pathname === '/' ? 'active' : ''}`}
+            onClick={() => navigate('/')}
+            title="Chart View"
           >
-            <span className="icon">🔍</span>
-            <span className="stock-symbol">{stockSymbol}</span>
+            <span className="icon">📈</span>
+            <span className="label">Chart</span>
           </button>
           
           <button 
-            className="indicators-button" 
-            onClick={() => setIsIndicatorsModalOpen(true)}
-            title="Open Indicators"
+            className={`nav-button ${isWatchlistPage ? 'active' : ''}`}
+            onClick={() => navigate('/watchlist')}
+            title="Watchlist"
           >
-            <span className="icon">ƒₓ</span>
-            <span className="label">Indicators</span>
-            {(selectedPatterns.length + selectedIndicators.length) > 0 && (
-              <span className="badge">{selectedPatterns.length + selectedIndicators.length}</span>
-            )}
+            <span className="icon">📊</span>
+            <span className="label">Watchlist</span>
           </button>
+          
+          {!isWatchlistPage && !isAboutPage && (
+            <>
+              <button 
+                className="stock-selector-button" 
+                onClick={() => setIsStockSearchModalOpen(true)}
+                title="Search Stocks"
+              >
+                <span className="icon">🔍</span>
+                <span className="stock-symbol">{stockSymbol}</span>
+              </button>
+              
+              <button 
+                className="indicators-button" 
+                onClick={() => setIsIndicatorsModalOpen(true)}
+                title="Open Indicators"
+              >
+                <span className="icon">ƒₓ</span>
+                <span className="label">Indicators</span>
+                {(selectedPatterns.length + selectedIndicators.length) > 0 && (
+                  <span className="badge">{selectedPatterns.length + selectedIndicators.length}</span>
+                )}
+              </button>
+            </>
+          )}
           
           {/* <button className="primary" onClick={onLoadData}>
             Tải dữ liệu
