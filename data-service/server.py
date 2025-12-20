@@ -11,6 +11,9 @@ import time
 import json
 import pandas as pd
 
+# Tắt warning từ Pandas về deprecated downcasting
+pd.set_option('future.no_silent_downcasting', True)
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient, ASCENDING
@@ -50,7 +53,10 @@ INTERNATIONAL_SYMBOLS = ['AMZN', 'TSLA', 'MSFT', 'AAPL', 'GOOG', 'NVDA']
 MONGODB_URI = "mongodb://localhost:27017/candlestick_db"
 RABBITMQ_URI = "amqp://guest:guest@localhost:5672/"
 PORT = 8000
-UPDATE_INTERVAL = 60  # 60 giây (1 phút) - tránh vượt rate limit
+UPDATE_INTERVAL = 900  # 900 giây (15 phút) - reduced from 60s để giảm request rate
+RESET_DB = False  # Đặt True nếu muốn xóa và nạp lại dữ liệu toàn bộ (chỉ dùng khi cần)
+INITIAL_BACKFILL_DAYS = 3650  # 10 năm dữ liệu lịch sử cho lần init đầu tiên
+UPDATE_LOOKBACK_DAYS = 3  # Số ngày để xem lại khi cập nhật (để recover missing/revised data)
 
 # Danh sách mã cổ phiếu cần theo dõi
 STOCK_SYMBOLS = {
@@ -203,8 +209,18 @@ async def publish_stock_update(candle_data: dict, symbol: str):
         rabbitmq_exchange = None
 
 
+def is_database_empty():
+    """Kiểm tra xem database có dữ liệu hay không"""
+    try:
+        stocks_count = stocks_collection.count_documents({})
+        return stocks_count == 0
+    except Exception as e:
+        logger.error(f"Failed to check database: {e}")
+        return True
+
+
 def clear_database():
-    """Xóa toàn bộ dữ liệu trong stocks và candlesticks"""
+    """Xóa toàn bộ dữ liệu trong stocks và candlesticks (chỉ khi được yêu cầu rõ ràng)"""
     try:
         stocks_count = stocks_collection.count_documents({})
         candles_count = candlesticks_collection.count_documents({})
@@ -217,6 +233,29 @@ def clear_database():
     except Exception as e:
         logger.error(f"Failed to clear database: {e}")
         return False
+
+
+def get_last_candle_date(stock_id: str) -> str:
+    """Lấy ngày của candle gần nhất trong DB cho một stock
+    
+    Returns:
+        date_str (YYYY-MM-DD) hoặc None nếu không có candle
+    """
+    try:
+        # Query candle gần nhất (sorted descending by date)
+        latest_candle = candlesticks_collection.find_one(
+            {"stock_id": stock_id},
+            sort=[("date", -1)]
+        )
+        
+        if latest_candle:
+            # Chuyển date_str từ yyyyMMdd sang yyyy-MM-dd
+            date_str = latest_candle['date_str']
+            return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+        return None
+    except Exception as e:
+        logger.error(f"Error getting last candle date for stock_id {stock_id}: {e}")
+        return None
 
 
 def get_stock_data_yfinance(symbol: str, period: str = "5y"):
@@ -264,9 +303,9 @@ def get_stock_data_vnstock(symbol: str, market: str, start_date: str = None, end
             logger.error("vnstock is not installed")
             return None
         
-        # Nếu không có ngày, lấy tất cả dữ liệu có thể (từ 10 năm trước)
+        # Nếu không có ngày, lấy tất cả dữ liệu có thể (từ INITIAL_BACKFILL_DAYS trước)
         if start_date is None:
-            start_date = (datetime.now() - timedelta(days=3650)).strftime('%Y-%m-%d')
+            start_date = (datetime.now() - timedelta(days=INITIAL_BACKFILL_DAYS)).strftime('%Y-%m-%d')
         if end_date is None:
             end_date = datetime.now().strftime('%Y-%m-%d')
         
@@ -438,14 +477,25 @@ def save_candlesticks_to_db(stock_id: str, df):
 
 
 async def initialize_data():
-    """Khởi tạo dữ liệu ban đầu"""
+    """Khởi tạo dữ liệu ban đầu (chỉ khi DB trống hoặc RESET_DB=True)"""
     logger.info("Starting data initialization...")
     
-    # Xóa dữ liệu cũ
-    clear_database()
+    # Kiểm tra xem DB đã có dữ liệu hay không
+    db_empty = is_database_empty()
+    
+    # Nếu DB đã có dữ liệu và RESET_DB=False, bỏ qua initialization
+    if not db_empty and not RESET_DB:
+        logger.info("Database already has data. Skipping initialization (set RESET_DB=True to force re-initialization)")
+        return
+    
+    # Nếu cần reset, xóa dữ liệu cũ
+    if not db_empty and RESET_DB:
+        logger.info("RESET_DB=True. Clearing existing data...")
+        clear_database()
     
     total_stocks = 0
     total_candles = 0
+    start_time = time.time()
     
     # === Phần 1: Lấy dữ liệu cổ phiếu Việt Nam ===
     logger.info("=== Initializing Vietnam stock data ===")
@@ -454,9 +504,7 @@ async def initialize_data():
         
         for symbol in symbols:
             try:
-                logger.info(f"Fetching historical data for {symbol} ({market})")
-                
-                # Lưu thông tin stock
+                # Lưu thông tin stock trước
                 stock_id = save_stock_to_db(
                     symbol=symbol,
                     name=f"{symbol} - {market}",
@@ -466,7 +514,8 @@ async def initialize_data():
                 if stock_id:
                     total_stocks += 1
                     
-                    # Lấy dữ liệu lịch sử (10 năm)
+                    # Lấy dữ liệu lịch sử (backfill 10 năm)
+                    logger.info(f"Fetching historical data for {symbol} ({market})")
                     df = get_stock_data_vnstock(symbol, market)
                     
                     if df is not None:
@@ -488,9 +537,7 @@ async def initialize_data():
     
     for symbol in INTERNATIONAL_SYMBOLS:
         try:
-            logger.info(f"Fetching historical data for {symbol} (US) using yfinance")
-            
-            # Lưu thông tin stock
+            # Lưu thông tin stock trước
             stock_id = save_stock_to_db(
                 symbol=symbol,
                 name=f"{symbol} - US",
@@ -501,7 +548,8 @@ async def initialize_data():
             if stock_id:
                 total_stocks += 1
                 
-                # Lấy dữ liệu lịch sử 5 năm bằng yfinance
+                # Lấy dữ liệu lịch sử bằng yfinance
+                logger.info(f"Fetching historical data for {symbol} (US) using yfinance")
                 df = get_stock_data_yfinance(symbol, period="5y")
                 
                 if df is not None:
@@ -516,30 +564,42 @@ async def initialize_data():
             logger.error(f"Error processing international stock {symbol}: {e}")
             continue
     
-    logger.info(f"=== Total initialization completed: {total_stocks} stocks, {total_candles} candlesticks ===")
+    elapsed = time.time() - start_time
+    logger.info(f"=== Total initialization completed: {total_stocks} stocks, {total_candles} candlesticks (took {elapsed:.2f}s) ===")
 
 
 async def update_latest_data():
-    """Cập nhật dữ liệu mới nhất cho cổ phiếu Việt Nam (không cập nhật cổ phiếu nước ngoài)"""
+    """Cập nhật dữ liệu incrementally cho cổ phiếu Việt Nam dựa trên ngày cuối cùng trong DB"""
     while True:
         try:
-            logger.info("Starting periodic update...")
+            logger.info("Starting periodic update (incremental sync)...")
             
             # Chỉ lấy danh sách stocks Việt Nam (không lấy US stocks)
             stocks = list(stocks_collection.find({"market": {"$ne": "US"}}))
             
-            # Lấy dữ liệu 5 ngày gần nhất (để đảm bảo không bỏ sót)
-            end_date = datetime.now().strftime('%Y-%m-%d')
-            start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-            
             updated_count = 0
+            end_date = datetime.now().strftime('%Y-%m-%d')
+            
             for stock in stocks:
                 try:
                     symbol = stock['symbol']
                     market = stock['market']
                     stock_id = str(stock['_id'])
                     
-                    # Lấy dữ liệu mới nhất
+                    # Lấy ngày của candle gần nhất trong DB
+                    last_candle_date = get_last_candle_date(stock_id)
+                    
+                    if last_candle_date:
+                        # Nếu đã có dữ liệu, sync từ (last_date - lookback_days) để recover missing data
+                        start_date_dt = datetime.strptime(last_candle_date, '%Y-%m-%d') - timedelta(days=UPDATE_LOOKBACK_DAYS)
+                        start_date = start_date_dt.strftime('%Y-%m-%d')
+                        logger.info(f"Incremental sync for {symbol}: {start_date} to {end_date}")
+                    else:
+                        # Nếu chưa có dữ liệu, lấy từ UPDATE_LOOKBACK_DAYS trước
+                        start_date = (datetime.now() - timedelta(days=UPDATE_LOOKBACK_DAYS)).strftime('%Y-%m-%d')
+                        logger.info(f"First sync for {symbol}: {start_date} to {end_date}")
+                    
+                    # Lấy dữ liệu từ start_date đến end_date
                     df = get_stock_data_vnstock(symbol, market, start_date, end_date)
                     
                     if df is not None and not df.empty:
@@ -573,7 +633,7 @@ async def update_latest_data():
             
             logger.info(f"Update completed: {updated_count}/{len(stocks)} stocks updated")
             
-            # Chờ đến lần update tiếp theo
+            # Chờ đến lần update tiếp theo (15 phút thay vì 1 phút)
             logger.info(f"Waiting {UPDATE_INTERVAL} seconds until next update...")
             await asyncio.sleep(UPDATE_INTERVAL)
             
@@ -587,16 +647,20 @@ async def startup_event():
 
     global update_task
     
+    logger.info(f"Starting up Stock Data Service (RESET_DB={RESET_DB})...")
+    
     if not init_mongodb():
         return
     
     if not await init_rabbitmq():
         logger.warning("RabbitMQ initialization failed, will continue without message publishing")
     
+    # Khởi tạo dữ liệu chỉ khi DB trống hoặc RESET_DB=True
     await initialize_data()
 
+    # Bắt đầu background update loop
     update_task = asyncio.create_task(update_latest_data())
-    logger.info(f"Server started on port {PORT}")
+    logger.info(f"Server started on port {PORT}. Update interval: {UPDATE_INTERVAL}s")
 
 
 @app.on_event("shutdown")
@@ -770,28 +834,28 @@ async def get_price_board(symbols: str = None):
         # Trích xuất dữ liệu từ multi-level columns (nhanh hơn vòng lặp)
         try:
             result_df['symbol'] = df[('listing', 'symbol')].astype(str)
-            result_df['refPrice'] = df[('listing', 'ref_price')].astype(float).fillna(0)
-            result_df['ceilingPrice'] = df[('listing', 'ceiling')].astype(float).fillna(0)
-            result_df['floorPrice'] = df[('listing', 'floor')].astype(float).fillna(0)
-            result_df['matchPrice'] = df[('match', 'match_price')].astype(float).fillna(0)
-            result_df['matchVolume'] = df[('match', 'accumulated_volume')].astype(int).fillna(0)
-            result_df['matchValue'] = df[('match', 'accumulated_value')].astype(float).fillna(0)
-            result_df['highest'] = df[('match', 'highest')].astype(float).fillna(0)
-            result_df['lowest'] = df[('match', 'lowest')].astype(float).fillna(0)
-            result_df['openPrice'] = df[('match', 'open_price')].astype(float).fillna(0)
-            result_df['avgPrice'] = df[('match', 'avg_match_price')].astype(float).fillna(0)
-            result_df['bid1Price'] = df[('bid_ask', 'bid_1_price')].astype(float).fillna(0)
-            result_df['bid1Volume'] = df[('bid_ask', 'bid_1_volume')].astype(int).fillna(0)
-            result_df['bid2Price'] = df[('bid_ask', 'bid_2_price')].astype(float).fillna(0)
-            result_df['bid2Volume'] = df[('bid_ask', 'bid_2_volume')].astype(int).fillna(0)
-            result_df['bid3Price'] = df[('bid_ask', 'bid_3_price')].astype(float).fillna(0)
-            result_df['bid3Volume'] = df[('bid_ask', 'bid_3_volume')].astype(int).fillna(0)
-            result_df['ask1Price'] = df[('bid_ask', 'ask_1_price')].astype(float).fillna(0)
-            result_df['ask1Volume'] = df[('bid_ask', 'ask_1_volume')].astype(int).fillna(0)
-            result_df['ask2Price'] = df[('bid_ask', 'ask_2_price')].astype(float).fillna(0)
-            result_df['ask2Volume'] = df[('bid_ask', 'ask_2_volume')].astype(int).fillna(0)
-            result_df['ask3Price'] = df[('bid_ask', 'ask_3_price')].astype(float).fillna(0)
-            result_df['ask3Volume'] = df[('bid_ask', 'ask_3_volume')].astype(int).fillna(0)
+            result_df['refPrice'] = df[('listing', 'ref_price')].fillna(0).astype(float)
+            result_df['ceilingPrice'] = df[('listing', 'ceiling')].fillna(0).astype(float)
+            result_df['floorPrice'] = df[('listing', 'floor')].fillna(0).astype(float)
+            result_df['matchPrice'] = df[('match', 'match_price')].fillna(0).astype(float)
+            result_df['matchVolume'] = df[('match', 'accumulated_volume')].fillna(0).astype(int)
+            result_df['matchValue'] = df[('match', 'accumulated_value')].fillna(0).astype(float)
+            result_df['highest'] = df[('match', 'highest')].fillna(0).astype(float)
+            result_df['lowest'] = df[('match', 'lowest')].fillna(0).astype(float)
+            result_df['openPrice'] = df[('match', 'open_price')].fillna(0).astype(float)
+            result_df['avgPrice'] = df[('match', 'avg_match_price')].fillna(0).astype(float)
+            result_df['bid1Price'] = df[('bid_ask', 'bid_1_price')].fillna(0).astype(float)
+            result_df['bid1Volume'] = df[('bid_ask', 'bid_1_volume')].fillna(0).astype(int)
+            result_df['bid2Price'] = df[('bid_ask', 'bid_2_price')].fillna(0).astype(float)
+            result_df['bid2Volume'] = df[('bid_ask', 'bid_2_volume')].fillna(0).astype(int)
+            result_df['bid3Price'] = df[('bid_ask', 'bid_3_price')].fillna(0).astype(float)
+            result_df['bid3Volume'] = df[('bid_ask', 'bid_3_volume')].fillna(0).astype(int)
+            result_df['ask1Price'] = df[('bid_ask', 'ask_1_price')].fillna(0).astype(float)
+            result_df['ask1Volume'] = df[('bid_ask', 'ask_1_volume')].fillna(0).astype(int)
+            result_df['ask2Price'] = df[('bid_ask', 'ask_2_price')].fillna(0).astype(float)
+            result_df['ask2Volume'] = df[('bid_ask', 'ask_2_volume')].fillna(0).astype(int)
+            result_df['ask3Price'] = df[('bid_ask', 'ask_3_price')].fillna(0).astype(float)
+            result_df['ask3Volume'] = df[('bid_ask', 'ask_3_volume')].fillna(0).astype(int)
         except KeyError as e:
             logger.error(f"Missing column in price board data: {e}")
             return {"data": [], "total": 0, "error": f"Data structure error: {str(e)}"}
@@ -867,29 +931,45 @@ async def get_candlestick_by_id(candlestick_id: str = None, stock_id: str = None
 
 
 async def update_latest_data_once():
-    """Cập nhật dữ liệu một lần (cho force update)"""
-    stocks = list(stocks_collection.find({}))
+    """Cập nhật dữ liệu một lần (cho force update) - sử dụng incremental sync"""
+    stocks = list(stocks_collection.find({"market": {"$ne": "US"}}))  # Chỉ Vietnam stocks
     end_date = datetime.now().strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=5)).strftime('%Y-%m-%d')
     
+    updated_count = 0
     for stock in stocks:
         try:
             symbol = stock['symbol']
             market = stock['market']
             stock_id = str(stock['_id'])
             
+            # Lấy ngày của candle gần nhất trong DB
+            last_candle_date = get_last_candle_date(stock_id)
+            
+            if last_candle_date:
+                # Incremental sync từ (last_date - lookback_days)
+                start_date_dt = datetime.strptime(last_candle_date, '%Y-%m-%d') - timedelta(days=UPDATE_LOOKBACK_DAYS)
+                start_date = start_date_dt.strftime('%Y-%m-%d')
+            else:
+                # Nếu chưa có dữ liệu
+                start_date = (datetime.now() - timedelta(days=UPDATE_LOOKBACK_DAYS)).strftime('%Y-%m-%d')
+            
+            logger.info(f"Force update for {symbol}: {start_date} to {end_date}")
             df = get_stock_data_vnstock(symbol, market, start_date, end_date)
             
-            if df is not None:
-                save_candlesticks_to_db(stock_id, df)
-                stocks_collection.update_one(
-                    {"_id": stock['_id']},
-                    {"$set": {"updated_at": datetime.now()}}
-                )
+            if df is not None and not df.empty:
+                new_candles = save_candlesticks_to_db(stock_id, df)
+                if len(new_candles) > 0:
+                    updated_count += 1
+                    stocks_collection.update_one(
+                        {"_id": stock['_id']},
+                        {"$set": {"updated_at": datetime.now()}}
+                    )
             
             await asyncio.sleep(2)
         except Exception as e:
             logger.error(f"Error in force update for {stock.get('symbol')}: {e}")
+    
+    logger.info(f"Force update completed: {updated_count}/{len(stocks)} stocks updated")
 
 
 @app.get("/api/company/news/{symbol}")
@@ -980,16 +1060,31 @@ async def get_financial_report(symbol: str, period: str = "year"):
             raise HTTPException(status_code=503, detail="Finance API not available")
         
         symbol = symbol.upper()
+        # Validate period
+        if period not in ["year", "quarter"]:
+            period = "year"
+        
         logger.info(f"Fetching financial report for {symbol}, period: {period}")
         
         # Khởi tạo Finance adapter
         finance = Finance(source="vci", symbol=symbol)
         
         # Lấy các báo cáo tài chính
+        logger.info(f"  → Fetching balance_sheet for {symbol}...")
         balance_sheet = finance.balance_sheet(period=period)
+        logger.info(f"     Balance Sheet: {len(balance_sheet) if balance_sheet is not None else 0} rows")
+        
+        logger.info(f"  → Fetching income_statement for {symbol}...")
         income_statement = finance.income_statement(period=period)
+        logger.info(f"     Income Statement: {len(income_statement) if income_statement is not None else 0} rows")
+        
+        logger.info(f"  → Fetching cash_flow for {symbol}...")
         cash_flow = finance.cash_flow(period=period)
+        logger.info(f"     Cash Flow: {len(cash_flow) if cash_flow is not None else 0} rows")
+        
+        logger.info(f"  → Fetching ratio for {symbol}...")
         ratios = finance.ratio()
+        logger.info(f"     Ratios: {len(ratios) if ratios is not None else 0} rows")
         
         # Helper function to safely convert DataFrame to JSON-serializable format
         def df_to_json_safe(df, limit=None):
@@ -999,44 +1094,78 @@ async def get_financial_report(symbol: str, period: str = "year"):
                 # Lấy số dòng giới hạn
                 data = df.head(limit) if limit else df
                 
+                logger.debug(f"Processing DataFrame with shape {data.shape}")
+                
                 # Flatten multi-level columns if present (convert tuples to strings)
                 if isinstance(data.columns, pd.MultiIndex):
                     # Join tuple column names with underscore
                     data.columns = ['_'.join(map(str, col)).strip() for col in data.columns.values]
                 
                 # Reset index to make it a regular column
-                data = data.reset_index()
+                data = data.reset_index(drop=True)
                 
-                # Replace NaN with None for proper JSON serialization
+                # Replace NaN/inf với empty string
                 data = data.fillna('')
                 
                 # Convert to dict with orient='records'
                 result = data.to_dict(orient='records')
                 
-                # Clean up the data - convert numpy types to Python types
+                # Clean up the data - convert numpy types to Python types và handle inf
                 import json
-                return json.loads(json.dumps(result, default=str))
+                import numpy as np
+                
+                def clean_value(val):
+                    """Convert numpy/pandas types to JSON-serializable Python types"""
+                    if isinstance(val, (float, np.floating)):
+                        if np.isnan(val) or np.isinf(val):
+                            return None
+                        return float(val)
+                    elif isinstance(val, (int, np.integer)):
+                        return int(val)
+                    elif isinstance(val, bool):
+                        return bool(val)
+                    elif val is None or val == '':
+                        return None
+                    return str(val)
+                
+                # Clean all values in result
+                cleaned_result = []
+                for record in result:
+                    cleaned_record = {k: clean_value(v) for k, v in record.items()}
+                    cleaned_result.append(cleaned_record)
+                
+                return cleaned_result
+                
             except Exception as e:
-                logger.error(f"Error converting DataFrame: {e}")
+                logger.error(f"Error converting DataFrame: {e}", exc_info=True)
                 return []
         
         # Chuyển đổi sang dict (lấy 5 năm/quý gần nhất)
+        balance_sheet_data = df_to_json_safe(balance_sheet, 5)
+        income_statement_data = df_to_json_safe(income_statement, 5)
+        cash_flow_data = df_to_json_safe(cash_flow, 5)
+        ratios_data = df_to_json_safe(ratios, 20)
+        
         result = {
             "symbol": symbol,
             "period": period,
-            "balanceSheet": df_to_json_safe(balance_sheet, 5),
-            "incomeStatement": df_to_json_safe(income_statement, 5),
-            "cashFlow": df_to_json_safe(cash_flow, 5),
-            "ratios": df_to_json_safe(ratios, 20),
+            "balanceSheet": balance_sheet_data,
+            "incomeStatement": income_statement_data,
+            "cashFlow": cash_flow_data,
+            "ratios": ratios_data,
             "timestamp": datetime.now().isoformat()
         }
         
         logger.info(f"Successfully fetched financial report for {symbol}")
+        logger.info(f"  → Balance Sheet: {len(balance_sheet_data)} records")
+        logger.info(f"  → Income Statement: {len(income_statement_data)} records")
+        logger.info(f"  → Cash Flow: {len(cash_flow_data)} records")
+        logger.info(f"  → Ratios: {len(ratios_data)} records")
         
         return result
         
     except Exception as e:
-        logger.error(f"Error fetching financial report for {symbol}: {e}")
+        logger.error(f"Error fetching financial report for {symbol}: {e}", exc_info=True)
         return {
             "symbol": symbol,
             "period": period,
