@@ -117,7 +117,7 @@ const PATTERN_DETECTORS = {
   'downside_tasuki_gap': detectDownsideTasukiGap,
 
   // Additional three candle patterns
-  'three_stars_in_the_south': detectThreeStarsInTheSouth,
+  'three_star_in_the_south': detectThreeStarsInTheSouth,
   'advance_block': detectAdvanceBlock,
   'descending_hawk': detectDescendingHawk,
   'deliberation': detectDeliberation,
@@ -153,8 +153,8 @@ const PATTERN_DETECTORS = {
   'upside_gap_two_crows': detectUpsideGapTwoCrows,
 
   // Five candle three methods patterns
-  'falling_three_methods': detectFallingThreeMethods,
-  'rising_three_methods': detectRisingThreeMethods,
+  'falling_three': detectFallingThreeMethods,
+  'rising_three': detectRisingThreeMethods,
 
   // Complex chart patterns (client-side detection)
   'cup_with_handle': detectCupWithHandlePattern,
