@@ -67,6 +67,22 @@ export const isDoji = (candle) => {
 };
 
 /**
+ * Detect all Doji patterns (any candle with very small body)
+ * Used for Combo 4: Doji + Bollinger Squeeze
+ */
+export const detectDoji = (candles) => {
+  const patterns = [];
+
+  for (let i = 0; i < candles.length; i++) {
+    const candle = candles[i];
+    if (isDoji(candle)) {
+      patterns.push({ ...candle, index: i });
+    }
+  }
+  return patterns;
+};
+
+/**
  * Check if there's an uptrend before the given index
  */
 export const hasUptrend = (candles, currentIndex, lookback) => {

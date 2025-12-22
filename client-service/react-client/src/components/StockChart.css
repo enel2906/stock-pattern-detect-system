@@ -166,3 +166,110 @@ body.light .pattern-tooltip-title {
     font-size: 12px;
   }
 }
+
+/* Combo Signal Alerts */
+.combo-alerts {
+  position: absolute;
+  top: 60px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 15;
+  max-width: 300px;
+}
+
+.combo-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(18, 21, 26, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid;
+  animation: slideInRight 0.3s ease-out;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.combo-alert.bullish {
+  border-color: rgba(0, 230, 118, 0.5);
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.15), rgba(18, 21, 26, 0.95));
+}
+
+.combo-alert.bearish {
+  border-color: rgba(255, 82, 82, 0.5);
+  background: linear-gradient(135deg, rgba(255, 82, 82, 0.15), rgba(18, 21, 26, 0.95));
+}
+
+body.light .combo-alert {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+body.light .combo-alert.bullish {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.1), rgba(255, 255, 255, 0.95));
+}
+
+body.light .combo-alert.bearish {
+  background: linear-gradient(135deg, rgba(255, 82, 82, 0.1), rgba(255, 255, 255, 0.95));
+}
+
+.combo-alert .alert-icon {
+  font-size: 16px;
+}
+
+.combo-alert .alert-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.combo-alert .alert-time {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.combo-alert .alert-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+  transition: color 0.2s;
+  pointer-events: auto;
+}
+
+.combo-alert .alert-close:hover {
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .combo-alerts {
+    top: 80px;
+    right: 5px;
+    max-width: 250px;
+  }
+  
+  .combo-alert {
+    padding: 8px 10px;
+  }
+  
+  .combo-alert .alert-name {
+    font-size: 11px;
+  }
+}

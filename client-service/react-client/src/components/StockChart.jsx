@@ -13,11 +13,27 @@ import {
   calculateMACD, 
   calculateBollingerBands 
 } from '../services/technicalIndicators';
+import { 
+  checkRealtimeSignals, 
+  generateBacktestMarkers,
+  detectComboSignal 
+} from '../services/advanceSignalService';
+import { getComboSignal } from '../constants/comboSignalDefinitions';
 import './StockChart.css';
 
 const RIGHT_OFFSET = 20;
 
-const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatusChange, isLight }) => {
+const StockChart = ({ 
+  stockSymbol, 
+  selectedPatterns, 
+  selectedIndicators, 
+  onStatusChange, 
+  isLight,
+  // Advance Signal props
+  activeComboSignals,
+  backtestMarkers,
+  onCandleDataUpdate
+}) => {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
@@ -26,6 +42,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
   const volumeMapRef = useRef(new Map()); // Map for O(1) volume lookup
   const patternLinesRef = useRef([]);
   const indicatorSeriesRef = useRef([]); // Store indicator line series
+  const advanceSignalMarkersRef = useRef([]); // Store advance signal markers
   const tooltipRef = useRef(null);
   const stompClientRef = useRef(null);
   const subscriptionRef = useRef(null);
@@ -33,6 +50,7 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
   const [isChartReady, setIsChartReady] = useState(false);
   const [dataLoadCounter, setDataLoadCounter] = useState(0); // Track when new data is loaded
   const [ohlcvInfo, setOhlcvInfo] = useState(null); // Current OHLCV info
+  const [comboAlerts, setComboAlerts] = useState([]); // Real-time combo alerts
 
   // Initialize chart
   useEffect(() => {
@@ -287,17 +305,25 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
         // Trigger reload of patterns and indicators
         setDataLoadCounter(prev => prev + 1);
 
+        // Notify parent about candle data update
+        if (onCandleDataUpdate) {
+          onCandleDataUpdate([...data]);
+        }
+
         onStatusChange(`Sẵn sàng. Đã tải ${data.length} phiên cho ${stockSymbol}.`);
       } else {
         originalDataRef.current = [];
         volumeMapRef.current.clear();
+        if (onCandleDataUpdate) {
+          onCandleDataUpdate([]);
+        }
         onStatusChange('Không có dữ liệu để hiển thị.');
       }
     } catch (error) {
       console.error('Error loading stock data:', error);
       onStatusChange('Lỗi: ' + error.message);
     }
-  }, [stockSymbol, isChartReady, onStatusChange]);
+  }, [stockSymbol, isChartReady, onStatusChange, onCandleDataUpdate]);
 
   // Load multiple pattern data
   const loadPatternsData = useCallback(async (patternNames) => {
@@ -2021,6 +2047,170 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
     }
   }, [selectedIndicators, isChartReady, loadIndicators, dataLoadCounter]);
 
+  // Handle Advance Signal backtest markers
+  useEffect(() => {
+    if (!isChartReady || !chartRef.current || !candleSeriesRef.current) {
+      return;
+    }
+
+    // Remove existing advance signal marker series
+    advanceSignalMarkersRef.current.forEach(series => {
+      try {
+        chartRef.current.removeSeries(series);
+      } catch (e) {
+        console.warn('Could not remove advance signal series:', e);
+      }
+    });
+    advanceSignalMarkersRef.current = [];
+
+    // Ensure backtestMarkers is an array
+    if (!backtestMarkers || !Array.isArray(backtestMarkers) || backtestMarkers.length === 0) {
+      return;
+    }
+
+    console.log('Displaying backtest markers:', backtestMarkers.length);
+
+    // Collect all markers from backtest results
+    const allBacktestMarkers = [];
+
+    backtestMarkers.forEach(marker => {
+      if (!marker.time) return;
+
+      // Determine marker appearance based on result
+      let color, text, shape, position;
+      
+      switch (marker.result) {
+        case 'SUCCESS':
+          color = '#00E676'; // Green
+          text = '✓ ' + (marker.combo?.abbreviation || 'SIG');
+          shape = 'arrowUp';
+          position = 'belowBar';
+          break;
+        case 'FAILURE':
+          color = '#FF5252'; // Red
+          text = '✗ ' + (marker.combo?.abbreviation || 'SIG');
+          shape = 'arrowDown';
+          position = 'aboveBar';
+          break;
+        case 'NEUTRAL':
+        default:
+          color = '#FFC107'; // Yellow
+          text = '○ ' + (marker.combo?.abbreviation || 'SIG');
+          shape = 'circle';
+          position = 'belowBar';
+          break;
+      }
+
+      allBacktestMarkers.push({
+        time: marker.time,
+        position: position,
+        color: color,
+        shape: shape,
+        text: text,
+        size: 1.5,
+      });
+
+      // Draw evaluation period lines (from signal to evaluation end)
+      if (marker.evaluatedAt && chartRef.current) {
+        try {
+          const lineSeries = chartRef.current.addLineSeries({
+            color: marker.result === 'SUCCESS' ? 'rgba(0, 230, 118, 0.4)' : 
+                   marker.result === 'FAILURE' ? 'rgba(255, 82, 82, 0.4)' : 
+                   'rgba(255, 193, 7, 0.4)',
+            lineWidth: 1,
+            lineStyle: 2, // Dashed
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          });
+
+          lineSeries.setData([
+            { time: marker.time, value: marker.signalPrice },
+            { time: marker.evaluatedAt, value: marker.exitPrice || marker.signalPrice }
+          ]);
+
+          advanceSignalMarkersRef.current.push(lineSeries);
+        } catch (e) {
+          console.warn('Could not add evaluation line:', e);
+        }
+      }
+    });
+
+    // Sort markers by time and set them
+    if (allBacktestMarkers.length > 0) {
+      const sortedMarkers = allBacktestMarkers.sort((a, b) => {
+        if (a.time < b.time) return -1;
+        if (a.time > b.time) return 1;
+        return 0;
+      });
+
+      // Get existing pattern markers and merge with backtest markers
+      try {
+        const existingMarkers = candleSeriesRef.current.markers ? 
+          [...candleSeriesRef.current.markers()] : [];
+        
+        // Combine and sort all markers
+        const combinedMarkers = [...existingMarkers, ...sortedMarkers].sort((a, b) => {
+          if (a.time < b.time) return -1;
+          if (a.time > b.time) return 1;
+          return 0;
+        });
+
+        candleSeriesRef.current.setMarkers(combinedMarkers);
+        console.log('Set combined markers:', combinedMarkers.length);
+      } catch (e) {
+        // If getting existing markers fails, just set backtest markers
+        candleSeriesRef.current.setMarkers(sortedMarkers);
+        console.log('Set backtest markers:', sortedMarkers.length);
+      }
+    }
+  }, [backtestMarkers, isChartReady]);
+
+  // Handle real-time combo signal detection
+  useEffect(() => {
+    if (!activeComboSignals || activeComboSignals.size === 0) {
+      setComboAlerts([]);
+      return;
+    }
+
+    if (!originalDataRef.current || originalDataRef.current.length < 20) {
+      return;
+    }
+
+    // Check for combo signals on current data
+    const activeSignalIds = Array.from(activeComboSignals);
+    const detectedAlerts = [];
+
+    activeSignalIds.forEach(comboId => {
+      const combo = getComboSignal(comboId);
+      if (!combo) return;
+
+      try {
+        const result = detectComboSignal(originalDataRef.current, combo);
+        if (result && result.triggered) {
+          detectedAlerts.push({
+            id: comboId,
+            combo: combo,
+            ...result,
+            time: new Date().toLocaleTimeString()
+          });
+        }
+      } catch (e) {
+        console.warn(`Error detecting combo signal ${comboId}:`, e);
+      }
+    });
+
+    if (detectedAlerts.length > 0) {
+      setComboAlerts(prev => {
+        // Avoid duplicate alerts
+        const newAlerts = detectedAlerts.filter(
+          alert => !prev.some(p => p.id === alert.id && p.candleTime === alert.candleTime)
+        );
+        return [...newAlerts, ...prev].slice(0, 10); // Keep last 10 alerts
+      });
+    }
+  }, [activeComboSignals, dataLoadCounter]);
+
   // Format number with comma separator
   const formatNumber = (num) => {
     if (!num) return '0';
@@ -2067,6 +2257,29 @@ const StockChart = ({ stockSymbol, selectedPatterns, selectedIndicators, onStatu
             <span className="ohlcv-item">Vol <span className="ohlcv-value">{formatVolume(ohlcvInfo.volume)}</span></span>
           </div>
         )}
+        
+        {/* Combo Signal Alerts */}
+        {comboAlerts.length > 0 && (
+          <div className="combo-alerts">
+            {comboAlerts.slice(0, 3).map((alert, index) => (
+              <div 
+                key={`${alert.id}-${index}`} 
+                className={`combo-alert ${alert.combo.sentiment}`}
+              >
+                <span className="alert-icon">🎯</span>
+                <span className="alert-name">{alert.combo.name}</span>
+                <span className="alert-time">{alert.time}</span>
+                <button 
+                  className="alert-close"
+                  onClick={() => setComboAlerts(prev => prev.filter((_, i) => i !== index))}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        
         <div ref={chartContainerRef} className="chart" />
       </div>
     </div>

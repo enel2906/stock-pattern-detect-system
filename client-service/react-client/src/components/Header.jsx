@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import IndicatorsModal from './IndicatorsModal';
 import StockSearchModal from './StockSearchModal';
+import AdvanceSignalModal from './AdvanceSignalModal';
 import './Header.css';
 
 const Header = ({ 
@@ -18,13 +19,21 @@ const Header = ({
   isLight, 
   status,
   onShowNews,
-  onShowFinancial
+  onShowFinancial,
+  // Advance Signal props
+  candleData,
+  activeComboSignals,
+  onToggleComboSignal,
+  onRunBacktest,
+  backtestResults,
+  onApplyBacktestMarkers
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
   const [isStockSearchModalOpen, setIsStockSearchModalOpen] = useState(false);
+  const [isAdvanceSignalModalOpen, setIsAdvanceSignalModalOpen] = useState(false);
 
   const isWatchlistPage = location.pathname === '/watchlist';
   const isAboutPage = location.pathname === '/about';
@@ -100,6 +109,18 @@ const Header = ({
                   <span className="badge">{selectedPatterns.length + selectedIndicators.length}</span>
                 )}
               </button>
+              
+              <button 
+                className="advance-signal-button" 
+                onClick={() => setIsAdvanceSignalModalOpen(true)}
+                title="Advance Signal - Combo Patterns + Indicators"
+              >
+                <span className="icon">🎯</span>
+                <span className="label">Advance Signal</span>
+                {activeComboSignals?.length > 0 && (
+                  <span className="badge active-signal">{activeComboSignals.length}</span>
+                )}
+              </button>
             </>
           )}
           
@@ -151,6 +172,18 @@ const Header = ({
         onTogglePattern={onTogglePattern}
         onToggleIndicator={onToggleIndicator}
         onApply={onApplyPatterns}
+      />
+
+      <AdvanceSignalModal
+        isOpen={isAdvanceSignalModalOpen}
+        onClose={() => setIsAdvanceSignalModalOpen(false)}
+        stockSymbol={stockSymbol}
+        candleData={candleData}
+        activeComboSignals={activeComboSignals}
+        onToggleComboSignal={onToggleComboSignal}
+        onRunBacktest={onRunBacktest}
+        backtestResults={backtestResults}
+        onApplyBacktestMarkers={onApplyBacktestMarkers}
       />
     </>
   );

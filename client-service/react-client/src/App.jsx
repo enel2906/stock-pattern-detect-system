@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Header from './components/Header';
@@ -41,6 +41,17 @@ function MainApp() {
   const [showNewsModal, setShowNewsModal] = useState(false);
   const [showFinancialModal, setShowFinancialModal] = useState(false);
 
+  // Advance Signal state
+  const [activeComboSignals, setActiveComboSignals] = useState(() => {
+    const saved = localStorage.getItem('activeComboSignals');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [backtestResults, setBacktestResults] = useState(null);
+  const [backtestMarkers, setBacktestMarkers] = useState(null);
+  
+  // Reference to candle data from StockChart
+  const candleDataRef = useRef([]);
+
   // Listen to URL parameter changes and update stockSymbol
   useEffect(() => {
     const urlSymbol = searchParams.get('symbol');
@@ -72,6 +83,11 @@ function MainApp() {
     localStorage.setItem('selectedIndicators', JSON.stringify(selectedIndicators));
   }, [selectedIndicators]);
 
+  // Save activeComboSignals to localStorage
+  useEffect(() => {
+    localStorage.setItem('activeComboSignals', JSON.stringify(activeComboSignals));
+  }, [activeComboSignals]);
+
   // Apply theme to body and save to localStorage
   useEffect(() => {
     document.body.classList.toggle('light', isLight);
@@ -94,10 +110,12 @@ function MainApp() {
       if (selectedPatterns.length > 0 || selectedIndicators.length > 0) {
         setSelectedPatterns([]);
         setSelectedIndicators([]);
+        setActiveComboSignals([]);
         setStatus('Sẵn sàng.');
         // Also clear from localStorage
         localStorage.removeItem('selectedPatterns');
         localStorage.removeItem('selectedIndicators');
+        localStorage.removeItem('activeComboSignals');
       }
     }
     
@@ -166,6 +184,56 @@ function MainApp() {
     setIsLight(!isLight);
   };
 
+  // Advance Signal handlers
+  const handleToggleComboSignal = useCallback((comboId) => {
+    if (!isAuthenticated) {
+      setShowAuthWarning(true);
+      setTimeout(() => setShowAuthWarning(false), 3000);
+      return;
+    }
+    
+    setActiveComboSignals(prev => {
+      if (prev.includes(comboId)) {
+        return prev.filter(id => id !== comboId);
+      } else {
+        return [...prev, comboId];
+      }
+    });
+  }, [isAuthenticated]);
+
+  const handleRunBacktest = useCallback((result) => {
+    setBacktestResults(result);
+  }, []);
+
+  const handleApplyBacktestMarkers = useCallback((backtestResult) => {
+    // Convert backtest result to markers array
+    if (!backtestResult || !backtestResult.evaluations) {
+      setBacktestMarkers([]);
+      return;
+    }
+    
+    // Generate markers from evaluations
+    const markers = backtestResult.evaluations.map(evaluation => ({
+      time: evaluation.signalTime,
+      signalPrice: evaluation.entryPrice,
+      exitPrice: evaluation.exitPrice,
+      evaluatedAt: evaluation.exitTime,
+      result: evaluation.result?.toUpperCase() || 'NEUTRAL',
+      indicatorValue: evaluation.indicatorValue,
+      combo: {
+        id: backtestResult.comboId,
+        name: backtestResult.comboName,
+        abbreviation: backtestResult.comboName?.substring(0, 3).toUpperCase() || 'SIG'
+      }
+    }));
+    
+    setBacktestMarkers(markers);
+  }, []);
+
+  const handleCandleDataUpdate = useCallback((data) => {
+    candleDataRef.current = data;
+  }, []);
+
   return (
     <div className="App">
       <Header
@@ -182,6 +250,13 @@ function MainApp() {
         status={status}
         onShowNews={() => setShowNewsModal(true)}
         onShowFinancial={() => setShowFinancialModal(true)}
+        // Advance Signal props
+        candleData={candleDataRef.current}
+        activeComboSignals={activeComboSignals}
+        onToggleComboSignal={handleToggleComboSignal}
+        onRunBacktest={handleRunBacktest}
+        backtestResults={backtestResults}
+        onApplyBacktestMarkers={handleApplyBacktestMarkers}
       />
       {showAuthWarning && (
         <div className="auth-warning">
@@ -197,6 +272,10 @@ function MainApp() {
             selectedIndicators={selectedIndicators}
             onStatusChange={setStatus}
             isLight={isLight}
+            // Advance Signal props
+            activeComboSignals={activeComboSignals}
+            backtestMarkers={backtestMarkers}
+            onCandleDataUpdate={handleCandleDataUpdate}
           />
         </div>
       </main>

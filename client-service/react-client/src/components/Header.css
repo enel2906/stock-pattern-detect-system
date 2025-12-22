@@ -402,6 +402,67 @@ body.light .indicators-button:hover {
   background: rgba(38, 166, 154, 0.25) !important;
 }
 
+/* Advance Signal Button */
+.advance-signal-button {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px !important;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%) !important;
+  border: 1px solid rgba(99, 102, 241, 0.4) !important;
+  color: #8b5cf6 !important;
+  font-weight: 600;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.advance-signal-button:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%) !important;
+  border-color: #8b5cf6 !important;
+  opacity: 1 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.advance-signal-button .icon {
+  font-size: 14px;
+}
+
+.advance-signal-button .label {
+  font-size: 13px;
+}
+
+.advance-signal-button .badge {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+}
+
+.advance-signal-button .badge.active-signal {
+  background: linear-gradient(135deg, #00E396 0%, #00b377 100%);
+  animation: pulse-signal 2s ease-in-out infinite;
+}
+
+@keyframes pulse-signal {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+
+body.light .advance-signal-button {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+  color: #6366f1 !important;
+}
+
+body.light .advance-signal-button:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%) !important;
+}
+
 .user-menu {
   display: flex;
   align-items: center;
