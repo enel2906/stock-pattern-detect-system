@@ -8,17 +8,19 @@ export const COMBO_SIGNALS = {
   'hammer_rsi_oversold': {
     id: 'hammer_rsi_oversold',
     name: 'Hammer + RSI Oversold',
-    description: 'Kết hợp mô hình nến Hammer với RSI dưới 30, báo hiệu khả năng đảo chiều tăng mạnh.',
+    description: 'Kết hợp mô hình nến Hammer với RSI(14) < 30, báo hiệu khả năng đảo chiều tăng trong 3-7 phiên.',
     pattern: 'hammer',
-    indicator: {
-      type: 'rsi',
-      period: 14,
-      condition: 'lessThan',
-      threshold: 30
-    },
+    indicators: [
+      {
+        type: 'rsi',
+        period: 14,
+        condition: 'lessThan',
+        threshold: 30
+      }
+    ],
     prediction: {
       direction: 'bullish',
-      timeframe: 5, // 5 phiên sau
+      timeframe: 7, // Đánh giá trong 7 phiên
       targetGain: 3, // +3%
       stopLoss: 2 // -2%
     },
@@ -28,172 +30,91 @@ export const COMBO_SIGNALS = {
     color: '#00E396'
   },
 
-  // ===== COMBO 2: Bullish Engulfing + RSI < 40 =====
-  'bullish_engulfing_rsi': {
-    id: 'bullish_engulfing_rsi',
-    name: 'Bullish Engulfing + RSI Oversold',
-    description: 'Mô hình nến nhấn chìm tăng kết hợp RSI thấp, tín hiệu đảo chiều tăng mạnh.',
+  // ===== COMBO 2: Bullish Engulfing + MACD cắt lên Signal =====
+  'bullish_engulfing_macd_crossover': {
+    id: 'bullish_engulfing_macd_crossover',
+    name: 'Bullish Engulfing + MACD Crossover',
+    description: 'Mô hình Bullish Engulfing kết hợp MACD cắt lên Signal, tín hiệu đảo chiều tăng trong 5-10 phiên.',
     pattern: 'bullish_engulfing',
-    indicator: {
-      type: 'rsi',
-      period: 14,
-      condition: 'lessThan',
-      threshold: 40
-    },
+    indicators: [
+      {
+        type: 'macd_crossover',
+        fastPeriod: 12,
+        slowPeriod: 26,
+        signalPeriod: 9,
+        condition: 'crossUp' // MACD cắt lên Signal
+      }
+    ],
     prediction: {
       direction: 'bullish',
-      timeframe: 5,
-      targetGain: 3,
-      stopLoss: 2
+      timeframe: 10, // Đánh giá trong 10 phiên
+      targetGain: 4, // +4%
+      stopLoss: 2.5 // -2.5%
     },
     sentiment: 'bullish',
     reliability: 'high',
-    icon: '�📉',
+    icon: '📈🔀',
     color: '#00E396'
   },
 
-  // ===== COMBO 3: Shooting Star + RSI > 70 =====
-  'shooting_star_rsi_overbought': {
-    id: 'shooting_star_rsi_overbought',
-    name: 'Shooting Star + RSI Overbought',
-    description: 'Mô hình Shooting Star kết hợp RSI trên 70, báo hiệu khả năng đảo chiều giảm.',
+  // ===== COMBO 3: Shooting Star + RSI > 70 + MACD cắt xuống =====
+  'shooting_star_rsi_macd': {
+    id: 'shooting_star_rsi_macd',
+    name: 'Shooting Star + RSI Overbought + MACD Crossdown',
+    description: 'Mô hình Shooting Star kết hợp RSI > 70 và MACD cắt xuống Signal, tín hiệu đảo chiều giảm mạnh trong 3-6 phiên.',
     pattern: 'shooting_star',
-    indicator: {
-      type: 'rsi',
-      period: 14,
-      condition: 'greaterThan',
-      threshold: 70
-    },
+    indicators: [
+      {
+        type: 'rsi',
+        period: 14,
+        condition: 'greaterThan',
+        threshold: 70
+      },
+      {
+        type: 'macd_crossover',
+        fastPeriod: 12,
+        slowPeriod: 26,
+        signalPeriod: 9,
+        condition: 'crossDown' // MACD cắt xuống Signal
+      }
+    ],
     prediction: {
       direction: 'bearish',
-      timeframe: 5,
+      timeframe: 6, // Đánh giá trong 6 phiên
       targetGain: 3, // Kỳ vọng giảm 3%
-      stopLoss: 2
-    },
-    sentiment: 'bearish',
-    reliability: 'high',
-    icon: '⭐📈',
-    color: '#FF4560'
-  },
-
-  // ===== COMBO 4: Bearish Engulfing + RSI > 60 =====
-  'bearish_engulfing_rsi': {
-    id: 'bearish_engulfing_rsi',
-    name: 'Bearish Engulfing + RSI Overbought',
-    description: 'Mô hình nến nhấn chìm giảm kết hợp RSI cao, tín hiệu đảo chiều giảm.',
-    pattern: 'bearish_engulfing',
-    indicator: {
-      type: 'rsi',
-      period: 14,
-      condition: 'greaterThan',
-      threshold: 60
-    },
-    prediction: {
-      direction: 'bearish',
-      timeframe: 5,
-      targetGain: 3,
-      stopLoss: 2
-    },
-    sentiment: 'bearish',
-    reliability: 'high',
-    icon: '🔴�',
-    color: '#FF4560'
-  },
-
-  // ===== COMBO 5: Morning Star + RSI < 35 =====
-  'morning_star_rsi': {
-    id: 'morning_star_rsi',
-    name: 'Morning Star + RSI Low',
-    description: 'Mô hình Morning Star kết hợp RSI thấp, tín hiệu đảo chiều tăng rất mạnh.',
-    pattern: 'morning_star',
-    indicator: {
-      type: 'rsi',
-      period: 14,
-      condition: 'lessThan',
-      threshold: 35
-    },
-    prediction: {
-      direction: 'bullish',
-      timeframe: 5,
-      targetGain: 4,
-      stopLoss: 2
-    },
-    sentiment: 'bullish',
-    reliability: 'very_high',
-    icon: '🌟📉',
-    color: '#00E396'
-  },
-
-  // ===== COMBO 6: Evening Star + RSI > 65 =====
-  'evening_star_rsi': {
-    id: 'evening_star_rsi',
-    name: 'Evening Star + RSI High',
-    description: 'Mô hình Evening Star kết hợp RSI cao, tín hiệu đảo chiều giảm rất mạnh.',
-    pattern: 'evening_star',
-    indicator: {
-      type: 'rsi',
-      period: 14,
-      condition: 'greaterThan',
-      threshold: 65
-    },
-    prediction: {
-      direction: 'bearish',
-      timeframe: 5,
-      targetGain: 4,
-      stopLoss: 2
+      stopLoss: 2 // +2% là stop loss
     },
     sentiment: 'bearish',
     reliability: 'very_high',
-    icon: '🌙📈',
+    icon: '⭐📉🔻',
     color: '#FF4560'
   },
 
-  // ===== COMBO 7: Dragonfly Doji + RSI < 30 =====
-  'dragonfly_doji_rsi': {
-    id: 'dragonfly_doji_rsi',
-    name: 'Dragonfly Doji + RSI Oversold',
-    description: 'Mô hình Dragonfly Doji kết hợp RSI rất thấp, tín hiệu đảo chiều tăng.',
-    pattern: 'dragonfly_doji',
-    indicator: {
-      type: 'rsi',
-      period: 14,
-      condition: 'lessThan',
-      threshold: 30
-    },
+  // ===== COMBO 4: Doji + Bollinger Bands bó hẹp =====
+  'doji_bollinger_squeeze': {
+    id: 'doji_bollinger_squeeze',
+    name: 'Doji + Bollinger Squeeze',
+    description: 'Mô hình Doji kết hợp Bollinger Bands bó hẹp (độ rộng ≤ 5%), báo hiệu sắp có biến động mạnh (breakout) trong 5-10 phiên.',
+    pattern: 'doji',
+    indicators: [
+      {
+        type: 'bollinger_squeeze',
+        period: 20,
+        stdDev: 2,
+        condition: 'squeeze',
+        threshold: 5 // (Upper - Lower) / MA <= 5%
+      }
+    ],
     prediction: {
-      direction: 'bullish',
-      timeframe: 5,
-      targetGain: 3,
-      stopLoss: 2
+      direction: 'neutral', // Có thể tăng hoặc giảm mạnh
+      timeframe: 10, // Đánh giá trong 10 phiên
+      targetGain: 3, // ±3% là breakout thành công
+      stopLoss: 2 // ±2% là không có breakout
     },
-    sentiment: 'bullish',
-    reliability: 'medium',
-    icon: '🐉📉',
-    color: '#00E396'
-  },
-
-  // ===== COMBO 8: Gravestone Doji + RSI > 70 =====
-  'gravestone_doji_rsi': {
-    id: 'gravestone_doji_rsi',
-    name: 'Gravestone Doji + RSI Overbought',
-    description: 'Mô hình Gravestone Doji kết hợp RSI rất cao, tín hiệu đảo chiều giảm.',
-    pattern: 'gravestone_doji',
-    indicator: {
-      type: 'rsi',
-      period: 14,
-      condition: 'greaterThan',
-      threshold: 70
-    },
-    prediction: {
-      direction: 'bearish',
-      timeframe: 5,
-      targetGain: 3,
-      stopLoss: 2
-    },
-    sentiment: 'bearish',
-    reliability: 'medium',
-    icon: '⚰️📈',
-    color: '#FF4560'
+    sentiment: 'neutral',
+    reliability: 'high',
+    icon: '⚪🎯',
+    color: '#FEB019'
   }
 };
 

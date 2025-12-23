@@ -27,6 +27,9 @@ const AdvanceSignalModal = ({
   
   const bearishCombos = useMemo(() => 
     allCombos.filter(c => c.sentiment === 'bearish'), [allCombos]);
+  
+  const neutralCombos = useMemo(() => 
+    allCombos.filter(c => c.sentiment === 'neutral'), [allCombos]);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -202,6 +205,42 @@ const AdvanceSignalModal = ({
                   ))}
                 </div>
               </div>
+
+              {/* Neutral Combos (Breakout) */}
+              {neutralCombos.length > 0 && (
+                <div className="combo-section">
+                  <h3 className="section-title neutral">⚡ Tín hiệu Breakout (Neutral)</h3>
+                  <div className="combo-list">
+                    {neutralCombos.map(combo => (
+                      <div 
+                        key={combo.id} 
+                        className={`combo-item ${activeComboSignals?.includes(combo.id) ? 'active' : ''}`}
+                        onClick={() => handleToggleCombo(combo.id)}
+                      >
+                        <div className="combo-icon">{combo.icon}</div>
+                        <div className="combo-info">
+                          <div className="combo-name">{combo.name}</div>
+                          <div className="combo-desc">{combo.description}</div>
+                          <div className="combo-meta">
+                            <span className={`reliability ${combo.reliability}`}>
+                              {combo.reliability === 'very_high' ? '⭐⭐⭐' : 
+                               combo.reliability === 'high' ? '⭐⭐' : '⭐'}
+                            </span>
+                            <span className="target">
+                              Target: ±{combo.prediction.targetGain}% / {combo.prediction.timeframe} phiên
+                            </span>
+                          </div>
+                        </div>
+                        <div className="combo-toggle">
+                          <span className={`toggle ${activeComboSignals?.includes(combo.id) ? 'on' : 'off'}`}>
+                            {activeComboSignals?.includes(combo.id) ? '✓ ON' : 'OFF'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -235,6 +274,15 @@ const AdvanceSignalModal = ({
                         </option>
                       ))}
                     </optgroup>
+                    {neutralCombos.length > 0 && (
+                      <optgroup label="⚡ Breakout">
+                        {neutralCombos.map(combo => (
+                          <option key={combo.id} value={combo.id}>
+                            {combo.icon} {combo.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
@@ -248,7 +296,12 @@ const AdvanceSignalModal = ({
                     <option value={1}>1 tháng</option>
                     <option value={3}>3 tháng</option>
                     <option value={6}>6 tháng</option>
-                    <option value={12}>12 tháng</option>
+                    <option value={12}>1 năm</option>
+                    <option value={24}>2 năm</option>
+                    <option value={36}>3 năm</option>
+                    <option value={60}>5 năm</option>
+                    <option value={84}>7 năm</option>
+                    <option value={120}>10 năm</option>
                   </select>
                 </div>
 
@@ -266,7 +319,42 @@ const AdvanceSignalModal = ({
                 <div className="selected-combo-info">
                   {(() => {
                     const combo = getComboSignal(selectedCombo);
-                    return combo ? (
+                    if (!combo) return null;
+                    
+                    // Helper function to format indicator display
+                    const formatIndicator = (indicator) => {
+                      if (indicator.type === 'rsi') {
+                        const conditionSymbol = indicator.condition === 'lessThan' ? '<' : 
+                                                indicator.condition === 'greaterThan' ? '>' : '=';
+                        return `RSI(${indicator.period}) ${conditionSymbol} ${indicator.threshold}`;
+                      } else if (indicator.type === 'macd_crossover') {
+                        return indicator.condition === 'crossUp' 
+                          ? `MACD(${indicator.fastPeriod},${indicator.slowPeriod},${indicator.signalPeriod}) cắt lên Signal`
+                          : `MACD(${indicator.fastPeriod},${indicator.slowPeriod},${indicator.signalPeriod}) cắt xuống Signal`;
+                      } else if (indicator.type === 'bollinger_squeeze') {
+                        return `Bollinger Bands(${indicator.period},${indicator.stdDev}) bó hẹp ≤ ${indicator.threshold}%`;
+                      }
+                      return indicator.type;
+                    };
+                    
+                    // Format prediction direction
+                    const formatDirection = (direction) => {
+                      if (direction === 'bullish') return 'Tăng';
+                      if (direction === 'bearish') return 'Giảm';
+                      return 'Breakout (tăng hoặc giảm mạnh)';
+                    };
+                    
+                    // Format evaluation criteria
+                    const formatEvaluation = (prediction) => {
+                      if (prediction.direction === 'neutral') {
+                        return `✓ ĐÚNG nếu giá biến động ≥ ±${prediction.targetGain}% | ✗ SAI nếu biên động chỉ trong ±${prediction.stopLoss}%`;
+                      }
+                      const gainSign = prediction.direction === 'bullish' ? '+' : '-';
+                      const lossSign = prediction.direction === 'bullish' ? '-' : '+';
+                      return `✓ ĐÚNG nếu đạt ${gainSign}${prediction.targetGain}% | ✗ SAI nếu chạm ${lossSign}${prediction.stopLoss}%`;
+                    };
+                    
+                    return (
                       <>
                         <div className="combo-header">
                           <span className="combo-icon-large">{combo.icon}</span>
@@ -281,27 +369,31 @@ const AdvanceSignalModal = ({
                             <span className="rule-value">{combo.pattern.replace(/_/g, ' ')}</span>
                           </div>
                           <div className="rule">
-                            <span className="rule-label">Indicator:</span>
+                            <span className="rule-label">Chỉ báo:</span>
                             <span className="rule-value">
-                              RSI({combo.indicator.period}) {combo.indicator.condition === 'lessThan' ? '<' : '>'} {combo.indicator.threshold}
+                              {combo.indicators.map((ind, idx) => (
+                                <span key={idx}>
+                                  {formatIndicator(ind)}
+                                  {idx < combo.indicators.length - 1 && ' + '}
+                                </span>
+                              ))}
                             </span>
                           </div>
                           <div className="rule">
                             <span className="rule-label">Dự báo:</span>
                             <span className="rule-value">
-                              {combo.prediction.direction === 'bullish' ? 'Tăng' : 'Giảm'} trong {combo.prediction.timeframe} phiên
+                              {formatDirection(combo.prediction.direction)} trong {combo.prediction.timeframe} phiên
                             </span>
                           </div>
                           <div className="rule">
                             <span className="rule-label">Đánh giá:</span>
                             <span className="rule-value">
-                              ✓ ĐÚNG nếu đạt {combo.prediction.direction === 'bullish' ? '+' : '-'}{combo.prediction.targetGain}% | 
-                              ✗ SAI nếu chạm {combo.prediction.direction === 'bullish' ? '-' : '+'}{combo.prediction.stopLoss}%
+                              {formatEvaluation(combo.prediction)}
                             </span>
                           </div>
                         </div>
                       </>
-                    ) : null;
+                    );
                   })()}
                 </div>
               )}
@@ -311,31 +403,54 @@ const AdvanceSignalModal = ({
                 <div className="backtest-results">
                   <h3>📊 Kết quả Backtest</h3>
                   
-                  {/* Statistics */}
-                  <div className="stats-grid">
-                    <div className="stat-card">
-                      <div className="stat-value">{currentBacktestResult.totalSignals}</div>
-                      <div className="stat-label">Tổng tín hiệu</div>
+                  {/* Warning: No signals found */}
+                  {currentBacktestResult.totalSignals === 0 && (
+                    <div className="no-signals-warning">
+                      <span className="warning-icon">⚠️</span>
+                      <div className="warning-content">
+                        <strong>Không tìm thấy tín hiệu nào thỏa mãn điều kiện!</strong>
+                        <p>
+                          Trong khoảng thời gian {currentBacktestResult.lookbackMonths >= 12 
+                            ? `${Math.floor(currentBacktestResult.lookbackMonths / 12)} năm` 
+                            : `${currentBacktestResult.lookbackMonths} tháng`} với {currentBacktestResult.totalCandles} phiên giao dịch, 
+                          không có thời điểm nào đồng thời xuất hiện mô hình nến và các điều kiện chỉ báo kỹ thuật được yêu cầu.
+                        </p>
+                        <p className="suggestion">
+                          💡 Gợi ý: Thử mở rộng khoảng thời gian hoặc chọn combo tín hiệu khác.
+                        </p>
+                      </div>
                     </div>
-                    <div className="stat-card success">
-                      <div className="stat-value">{currentBacktestResult.successCount}</div>
-                      <div className="stat-label">Đúng ({currentBacktestResult.successRate}%)</div>
-                    </div>
-                    <div className="stat-card failure">
-                      <div className="stat-value">{currentBacktestResult.failureCount}</div>
-                      <div className="stat-label">Sai ({currentBacktestResult.failureRate}%)</div>
-                    </div>
-                    <div className="stat-card neutral">
-                      <div className="stat-value">{currentBacktestResult.neutralCount}</div>
-                      <div className="stat-label">Trung lập ({currentBacktestResult.neutralRate}%)</div>
-                    </div>
-                  </div>
+                  )}
+                  
+                  {/* Statistics - only show if there are signals */}
+                  {currentBacktestResult.totalSignals > 0 && (
+                    <>
+                      <div className="stats-grid">
+                        <div className="stat-card">
+                          <div className="stat-value">{currentBacktestResult.totalSignals}</div>
+                          <div className="stat-label">Tổng tín hiệu</div>
+                        </div>
+                        <div className="stat-card success">
+                          <div className="stat-value">{currentBacktestResult.successCount}</div>
+                          <div className="stat-label">Đúng ({currentBacktestResult.successRate}%)</div>
+                        </div>
+                        <div className="stat-card failure">
+                          <div className="stat-value">{currentBacktestResult.failureCount}</div>
+                          <div className="stat-label">Sai ({currentBacktestResult.failureRate}%)</div>
+                        </div>
+                        <div className="stat-card neutral">
+                          <div className="stat-value">{currentBacktestResult.neutralCount}</div>
+                          <div className="stat-label">Trung lập ({currentBacktestResult.neutralRate}%)</div>
+                        </div>
+                      </div>
 
-                  {/* Performance */}
-                  <div className="performance-info">
-                    <span>Avg Max Gain: <strong className="gain">+{currentBacktestResult.avgMaxGain}%</strong></span>
-                    <span>Avg Max Loss: <strong className="loss">-{currentBacktestResult.avgMaxLoss}%</strong></span>
-                  </div>
+                      {/* Performance */}
+                      <div className="performance-info">
+                        <span>Avg Max Gain: <strong className="gain">+{currentBacktestResult.avgMaxGain}%</strong></span>
+                        <span>Avg Max Loss: <strong className="loss">-{currentBacktestResult.avgMaxLoss}%</strong></span>
+                      </div>
+                    </>
+                  )}
 
                   {/* Signal Details */}
                   {currentBacktestResult.evaluations?.length > 0 && (
@@ -345,23 +460,40 @@ const AdvanceSignalModal = ({
                         <div className="table-header">
                           <span>Ngày</span>
                           <span>Giá vào</span>
-                          <span>RSI</span>
+                          <span>Chỉ báo</span>
                           <span>Kết quả</span>
                           <span>Max Gain</span>
                           <span>Max Loss</span>
                         </div>
-                        {currentBacktestResult.evaluations.map((eval_, idx) => (
-                          <div key={idx} className={`table-row ${getResultClass(eval_.result)}`}>
-                            <span>{formatDate(eval_.signalTime)}</span>
-                            <span>{eval_.entryPrice?.toFixed(2)}</span>
-                            <span>{eval_.indicatorValue?.toFixed(1)}</span>
-                            <span className="result-badge">
-                              {getResultIcon(eval_.result)} {eval_.result === 'success' ? 'Đúng' : eval_.result === 'failure' ? 'Sai' : 'Trung lập'}
-                            </span>
-                            <span className="gain">+{eval_.maxGain}%</span>
-                            <span className="loss">-{eval_.maxLoss}%</span>
-                          </div>
-                        ))}
+                        {currentBacktestResult.evaluations.map((eval_, idx) => {
+                          // Format indicator display
+                          const formatIndicatorValue = (indicators) => {
+                            if (!indicators || indicators.length === 0) return '-';
+                            return indicators.map(ind => {
+                              if (ind.type === 'rsi' && typeof ind.value === 'number') {
+                                return `RSI: ${ind.value.toFixed(1)}`;
+                              } else if (ind.type === 'macd_crossover' && ind.value) {
+                                return ind.value.crossUp ? 'MACD↑' : ind.value.crossDown ? 'MACD↓' : 'MACD';
+                              } else if (ind.type === 'bollinger_squeeze' && ind.value) {
+                                return `BB: ${ind.value.bandwidth?.toFixed(1)}%`;
+                              }
+                              return ind.type;
+                            }).join(', ');
+                          };
+                          
+                          return (
+                            <div key={idx} className={`table-row ${getResultClass(eval_.result)}`}>
+                              <span>{formatDate(eval_.signalTime)}</span>
+                              <span>{eval_.entryPrice?.toFixed(2)}</span>
+                              <span>{formatIndicatorValue(eval_.indicators)}</span>
+                              <span className="result-badge">
+                                {getResultIcon(eval_.result)} {eval_.result === 'success' ? 'Đúng' : eval_.result === 'failure' ? 'Sai' : 'Trung lập'}
+                              </span>
+                              <span className="gain">+{eval_.maxGain}%</span>
+                              <span className="loss">-{eval_.maxLoss}%</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

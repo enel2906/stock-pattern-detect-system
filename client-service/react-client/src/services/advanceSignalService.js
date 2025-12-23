@@ -3,7 +3,7 @@
  * Service xử lý logic phát hiện combo tín hiệu và backtest
  */
 
-import { calculateRSI } from './technicalIndicators';
+import { calculateRSI, calculateMACD, calculateBollingerBands } from './technicalIndicators';
 import { 
   detectHammer, 
   detectInvertedHammer, 
@@ -12,7 +12,8 @@ import {
   detectBullishEngulfing,
   detectBearishEngulfing,
   detectDragonflyDoji,
-  detectGravestoneDoji
+  detectGravestoneDoji,
+  detectDoji
 } from './candlePatternDetector';
 import { detectMorningStar, detectEveningStar } from './candlePatternDetectorPart2';
 import { getComboSignal, getAllComboSignals } from '../constants/comboSignalDefinitions';
@@ -29,6 +30,7 @@ const PATTERN_DETECTORS = {
   'evening_star': detectEveningStar,
   'dragonfly_doji': detectDragonflyDoji,
   'gravestone_doji': detectGravestoneDoji,
+  'doji': detectDoji,
 };
 
 /**
@@ -58,9 +60,10 @@ const detectPattern = (patternName, candles) => {
  * @param {Array} candles - Candle data
  * @param {number} period - Indicator period
  * @param {number} targetIndex - Index to get value at
- * @returns {number|null} Indicator value or null
+ * @param {Object} indicatorConfig - Additional indicator configuration
+ * @returns {number|Object|null} Indicator value or null
  */
-const getIndicatorValueAtIndex = (indicatorType, candles, period, targetIndex) => {
+const getIndicatorValueAtIndex = (indicatorType, candles, period, targetIndex, indicatorConfig = {}) => {
   if (indicatorType === 'rsi') {
     const rsiData = calculateRSI(candles, period);
     // RSI data starts from index = period
@@ -68,14 +71,72 @@ const getIndicatorValueAtIndex = (indicatorType, candles, period, targetIndex) =
     if (rsiIndex >= 0 && rsiIndex < rsiData.length) {
       return rsiData[rsiIndex].value;
     }
+  } else if (indicatorType === 'macd_crossover') {
+    const { fastPeriod = 12, slowPeriod = 26, signalPeriod = 9 } = indicatorConfig;
+    const macdData = calculateMACD(candles, fastPeriod, slowPeriod, signalPeriod);
+    
+    if (!macdData.macd.length || !macdData.signal.length) return null;
+    
+    // Find the MACD and Signal values at targetIndex
+    const targetTime = candles[targetIndex]?.time;
+    const currentMacdIdx = macdData.macd.findIndex(m => m.time === targetTime);
+    const currentSignalIdx = macdData.signal.findIndex(s => s.time === targetTime);
+    
+    if (currentMacdIdx < 1 || currentSignalIdx < 1) return null;
+    
+    // Get current and previous values
+    const macdNow = macdData.macd[currentMacdIdx]?.value;
+    const macdPrev = macdData.macd[currentMacdIdx - 1]?.value;
+    const signalNow = macdData.signal[currentSignalIdx]?.value;
+    const signalPrev = macdData.signal[currentSignalIdx - 1]?.value;
+    
+    if (macdNow === undefined || macdPrev === undefined || 
+        signalNow === undefined || signalPrev === undefined) return null;
+    
+    return {
+      macdNow,
+      macdPrev,
+      signalNow,
+      signalPrev,
+      crossUp: macdPrev < signalPrev && macdNow >= signalNow,
+      crossDown: macdPrev > signalPrev && macdNow <= signalNow
+    };
+  } else if (indicatorType === 'bollinger_squeeze') {
+    const { period: bbPeriod = 20, stdDev = 2 } = indicatorConfig;
+    const bbData = calculateBollingerBands(candles, bbPeriod, stdDev);
+    
+    if (!bbData.upper.length || !bbData.middle.length || !bbData.lower.length) return null;
+    
+    // Find the BB values at targetIndex
+    const targetTime = candles[targetIndex]?.time;
+    const bbIndex = bbData.upper.findIndex(u => u.time === targetTime);
+    
+    if (bbIndex < 0) return null;
+    
+    const upper = bbData.upper[bbIndex]?.value;
+    const middle = bbData.middle[bbIndex]?.value;
+    const lower = bbData.lower[bbIndex]?.value;
+    
+    if (upper === undefined || middle === undefined || lower === undefined || middle === 0) return null;
+    
+    // Calculate bandwidth: (Upper - Lower) / Middle * 100
+    const bandwidth = ((upper - lower) / middle) * 100;
+    
+    return {
+      upper,
+      middle,
+      lower,
+      bandwidth,
+      isSqueeze: bandwidth <= (indicatorConfig.threshold || 5)
+    };
   }
   return null;
 };
 
 /**
  * Check if indicator condition is met
- * @param {number} value - Indicator value
- * @param {string} condition - Condition type (lessThan, greaterThan, etc.)
+ * @param {number|Object} value - Indicator value
+ * @param {string} condition - Condition type (lessThan, greaterThan, crossUp, crossDown, squeeze)
  * @param {number} threshold - Threshold value
  * @returns {boolean}
  */
@@ -84,15 +145,21 @@ const checkIndicatorCondition = (value, condition, threshold) => {
   
   switch (condition) {
     case 'lessThan':
-      return value < threshold;
+      return typeof value === 'number' && value < threshold;
     case 'greaterThan':
-      return value > threshold;
+      return typeof value === 'number' && value > threshold;
     case 'equals':
-      return Math.abs(value - threshold) < 0.01;
+      return typeof value === 'number' && Math.abs(value - threshold) < 0.01;
     case 'lessThanOrEqual':
-      return value <= threshold;
+      return typeof value === 'number' && value <= threshold;
     case 'greaterThanOrEqual':
-      return value >= threshold;
+      return typeof value === 'number' && value >= threshold;
+    case 'crossUp':
+      return typeof value === 'object' && value.crossUp === true;
+    case 'crossDown':
+      return typeof value === 'object' && value.crossDown === true;
+    case 'squeeze':
+      return typeof value === 'object' && value.isSqueeze === true;
     default:
       return false;
   }
@@ -111,7 +178,7 @@ export const detectComboSignal = (comboId, candles) => {
     return [];
   }
 
-  const { pattern, indicator } = combo;
+  const { pattern, indicators } = combo;
   const signals = [];
 
   // Detect all patterns
@@ -119,35 +186,59 @@ export const detectComboSignal = (comboId, candles) => {
   
   console.log(`Detected ${detectedPatterns.length} ${pattern} patterns`);
 
-  // For each pattern, check if indicator condition is met
+  // For each pattern, check if ALL indicator conditions are met
   detectedPatterns.forEach(patternData => {
     const patternIndex = patternData.index;
     if (patternIndex === undefined) return;
 
-    // Get indicator value at pattern index
-    const indicatorValue = getIndicatorValueAtIndex(
-      indicator.type,
-      candles,
-      indicator.period,
-      patternIndex
-    );
+    // Check all indicators
+    const indicatorResults = [];
+    let allConditionsMet = true;
 
-    console.log(`Pattern at index ${patternIndex}, ${indicator.type} = ${indicatorValue}`);
+    for (const indicator of indicators) {
+      // Get indicator value at pattern index
+      const indicatorValue = getIndicatorValueAtIndex(
+        indicator.type,
+        candles,
+        indicator.period || 14,
+        patternIndex,
+        indicator // Pass full config for MACD and Bollinger
+      );
 
-    // Check if indicator condition is met
-    if (checkIndicatorCondition(indicatorValue, indicator.condition, indicator.threshold)) {
+      const conditionMet = checkIndicatorCondition(
+        indicatorValue, 
+        indicator.condition, 
+        indicator.threshold
+      );
+
+      indicatorResults.push({
+        type: indicator.type,
+        value: indicatorValue,
+        threshold: indicator.threshold,
+        condition: indicator.condition,
+        met: conditionMet
+      });
+
+      if (!conditionMet) {
+        allConditionsMet = false;
+        break;
+      }
+    }
+
+    console.log(`Pattern at index ${patternIndex}, indicators:`, indicatorResults);
+
+    // Check if ALL indicator conditions are met
+    if (allConditionsMet) {
       signals.push({
         comboId,
         time: patternData.time,
         index: patternIndex,
         patternName: pattern,
-        indicatorType: indicator.type,
-        indicatorValue: indicatorValue,
-        indicatorThreshold: indicator.threshold,
+        indicators: indicatorResults,
         price: patternData.close,
         candle: candles[patternIndex]
       });
-      console.log(`✅ Combo signal found at ${patternData.time}, RSI=${indicatorValue}`);
+      console.log(`✅ Combo signal found at ${patternData.time}`, indicatorResults);
     }
   });
 
@@ -182,12 +273,14 @@ const evaluateSignal = (signal, candles, prediction) => {
   const { direction, timeframe, targetGain, stopLoss } = prediction;
   
   const entryPrice = candle.close;
-  const targetPrice = direction === 'bullish' 
-    ? entryPrice * (1 + targetGain / 100)
-    : entryPrice * (1 - targetGain / 100);
-  const stopPrice = direction === 'bullish'
-    ? entryPrice * (1 - stopLoss / 100)
-    : entryPrice * (1 + stopLoss / 100);
+  
+  // For neutral direction (breakout in either direction), we check for ±targetGain%
+  const isNeutral = direction === 'neutral';
+  
+  const targetPriceUp = entryPrice * (1 + targetGain / 100);
+  const targetPriceDown = entryPrice * (1 - targetGain / 100);
+  const stopPriceUp = entryPrice * (1 + stopLoss / 100); // For neutral: if stays within ±stopLoss%, it's failure
+  const stopPriceDown = entryPrice * (1 - stopLoss / 100);
 
   let result = 'neutral'; // neutral, success, failure
   let exitIndex = null;
@@ -195,6 +288,7 @@ const evaluateSignal = (signal, candles, prediction) => {
   let exitTime = null;
   let maxGain = 0;
   let maxLoss = 0;
+  let breakoutDirection = null;
 
   // Evaluate next N candles
   for (let i = 1; i <= timeframe && (index + i) < candles.length; i++) {
@@ -203,7 +297,35 @@ const evaluateSignal = (signal, candles, prediction) => {
     const currentLow = futureCandle.low;
     const currentClose = futureCandle.close;
 
-    if (direction === 'bullish') {
+    if (isNeutral) {
+      // For neutral (breakout) direction - success if price moves ±targetGain%
+      const gainUp = ((currentHigh - entryPrice) / entryPrice) * 100;
+      const gainDown = ((entryPrice - currentLow) / entryPrice) * 100;
+      maxGain = Math.max(maxGain, gainUp, gainDown);
+      maxLoss = Math.min(
+        Math.abs(((currentClose - entryPrice) / entryPrice) * 100),
+        maxLoss || 999
+      );
+
+      // Check for breakout up
+      if (currentHigh >= targetPriceUp) {
+        result = 'success';
+        exitIndex = index + i;
+        exitPrice = targetPriceUp;
+        exitTime = futureCandle.time;
+        breakoutDirection = 'up';
+        break;
+      }
+      // Check for breakout down
+      if (currentLow <= targetPriceDown) {
+        result = 'success';
+        exitIndex = index + i;
+        exitPrice = targetPriceDown;
+        exitTime = futureCandle.time;
+        breakoutDirection = 'down';
+        break;
+      }
+    } else if (direction === 'bullish') {
       // Track max gain
       const gain = ((currentHigh - entryPrice) / entryPrice) * 100;
       const loss = ((entryPrice - currentLow) / entryPrice) * 100;
@@ -211,18 +333,18 @@ const evaluateSignal = (signal, candles, prediction) => {
       maxLoss = Math.max(maxLoss, loss);
 
       // Check stop loss first
-      if (currentLow <= stopPrice) {
+      if (currentLow <= stopPriceDown) {
         result = 'failure';
         exitIndex = index + i;
-        exitPrice = stopPrice;
+        exitPrice = stopPriceDown;
         exitTime = futureCandle.time;
         break;
       }
       // Check target
-      if (currentHigh >= targetPrice) {
+      if (currentHigh >= targetPriceUp) {
         result = 'success';
         exitIndex = index + i;
-        exitPrice = targetPrice;
+        exitPrice = targetPriceUp;
         exitTime = futureCandle.time;
         break;
       }
@@ -234,37 +356,53 @@ const evaluateSignal = (signal, candles, prediction) => {
       maxLoss = Math.max(maxLoss, loss);
 
       // Check stop loss first
-      if (currentHigh >= stopPrice) {
+      if (currentHigh >= stopPriceUp) {
         result = 'failure';
         exitIndex = index + i;
-        exitPrice = stopPrice;
+        exitPrice = stopPriceUp;
         exitTime = futureCandle.time;
         break;
       }
       // Check target
-      if (currentLow <= targetPrice) {
+      if (currentLow <= targetPriceDown) {
         result = 'success';
         exitIndex = index + i;
-        exitPrice = targetPrice;
+        exitPrice = targetPriceDown;
         exitTime = futureCandle.time;
         break;
       }
     }
   }
 
+  // For neutral signals that didn't breakout
+  if (isNeutral && result === 'neutral') {
+    // Check if the max movement was too small (stayed within ±stopLoss%)
+    if (maxGain < stopLoss) {
+      result = 'failure'; // No significant breakout
+    }
+  }
+
+  // Get indicator info for display
+  const indicatorInfo = signal.indicators || [];
+  const primaryIndicator = indicatorInfo[0];
+
   return {
     signalTime: time,
     signalIndex: index,
     entryPrice,
-    targetPrice,
-    stopPrice,
+    targetPriceUp,
+    targetPriceDown,
+    stopPriceUp,
+    stopPriceDown,
     result,
     exitTime,
     exitIndex,
     exitPrice,
     maxGain: maxGain.toFixed(2),
     maxLoss: maxLoss.toFixed(2),
-    indicatorValue: signal.indicatorValue,
+    indicators: indicatorInfo,
+    indicatorValue: primaryIndicator?.value,
+    breakoutDirection,
     daysHeld: exitIndex ? exitIndex - index : timeframe
   };
 };
