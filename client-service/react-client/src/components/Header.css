@@ -116,7 +116,8 @@ body.light .about-link.active {
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .control-row {
@@ -466,10 +467,12 @@ body.light .advance-signal-button:hover {
 .user-menu {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-left: 8px;
   padding-left: 12px;
   border-left: 1px solid #2a313d;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
 }
 
 .user-info {
@@ -547,14 +550,50 @@ optgroup[label*="Complex"] {
   border-left: 4px solid #e91e63;
 }
 
-@media (max-width: 720px) {
-  .app-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
+@media (max-width: 1200px) {
   .controls {
     gap: 6px;
+  }
+  
+  .controls button .label {
+    display: none;
+  }
+  
+  .controls button {
+    padding: 8px 10px !important;
+  }
+  
+  .nav-button .label,
+  .news-button .label,
+  .financial-button .label,
+  .indicators-button .label,
+  .advance-signal-button .label,
+  .about-link .label {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .controls {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-header {
+    padding: 10px 12px;
+  }
+  
+  .header-left {
+    gap: 8px;
+  }
+  
+  .header-brand-name {
+    font-size: 20px;
+  }
+  
+  .user-menu {
+    flex-wrap: wrap;
   }
 }
 
@@ -572,22 +611,33 @@ optgroup[label*="Complex"] {
 }
 
 .admin-button {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  padding: 6px 10px;
-  background: linear-gradient(135deg, rgba(74, 144, 217, 0.2) 0%, rgba(53, 122, 189, 0.2) 100%);
-  border: 1px solid rgba(74, 144, 217, 0.3);
+  padding: 8px 10px !important;
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.2) 0%, rgba(53, 122, 189, 0.2) 100%) !important;
+  border: 1px solid rgba(74, 144, 217, 0.3) !important;
   border-radius: 6px;
-  color: #4a90d9;
+  color: #4a90d9 !important;
   cursor: pointer;
   font-size: 16px;
   transition: all 0.2s ease;
 }
 
 .admin-button:hover {
-  background: linear-gradient(135deg, rgba(74, 144, 217, 0.3) 0%, rgba(53, 122, 189, 0.3) 100%);
-  border-color: rgba(74, 144, 217, 0.5);
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.3) 0%, rgba(53, 122, 189, 0.3) 100%) !important;
+  border-color: rgba(74, 144, 217, 0.5) !important;
   transform: translateY(-1px);
+  opacity: 1 !important;
+}
+
+body.light .admin-button {
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.15) 0%, rgba(53, 122, 189, 0.15) 100%) !important;
+  border-color: rgba(74, 144, 217, 0.25) !important;
+  color: #357abd !important;
+}
+
+body.light .admin-button:hover {
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.25) 0%, rgba(53, 122, 189, 0.25) 100%) !important;
 }
 

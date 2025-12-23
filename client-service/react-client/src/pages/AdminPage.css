@@ -292,8 +292,8 @@
   cursor: not-allowed;
 }
 
-/* Modal */
-.modal-overlay {
+/* Modal - Scoped to admin page only */
+.admin-page .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -307,7 +307,7 @@
   backdrop-filter: blur(5px);
 }
 
-.modal-content {
+.admin-page .modal-content {
   background: linear-gradient(135deg, #1a1a2e, #16213e);
   border-radius: 16px;
   padding: 30px;
@@ -318,24 +318,24 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
-.modal-content h3 {
+.admin-page .modal-content h3 {
   margin: 0 0 15px 0;
   font-size: 20px;
   color: #ff6b6b;
 }
 
-.modal-content p {
+.admin-page .modal-content p {
   margin: 0 0 10px 0;
   color: #e4e4e4;
 }
 
-.warning-text {
+.admin-page .warning-text {
   color: #ffa502 !important;
   font-size: 13px;
   font-style: italic;
 }
 
-.modal-actions {
+.admin-page .modal-actions {
   display: flex;
   gap: 15px;
   justify-content: center;
@@ -656,14 +656,14 @@
   text-align: left;
 }
 
-.modal-header {
+.admin-page .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
 }
 
-.modal-header h3 {
+.admin-page .modal-header h3 {
   margin: 0;
   color: #4a90d9;
 }

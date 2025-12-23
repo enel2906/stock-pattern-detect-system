@@ -140,7 +140,6 @@ const Header = ({
             <div className="user-menu">
               <div className="user-info">
                 <span className="user-name">{user.fullName || user.username}</span>
-                {isAdmin && <span className="admin-badge">Admin</span>}
               </div>
               {isAdmin && (
                 <button 

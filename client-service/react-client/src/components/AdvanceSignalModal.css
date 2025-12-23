@@ -1,9 +1,24 @@
 /* AdvanceSignalModal.css - Styling for Advance Signal Modal */
 
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  padding: 20px;
+}
+
 .advance-signal-modal {
   background: var(--card-bg, #1a1d26);
   border-radius: 16px;
-  width: 90%;
+  width: 100%;
   max-width: 800px;
   max-height: 85vh;
   overflow: hidden;
@@ -11,6 +26,7 @@
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--border-color, #2b3240);
+  margin: 0 auto;
 }
 
 /* Header */
@@ -102,22 +118,45 @@
 .advance-signal-modal .modal-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 16px 20px;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.monitor-tab,
+.backtest-tab {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .advance-signal-modal .tab-description {
   color: var(--text-secondary, #8896a6);
   font-size: 0.9rem;
   margin-bottom: 16px;
-  padding: 12px;
+  padding: 12px 16px;
   background: rgba(99, 102, 241, 0.1);
   border-radius: 8px;
   border-left: 3px solid #6366f1;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  align-self: stretch;
 }
 
 /* Combo Section */
 .combo-section {
   margin-bottom: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .section-title {
@@ -244,6 +283,8 @@
   padding: 16px;
   background: var(--bg-secondary, #151821);
   border-radius: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .setting-group {
@@ -252,6 +293,7 @@
   gap: 6px;
   flex: 1;
   min-width: 150px;
+  box-sizing: border-box;
 }
 
 .setting-group label {
@@ -268,6 +310,8 @@
   color: var(--text-primary, #ffffff);
   font-size: 0.9rem;
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .combo-select:focus,
@@ -305,6 +349,8 @@
   padding: 16px;
   margin-bottom: 20px;
   border: 1px solid var(--border-color, #2b3240);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .combo-header {
@@ -355,6 +401,8 @@
   border-radius: 10px;
   padding: 16px;
   border: 1px solid var(--border-color, #2b3240);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .backtest-results h3 {
@@ -569,24 +617,24 @@
     width: 95%;
     max-height: 90vh;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .backtest-settings {
     flex-direction: column;
   }
-  
+
   .setting-group {
     width: 100%;
   }
-  
+
   .table-header,
   .table-row {
     grid-template-columns: 1fr 1fr 1fr;
   }
-  
+
   .table-header span:nth-child(n+4),
   .table-row span:nth-child(n+4) {
     display: none;

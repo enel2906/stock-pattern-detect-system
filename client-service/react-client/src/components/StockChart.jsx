@@ -310,7 +310,7 @@ const StockChart = ({
           onCandleDataUpdate([...data]);
         }
 
-        onStatusChange(`Sẵn sàng. Đã tải ${data.length} phiên cho ${stockSymbol}.`);
+        onStatusChange(`${stockSymbol}`);
       } else {
         originalDataRef.current = [];
         volumeMapRef.current.clear();
