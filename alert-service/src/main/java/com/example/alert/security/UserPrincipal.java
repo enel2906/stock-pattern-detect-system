@@ -3,10 +3,11 @@ package com.example.alert.security;
 import com.example.alert.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 
 @RequiredArgsConstructor
 public class UserPrincipal implements UserDetails {
@@ -15,7 +16,10 @@ public class UserPrincipal implements UserDetails {
     
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.emptyList();
+        if (user.getRole() != null) {
+            return List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        }
+        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
     
     @Override

@@ -36,6 +36,9 @@ public class User {
     
     private String googleId;
     
+    @Builder.Default
+    private Role role = Role.USER;
+    
     private LocalDateTime createdAt;
     
     private LocalDateTime updatedAt;
@@ -43,5 +46,10 @@ public class User {
     public enum AuthProvider {
         LOCAL,
         GOOGLE
+    }
+    
+    public enum Role {
+        USER,
+        ADMIN
     }
 }

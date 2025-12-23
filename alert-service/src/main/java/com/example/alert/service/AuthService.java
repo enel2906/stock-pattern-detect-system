@@ -40,6 +40,7 @@ public class AuthService {
                 .fullName(request.getFullName())
                 .age(request.getAge())
                 .authProvider(User.AuthProvider.LOCAL)
+                .role(User.Role.USER)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();

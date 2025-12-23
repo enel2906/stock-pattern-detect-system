@@ -7,6 +7,7 @@ import AuthPage from './pages/AuthPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import WatchlistPage from './pages/WatchlistPage';
 import AboutPage from './pages/AboutPage';
+import AdminPage from './pages/AdminPage';
 import NewsModal from './components/NewsModal';
 import FinancialReportModal from './components/FinancialReportModal';
 import './App.css';
@@ -304,6 +305,7 @@ function App() {
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/watchlist" element={<WatchlistPage />} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/admin" element={<AdminPage />} />
       <Route path="/" element={<MainApp />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

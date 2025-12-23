@@ -557,3 +557,37 @@ optgroup[label*="Complex"] {
     gap: 6px;
   }
 }
+
+/* Admin Badge & Button */
+.admin-badge {
+  background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+}
+
+.admin-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.2) 0%, rgba(53, 122, 189, 0.2) 100%);
+  border: 1px solid rgba(74, 144, 217, 0.3);
+  border-radius: 6px;
+  color: #4a90d9;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.admin-button:hover {
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.3) 0%, rgba(53, 122, 189, 0.3) 100%);
+  border-color: rgba(74, 144, 217, 0.5);
+  transform: translateY(-1px);
+}
+

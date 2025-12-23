@@ -1,10 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
-import { STOCK_OPTIONS } from '../constants/stockOptions';
+import { stockApi } from '../services/api';
 import './StockSearchModal.css';
 
 const StockSearchModal = ({ isOpen, onClose, onSelectStock, currentStock }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [stocks, setStocks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const searchInputRef = useRef(null);
+
+  // Load stocks from database when modal opens
+  useEffect(() => {
+    const loadStocks = async () => {
+      if (!isOpen) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await stockApi.getAllStocks();
+        setStocks(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Failed to load stocks:', err);
+        setError('Không thể tải danh sách cổ phiếu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStocks();
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
@@ -37,14 +61,33 @@ const StockSearchModal = ({ isOpen, onClose, onSelectStock, currentStock }) => {
     onClose();
   };
 
+  // Group stocks by market
+  const groupedStocks = stocks.reduce((groups, stock) => {
+    const market = stock.market || 'OTHER';
+    if (!groups[market]) {
+      groups[market] = [];
+    }
+    groups[market].push(stock);
+    return groups;
+  }, {});
+
+  // Market display names
+  const marketLabels = {
+    'HOSE': '🇻🇳 HOSE (Ho Chi Minh Stock Exchange)',
+    'HNX': '🇻🇳 HNX (Hanoi Stock Exchange)',
+    'UPCOM': '🇻🇳 UPCOM (Unlisted Public Company Market)',
+    'US': '🌍 International Stocks',
+    'OTHER': '📊 Other'
+  };
+
   // Filter stocks based on search query
-  const filterStocks = (options) => {
-    if (!searchQuery.trim()) return options;
+  const filterStocks = (stocksList) => {
+    if (!searchQuery.trim()) return stocksList;
     
     const query = searchQuery.toLowerCase();
-    return options.filter(stock => 
-      stock.value.toLowerCase().includes(query) || 
-      stock.label.toLowerCase().includes(query)
+    return stocksList.filter(stock => 
+      stock.symbol?.toLowerCase().includes(query) || 
+      stock.name?.toLowerCase().includes(query)
     );
   };
 
@@ -72,37 +115,53 @@ const StockSearchModal = ({ isOpen, onClose, onSelectStock, currentStock }) => {
         </div>
 
         <div className="stock-search-results">
-          {STOCK_OPTIONS.map((group, groupIndex) => {
-            const filteredOptions = filterStocks(group.options);
-            
-            if (filteredOptions.length === 0) return null;
-
-            return (
-              <div key={groupIndex} className="stock-group">
-                <div className="stock-group-header">{group.group}</div>
-                <div className="stock-options-list">
-                  {filteredOptions.map((stock) => (
-                    <button
-                      key={stock.value}
-                      className={`stock-option-item ${currentStock === stock.value ? 'selected' : ''}`}
-                      onClick={() => handleStockClick(stock.value)}
-                    >
-                      <span className="stock-symbol">{stock.value}</span>
-                      <span className="stock-name">{stock.label.split(' - ')[1]}</span>
-                      {currentStock === stock.value && (
-                        <span className="stock-check">✓</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          
-          {STOCK_OPTIONS.every(group => filterStocks(group.options).length === 0) && (
-            <div className="stock-no-results">
-              No stocks found matching "{searchQuery}"
+          {loading ? (
+            <div className="stock-loading">
+              <div className="spinner"></div>
+              <p>Đang tải danh sách cổ phiếu...</p>
             </div>
+          ) : error ? (
+            <div className="stock-error">
+              <p>{error}</p>
+            </div>
+          ) : (
+            <>
+              {['HOSE', 'HNX', 'UPCOM', 'US', 'OTHER'].map((market) => {
+                const marketStocks = groupedStocks[market] || [];
+                const filteredOptions = filterStocks(marketStocks);
+                
+                if (filteredOptions.length === 0) return null;
+
+                return (
+                  <div key={market} className="stock-group">
+                    <div className="stock-group-header">{marketLabels[market] || market}</div>
+                    <div className="stock-options-list">
+                      {filteredOptions.map((stock) => (
+                        <button
+                          key={stock.symbol}
+                          className={`stock-option-item ${currentStock === stock.symbol ? 'selected' : ''}`}
+                          onClick={() => handleStockClick(stock.symbol)}
+                        >
+                          <span className="stock-symbol">{stock.symbol}</span>
+                          <span className="stock-market-label">{marketLabels[stock.market] || stock.market || 'Unknown'}</span>
+                          {currentStock === stock.symbol && (
+                            <span className="stock-check">✓</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {Object.values(groupedStocks).every(group => filterStocks(group).length === 0) && (
+                <div className="stock-no-results">
+                  {stocks.length === 0 
+                    ? 'Chưa có mã cổ phiếu nào. Admin cần thêm cổ phiếu trước.'
+                    : `No stocks found matching "${searchQuery}"`}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

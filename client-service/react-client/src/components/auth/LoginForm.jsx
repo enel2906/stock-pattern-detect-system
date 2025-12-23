@@ -33,8 +33,14 @@ const LoginForm = ({ onSwitchToRegister }) => {
       setError(result.error);
       setLoading(false);
     } else {
-      // Đăng nhập thành công, điều hướng về trang chủ
-      navigate('/');
+      // Đăng nhập thành công, điều hướng dựa trên role
+      // Kiểm tra user data trong result hoặc từ context
+      const userData = result.user;
+      if (userData?.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     }
   };
 

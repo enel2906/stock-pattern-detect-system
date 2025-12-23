@@ -95,7 +95,7 @@ export const AuthProvider = ({ children }) => {
       // Schedule automatic token refresh
       scheduleTokenRefresh(data.accessToken);
       
-      return { success: true };
+      return { success: true, user: data.user };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -218,6 +218,7 @@ export const AuthProvider = ({ children }) => {
     refresh,
     ensureValidToken,
     isAuthenticated: !!user,
+    isAdmin: user?.role === 'ADMIN',
   };
 
   // Inject auth context into API interceptor

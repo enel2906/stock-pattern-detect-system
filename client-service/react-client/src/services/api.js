@@ -186,5 +186,28 @@ export const stockApi = {
       console.error('Error fetching financial report:', error.message);
       throw error;
     }
+  },
+
+  // Fetch all stocks from database (for stock search modal)
+  getAllStocks: async () => {
+    try {
+      const res = await fetch(`${PYTHON_API_URL}/api/stocks`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch stocks');
+      }
+
+      const response = await res.json();
+      // Response can be array directly or {stocks: [...]}
+      return Array.isArray(response) ? response : (response.stocks || response);
+    } catch (error) {
+      console.error('Error fetching stocks:', error.message);
+      throw error;
+    }
   }
 };

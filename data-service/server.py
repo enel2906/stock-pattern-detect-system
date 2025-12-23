@@ -24,13 +24,14 @@ from aio_pika import connect_robust, Message, DeliveryMode, ExchangeType
 
 # Import vnstock và yfinance
 try:
-    from vnstock import Vnstock, Trading, Company, Finance
+    from vnstock import Vnstock, Trading, Company, Finance, Listing
 except ImportError:
     print("Warning: vnstock not installed. Install with: pip install vnstock")
     Vnstock = None
     Trading = None
     Company = None
     Finance = None
+    Listing = None
     Crawler = None
 
 try:
@@ -58,8 +59,10 @@ RESET_DB = False  # Đặt True nếu muốn xóa và nạp lại dữ liệu to
 INITIAL_BACKFILL_DAYS = 3650  # 10 năm dữ liệu lịch sử cho lần init đầu tiên
 UPDATE_LOOKBACK_DAYS = 3  # Số ngày để xem lại khi cập nhật (để recover missing/revised data)
 
-# Danh sách mã cổ phiếu cần theo dõi
-STOCK_SYMBOLS = {
+# [DEPRECATED] Danh sách mã cổ phiếu cố định - KHÔNG CÒN SỬ DỤNG
+# Admin sẽ quản lý danh sách này qua API: /api/admin/stocks
+# Giữ lại để tham khảo các mã phổ biến
+STOCK_SYMBOLS_REFERENCE = {
     'HOSE': [
         # Banking
         'VCB', 'BID', 'CTG', 'TCB', 'VPB', 'MBB', 'ACB', 'SHB', 'STB', 'HDB', 'TPB', 'VIB', 'LPB',
@@ -477,7 +480,13 @@ def save_candlesticks_to_db(stock_id: str, df):
 
 
 async def initialize_data():
-    """Khởi tạo dữ liệu ban đầu (chỉ khi DB trống hoặc RESET_DB=True)"""
+    """Khởi tạo dữ liệu ban đầu (chỉ khi DB trống hoặc RESET_DB=True)
+    
+    Lưu ý: Không sử dụng STOCK_SYMBOLS cứng nữa.
+    - Nếu DB trống: Chỉ init dữ liệu US stocks (hardcoded vì không có admin để thêm)
+    - Nếu DB có data: Lấy danh sách từ database để update
+    - Admin sẽ quản lý danh sách VN stocks qua API
+    """
     logger.info("Starting data initialization...")
     
     # Kiểm tra xem DB đã có dữ liệu hay không
@@ -485,7 +494,8 @@ async def initialize_data():
     
     # Nếu DB đã có dữ liệu và RESET_DB=False, bỏ qua initialization
     if not db_empty and not RESET_DB:
-        logger.info("Database already has data. Skipping initialization (set RESET_DB=True to force re-initialization)")
+        logger.info("Database already has data. Skipping initialization.")
+        logger.info("Admin can manage Vietnam stocks via /api/admin/stocks endpoints.")
         return
     
     # Nếu cần reset, xóa dữ liệu cũ
@@ -497,43 +507,13 @@ async def initialize_data():
     total_candles = 0
     start_time = time.time()
     
-    # === Phần 1: Lấy dữ liệu cổ phiếu Việt Nam ===
-    logger.info("=== Initializing Vietnam stock data ===")
-    for market, symbols in STOCK_SYMBOLS.items():
-        logger.info(f"Processing {market} market with {len(symbols)} stocks")
-        
-        for symbol in symbols:
-            try:
-                # Lưu thông tin stock trước
-                stock_id = save_stock_to_db(
-                    symbol=symbol,
-                    name=f"{symbol} - {market}",
-                    market=market
-                )
-                
-                if stock_id:
-                    total_stocks += 1
-                    
-                    # Lấy dữ liệu lịch sử (backfill 10 năm)
-                    logger.info(f"Fetching historical data for {symbol} ({market})")
-                    df = get_stock_data_vnstock(symbol, market)
-                    
-                    if df is not None:
-                        # Lưu candlesticks (trả về list candles)
-                        new_candles = save_candlesticks_to_db(stock_id, df)
-                        total_candles += len(new_candles)
-                    
-                    # Delay để tránh rate limit
-                    await asyncio.sleep(2)
-                
-            except Exception as e:
-                logger.error(f"Error processing {symbol}: {e}")
-                continue
+    # === Không còn init VN stocks từ STOCK_SYMBOLS ===
+    # Admin sẽ thêm VN stocks qua trang quản lý
+    logger.info("=== Vietnam stocks will be managed by Admin via web interface ===")
+    logger.info("Use /api/admin/stocks endpoints to add stocks")
     
-    logger.info(f"Vietnam data initialization completed: {total_stocks} stocks, {total_candles} candlesticks")
-    
-    # === Phần 2: Lấy dữ liệu cổ phiếu quốc tế (US stocks) ===
-    logger.info("=== Initializing international stock data ===")
+    # === Chỉ init dữ liệu cổ phiếu quốc tế (US stocks - hardcoded) ===
+    logger.info("=== Initializing international stock data (US - hardcoded) ===")
     
     for symbol in INTERNATIONAL_SYMBOLS:
         try:
@@ -794,7 +774,7 @@ async def get_price_board(symbols: str = None):
     
     Args:
         symbols: Danh sách mã cổ phiếu, cách nhau bởi dấu phẩy (VD: VCB,ACB,TCB)
-                 Nếu không truyền sẽ lấy tất cả 60 mã trong STOCK_SYMBOLS
+                 Nếu không truyền sẽ lấy tất cả mã Việt Nam từ database
     
     Returns:
         List of stock quotes with trading information
@@ -807,10 +787,12 @@ async def get_price_board(symbols: str = None):
         if symbols:
             symbols_list = [s.strip().upper() for s in symbols.split(',') if s.strip()]
         else:
-            # Lấy tất cả mã Việt Nam (không bao gồm international stocks)
-            symbols_list = []
-            for market_symbols in STOCK_SYMBOLS.values():
-                symbols_list.extend(market_symbols)
+            # Lấy tất cả mã Việt Nam từ database (không bao gồm US stocks)
+            vietnam_stocks = list(stocks_collection.find(
+                {"market": {"$ne": "US"}},
+                {"symbol": 1}
+            ))
+            symbols_list = [stock['symbol'] for stock in vietnam_stocks]
         
         if not symbols_list:
             return {"data": [], "total": 0}
@@ -1175,6 +1157,237 @@ async def get_financial_report(symbol: str, period: str = "year"):
             "ratios": [],
             "error": str(e)
         }
+
+
+# ==================== STOCK MANAGEMENT APIs ====================
+
+@app.get("/api/admin/stocks")
+async def admin_get_all_stocks():
+    """
+    [Admin] Lấy danh sách tất cả mã cổ phiếu trong database
+    """
+    try:
+        stocks = list(stocks_collection.find({}))
+        
+        result = []
+        for stock in stocks:
+            result.append({
+                "id": str(stock['_id']),
+                "symbol": stock.get('symbol'),
+                "name": stock.get('name'),
+                "market": stock.get('market'),
+                "country": stock.get('country', 'Vietnam'),
+                "createdAt": stock.get('created_at'),
+            })
+        
+        return {"stocks": result, "total": len(result)}
+    except Exception as e:
+        logger.error(f"Error getting stocks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/stocks")
+async def admin_add_stock(data: dict):
+    """
+    [Admin] Thêm mã cổ phiếu mới
+    
+    Body:
+        symbol: Mã cổ phiếu (VD: VCB)
+        name: Tên công ty
+        market: Sàn giao dịch (HOSE, HNX, UPCOM)
+    """
+    try:
+        symbol = data.get('symbol', '').upper()
+        name = data.get('name', '')
+        market = data.get('market', 'HOSE').upper()
+        
+        if not symbol:
+            raise HTTPException(status_code=400, detail="Symbol is required")
+        
+        # Kiểm tra xem mã đã tồn tại chưa
+        existing = stocks_collection.find_one({"symbol": symbol})
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Stock {symbol} already exists")
+        
+        # Lưu vào database
+        stock_id = save_stock_to_db(
+            symbol=symbol,
+            name=name or f"{symbol} - {market}",
+            market=market,
+            country="Vietnam"
+        )
+        
+        if not stock_id:
+            raise HTTPException(status_code=500, detail="Failed to save stock")
+        
+        # Lấy dữ liệu lịch sử cho mã mới
+        logger.info(f"Fetching historical data for new stock {symbol}")
+        df = get_stock_data_vnstock(symbol, market)
+        
+        candles_count = 0
+        if df is not None and not df.empty:
+            new_candles = save_candlesticks_to_db(stock_id, df)
+            candles_count = len(new_candles)
+        
+        return {
+            "success": True,
+            "message": f"Stock {symbol} added successfully with {candles_count} candlesticks",
+            "stock": {
+                "id": stock_id,
+                "symbol": symbol,
+                "name": name,
+                "market": market
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding stock: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/stocks/{stock_id}")
+async def admin_delete_stock(stock_id: str):
+    """
+    [Admin] Xóa mã cổ phiếu và dữ liệu candlestick tương ứng
+    """
+    try:
+        from bson import ObjectId
+        
+        # Tìm stock
+        stock = stocks_collection.find_one({"_id": ObjectId(stock_id)})
+        if not stock:
+            raise HTTPException(status_code=404, detail="Stock not found")
+        
+        symbol = stock.get('symbol')
+        
+        # Xóa tất cả candlesticks của stock này
+        candles_deleted = candlesticks_collection.delete_many({"stock_id": stock_id})
+        
+        # Xóa stock
+        stocks_collection.delete_one({"_id": ObjectId(stock_id)})
+        
+        logger.info(f"Deleted stock {symbol} and {candles_deleted.deleted_count} candlesticks")
+        
+        return {
+            "success": True,
+            "message": f"Stock {symbol} deleted successfully",
+            "candlesDeleted": candles_deleted.deleted_count
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting stock: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/stocks/available")
+async def admin_get_available_stocks(exchange: str = None, search: str = None):
+    """
+    [Admin] Lấy danh sách mã cổ phiếu có sẵn từ vnstock để thêm mới
+    
+    Args:
+        exchange: Sàn giao dịch (HOSE, HNX, UPCOM). Nếu không truyền sẽ lấy tất cả.
+        search: Tìm kiếm theo tên hoặc symbol
+    
+    Returns:
+        Danh sách mã cổ phiếu có sẵn (đã loại trừ các mã đang có trong DB)
+    """
+    try:
+        if Listing is None:
+            raise HTTPException(status_code=503, detail="Listing API not available")
+        
+        # Khởi tạo Listing adapter
+        listing = Listing(source="vci")
+        
+        # Lấy tất cả symbols
+        all_symbols_df = listing.all_symbols(to_df=True)
+        
+        if all_symbols_df is None or all_symbols_df.empty:
+            return {"stocks": [], "total": 0}
+        
+        # Chuẩn hóa tên cột
+        all_symbols_df.columns = [str(col).lower().replace(' ', '_') for col in all_symbols_df.columns]
+        
+        # Filter theo exchange nếu có
+        if exchange:
+            exchange = exchange.upper()
+            if 'exchange' in all_symbols_df.columns:
+                all_symbols_df = all_symbols_df[all_symbols_df['exchange'].str.upper() == exchange]
+            elif 'san' in all_symbols_df.columns:
+                all_symbols_df = all_symbols_df[all_symbols_df['san'].str.upper() == exchange]
+        
+        # Lấy danh sách mã đã có trong DB
+        existing_symbols = set(
+            stock['symbol'] for stock in stocks_collection.find({}, {"symbol": 1})
+        )
+        
+        # Loại bỏ các mã đã có
+        symbol_col = 'symbol' if 'symbol' in all_symbols_df.columns else 'ticker'
+        all_symbols_df = all_symbols_df[~all_symbols_df[symbol_col].isin(existing_symbols)]
+        
+        # Filter theo search nếu có
+        if search:
+            search = search.upper()
+            name_col = 'organ_name' if 'organ_name' in all_symbols_df.columns else 'company_name' if 'company_name' in all_symbols_df.columns else None
+            
+            if name_col:
+                mask = (
+                    all_symbols_df[symbol_col].str.upper().str.contains(search, na=False) |
+                    all_symbols_df[name_col].str.upper().str.contains(search, na=False)
+                )
+            else:
+                mask = all_symbols_df[symbol_col].str.upper().str.contains(search, na=False)
+            
+            all_symbols_df = all_symbols_df[mask]
+        
+        # Giới hạn số lượng kết quả
+        all_symbols_df = all_symbols_df.head(100)
+        
+        # Chuyển đổi sang list of dict
+        result = []
+        for _, row in all_symbols_df.iterrows():
+            symbol = row.get('symbol') or row.get('ticker')
+            name = row.get('organ_name') or row.get('company_name') or row.get('name') or ''
+            exchange_val = row.get('exchange') or row.get('san') or 'UNKNOWN'
+            
+            result.append({
+                "symbol": symbol,
+                "name": name,
+                "exchange": str(exchange_val).upper()
+            })
+        
+        return {"stocks": result, "total": len(result)}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting available stocks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/stocks/stats")
+async def admin_get_stocks_stats():
+    """
+    [Admin] Lấy thống kê về stocks
+    """
+    try:
+        # Đếm theo market
+        pipeline = [
+            {"$group": {"_id": "$market", "count": {"$sum": 1}}}
+        ]
+        market_counts = list(stocks_collection.aggregate(pipeline))
+        
+        stats = {
+            "total": stocks_collection.count_documents({}),
+            "byMarket": {item["_id"]: item["count"] for item in market_counts},
+            "totalCandlesticks": candlesticks_collection.count_documents({})
+        }
+        
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting stocks stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

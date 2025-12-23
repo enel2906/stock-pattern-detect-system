@@ -18,6 +18,7 @@ public class UserDto {
     private String fullName;
     private Integer age;
     private String authProvider;
+    private String role;
     
     public static UserDto fromUser(User user) {
         return UserDto.builder()
@@ -27,6 +28,7 @@ public class UserDto {
                 .fullName(user.getFullName())
                 .age(user.getAge())
                 .authProvider(user.getAuthProvider().name())
+                .role(user.getRole() != null ? user.getRole().name() : "USER")
                 .build();
     }
 }

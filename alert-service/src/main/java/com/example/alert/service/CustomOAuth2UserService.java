@@ -54,6 +54,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     .fullName(name)
                     .googleId(googleId)
                     .authProvider(User.AuthProvider.GOOGLE)
+                    .role(User.Role.USER)
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
                     .build();

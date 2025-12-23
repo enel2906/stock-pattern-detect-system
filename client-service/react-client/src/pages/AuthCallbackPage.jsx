@@ -32,8 +32,12 @@ const AuthCallbackPage = () => {
           const userData = await authApi.getCurrentUser(accessToken);
           
           if (userData) {
-            // Reload to apply auth state with proper context
-            window.location.href = '/';
+            // Redirect admin users to admin page, others to home
+            if (userData.role === 'ADMIN') {
+              window.location.href = '/admin';
+            } else {
+              window.location.href = '/';
+            }
           } else {
             throw new Error('Failed to fetch user data');
           }

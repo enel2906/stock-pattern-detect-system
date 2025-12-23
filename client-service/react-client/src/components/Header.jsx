@@ -28,7 +28,7 @@ const Header = ({
   backtestResults,
   onApplyBacktestMarkers
 }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
@@ -140,7 +140,17 @@ const Header = ({
             <div className="user-menu">
               <div className="user-info">
                 <span className="user-name">{user.fullName || user.username}</span>
+                {isAdmin && <span className="admin-badge">Admin</span>}
               </div>
+              {isAdmin && (
+                <button 
+                  className="admin-button" 
+                  onClick={() => navigate('/admin')}
+                  title="Quản trị"
+                >
+                  🛡️
+                </button>
+              )}
               <button className="logout-button" onClick={logout} title="Đăng xuất">
                 🚦
               </button>
