@@ -40,6 +40,25 @@ except ImportError:
     print("Warning: yfinance not installed. Install with: pip install yfinance")
     yf = None
 
+# Import vnstock_news cho gói Silver
+try:
+    from vnstock_news import Crawler as NewsCrawler
+    from vnstock_news import News as NewsParser
+    VNSTOCK_NEWS_AVAILABLE = True
+    print("✅ vnstock_news loaded successfully")
+except (ImportError, SyntaxError) as e:
+    print(f"Warning: vnstock_news not available - {type(e).__name__}: {e}")
+    print("  → News feature will use VCI Company API as fallback")
+    print("  → To fix: Try 'pip install vnstock_news --upgrade' or check Python version compatibility")
+    NewsCrawler = None
+    NewsParser = None
+    VNSTOCK_NEWS_AVAILABLE = False
+except Exception as e:
+    print(f"Warning: vnstock_news failed to load - {type(e).__name__}: {e}")
+    NewsCrawler = None
+    NewsParser = None
+    VNSTOCK_NEWS_AVAILABLE = False
+
 # Cấu hình logging
 logging.basicConfig(
     level=logging.INFO,
@@ -955,61 +974,122 @@ async def update_latest_data_once():
 
 
 @app.get("/api/company/news/{symbol}")
-async def get_company_news(symbol: str, limit: int = 20):
+async def get_company_news(symbol: str, limit: int = 20, source: str = "vci"):
     """
-    Lấy tin tức liên quan đến mã cổ phiếu
+    Lấy tin tức liên quan đến mã cổ phiếu (Nâng cấp với vnstock_news - Gói Silver)
     
     Args:
         symbol: Mã cổ phiếu (VD: VCI, ACB, TCB)
         limit: Số lượng tin tức tối đa (mặc định 20)
+        source: Nguồn tin tức:
+                - "vci": Từ VCI/Company API (mặc định)
+                - "cafef": Từ CafeF
+                - "vietstock": Từ VietStock  
+                - "vnexpress": Từ VnExpress
+                - "all": Tổng hợp từ nhiều nguồn
     
     Returns:
-        List of news articles with title, url, publish_time, summary
+        List of news articles with title, url, publish_time, summary, source
     """
     try:
-        if Company is None:
-            raise HTTPException(status_code=503, detail="Company API not available")
-        
         symbol = symbol.upper()
-        logger.info(f"Fetching news for {symbol}")
+        logger.info(f"Fetching news for {symbol} from source: {source}")
         
-        # Sử dụng Company API để lấy tin tức
-        company = Company(source="vci", symbol=symbol)
-        news_df = company.news()
-        
-        if news_df is None or news_df.empty:
-            return {"symbol": symbol, "news": [], "total": 0}
-        
-        # Lấy top N bài mới nhất
-        news_df = news_df.head(limit)
-        
-        # Chuyển đổi DataFrame sang list of dicts
         news_list = []
-        for _, row in news_df.iterrows():
+        
+        # Nếu source là "vci" hoặc "all", lấy tin từ Company API trước
+        if source in ["vci", "all"] and Company is not None:
             try:
-                # Parse timestamp
-                publish_time = None
-                if 'public_date' in row and row['public_date']:
-                    try:
-                        # Chuyển timestamp sang datetime
-                        publish_time = datetime.fromtimestamp(int(row['public_date'])/1000).isoformat()
-                    except:
-                        publish_time = None
+                company = Company(source="vci", symbol=symbol)
+                news_df = company.news()
                 
-                news_item = {
-                    "id": str(row.get('news_id', row.get('id', ''))),
-                    "title": str(row.get('news_title', '')),
-                    "subTitle": str(row.get('news_sub_title', '')),
-                    "summary": str(row.get('news_short_content', ''))[:500],  # Limit summary length
-                    "url": str(row.get('news_source_link', '')),
-                    "imageUrl": str(row.get('news_image_url', '')),
-                    "publishTime": publish_time,
-                    "priceChange": float(row.get('price_change_pct', 0)),
-                }
-                news_list.append(news_item)
+                if news_df is not None and not news_df.empty:
+                    for _, row in news_df.head(limit if source == "vci" else limit // 2).iterrows():
+                        try:
+                            publish_time = None
+                            if 'public_date' in row and row['public_date']:
+                                try:
+                                    publish_time = datetime.fromtimestamp(int(row['public_date'])/1000).isoformat()
+                                except:
+                                    publish_time = None
+                            
+                            news_item = {
+                                "id": str(row.get('news_id', row.get('id', ''))),
+                                "title": str(row.get('news_title', '')),
+                                "subTitle": str(row.get('news_sub_title', '')),
+                                "summary": str(row.get('news_short_content', ''))[:500],
+                                "url": str(row.get('news_source_link', '')),
+                                "imageUrl": str(row.get('news_image_url', '')),
+                                "publishTime": publish_time,
+                                "priceChange": float(row.get('price_change_pct', 0)) if row.get('price_change_pct') else 0,
+                                "source": "VCI"
+                            }
+                            news_list.append(news_item)
+                        except Exception as e:
+                            logger.error(f"Error processing VCI news row: {e}")
+                            continue
             except Exception as e:
-                logger.error(f"Error processing news row: {e}")
-                continue
+                logger.warning(f"Could not fetch VCI news for {symbol}: {e}")
+        
+        # Nếu source là báo cụ thể hoặc "all", sử dụng vnstock_news
+        if source != "vci" and VNSTOCK_NEWS_AVAILABLE:
+            news_sources = [source] if source != "all" else ["cafef", "vietstock"]
+            
+            for news_source in news_sources:
+                try:
+                    crawler = NewsCrawler(site_name=news_source)
+                    articles_df = crawler.get_articles_from_feed(
+                        limit_per_feed=limit if source != "all" else limit // 2,
+                        timeout=10
+                    )
+                    
+                    if articles_df is not None and not articles_df.empty:
+                        # Lọc tin theo keyword (tên mã cổ phiếu)
+                        keyword = symbol.lower()
+                        
+                        for _, row in articles_df.iterrows():
+                            try:
+                                title = str(row.get('title', '')).lower()
+                                description = str(row.get('short_description', '')).lower()
+                                
+                                # Chỉ lấy tin có liên quan đến mã cổ phiếu (nếu có keyword)
+                                # Hoặc lấy tất cả nếu là source cụ thể
+                                if source != "all" or keyword in title or keyword in description:
+                                    publish_time = None
+                                    if 'publish_time' in row and row['publish_time']:
+                                        try:
+                                            if isinstance(row['publish_time'], datetime):
+                                                publish_time = row['publish_time'].isoformat()
+                                            else:
+                                                publish_time = str(row['publish_time'])
+                                        except:
+                                            publish_time = None
+                                    
+                                    news_item = {
+                                        "id": f"{news_source}_{hash(row.get('url', ''))}",
+                                        "title": str(row.get('title', '')),
+                                        "subTitle": "",
+                                        "summary": str(row.get('short_description', ''))[:500],
+                                        "url": str(row.get('url', '')),
+                                        "imageUrl": "",
+                                        "publishTime": publish_time,
+                                        "priceChange": 0,
+                                        "source": news_source.upper()
+                                    }
+                                    news_list.append(news_item)
+                            except Exception as e:
+                                logger.error(f"Error processing {news_source} news row: {e}")
+                                continue
+                                
+                except Exception as e:
+                    logger.warning(f"Could not fetch {news_source} news: {e}")
+                    continue
+        
+        # Sắp xếp theo thời gian publish (mới nhất lên trước)
+        news_list.sort(key=lambda x: x.get('publishTime') or '', reverse=True)
+        
+        # Giới hạn số lượng
+        news_list = news_list[:limit]
         
         logger.info(f"Successfully fetched {len(news_list)} news for {symbol}")
         
@@ -1017,12 +1097,154 @@ async def get_company_news(symbol: str, limit: int = 20):
             "symbol": symbol,
             "news": news_list,
             "total": len(news_list),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "source": source
         }
         
     except Exception as e:
         logger.error(f"Error fetching news for {symbol}: {e}")
         return {"symbol": symbol, "news": [], "total": 0, "error": str(e)}
+
+
+@app.get("/api/market/news")
+async def get_market_news(
+    source: str = "cafef",
+    limit: int = 30,
+    keyword: str = None
+):
+    """
+    Lấy tin tức thị trường tổng hợp từ các nguồn báo tài chính (vnstock_news - Gói Silver)
+    
+    Args:
+        source: Nguồn tin tức:
+                - "cafef": CafeF (mặc định)
+                - "vietstock": VietStock
+                - "vnexpress": VnExpress
+                - "tuoitre": Tuổi Trẻ
+                - "baodautu": Báo Đầu Tư
+                - "vneconomy": VnEconomy
+                - "all": Tổng hợp từ nhiều nguồn
+        limit: Số lượng tin tức tối đa (mặc định 30)
+        keyword: Từ khóa tìm kiếm (tùy chọn)
+    
+    Returns:
+        List of market news articles from financial news sources
+    """
+    try:
+        if not VNSTOCK_NEWS_AVAILABLE:
+            return {
+                "news": [],
+                "total": 0,
+                "error": "vnstock_news not available. Please upgrade to Silver package.",
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        logger.info(f"Fetching market news from {source}, limit={limit}, keyword={keyword}")
+        
+        news_list = []
+        
+        # Danh sách các nguồn báo tài chính
+        if source == "all":
+            news_sources = ["cafef", "vietstock", "vnexpress", "tuoitre"]
+            limit_per_source = max(limit // len(news_sources), 10)
+        else:
+            news_sources = [source]
+            limit_per_source = limit
+        
+        for news_source in news_sources:
+            try:
+                crawler = NewsCrawler(site_name=news_source)
+                articles_df = crawler.get_articles_from_feed(
+                    limit_per_feed=limit_per_source,
+                    timeout=15
+                )
+                
+                if articles_df is not None and not articles_df.empty:
+                    for _, row in articles_df.iterrows():
+                        try:
+                            title = str(row.get('title', ''))
+                            description = str(row.get('short_description', ''))
+                            
+                            # Lọc theo keyword nếu có
+                            if keyword:
+                                keyword_lower = keyword.lower()
+                                if keyword_lower not in title.lower() and keyword_lower not in description.lower():
+                                    continue
+                            
+                            publish_time = None
+                            if 'publish_time' in row and row['publish_time']:
+                                try:
+                                    if isinstance(row['publish_time'], datetime):
+                                        publish_time = row['publish_time'].isoformat()
+                                    else:
+                                        publish_time = str(row['publish_time'])
+                                except:
+                                    publish_time = None
+                            
+                            news_item = {
+                                "id": f"{news_source}_{hash(row.get('url', ''))}",
+                                "title": title,
+                                "subTitle": "",
+                                "summary": description[:500] if description else "",
+                                "url": str(row.get('url', '')),
+                                "imageUrl": "",
+                                "publishTime": publish_time,
+                                "author": str(row.get('author', '')) if row.get('author') else "",
+                                "source": news_source.upper()
+                            }
+                            news_list.append(news_item)
+                        except Exception as e:
+                            logger.error(f"Error processing {news_source} market news row: {e}")
+                            continue
+                            
+            except Exception as e:
+                logger.warning(f"Could not fetch market news from {news_source}: {e}")
+                continue
+        
+        # Sắp xếp theo thời gian publish (mới nhất lên trước)
+        news_list.sort(key=lambda x: x.get('publishTime') or '', reverse=True)
+        
+        # Giới hạn số lượng
+        news_list = news_list[:limit]
+        
+        logger.info(f"Successfully fetched {len(news_list)} market news articles")
+        
+        return {
+            "news": news_list,
+            "total": len(news_list),
+            "source": source,
+            "keyword": keyword,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching market news: {e}")
+        return {"news": [], "total": 0, "error": str(e)}
+
+
+@app.get("/api/news/sources")
+async def get_available_news_sources():
+    """
+    Lấy danh sách các nguồn tin tức có sẵn
+    
+    Returns:
+        List of available news sources with their status
+    """
+    sources = [
+        {"id": "vci", "name": "VCI (Company News)", "type": "company", "available": Company is not None},
+        {"id": "cafef", "name": "CafeF", "type": "market", "available": VNSTOCK_NEWS_AVAILABLE},
+        {"id": "vietstock", "name": "VietStock", "type": "market", "available": VNSTOCK_NEWS_AVAILABLE},
+        {"id": "vnexpress", "name": "VnExpress", "type": "market", "available": VNSTOCK_NEWS_AVAILABLE},
+        {"id": "tuoitre", "name": "Tuổi Trẻ", "type": "market", "available": VNSTOCK_NEWS_AVAILABLE},
+        {"id": "baodautu", "name": "Báo Đầu Tư", "type": "market", "available": VNSTOCK_NEWS_AVAILABLE},
+        {"id": "vneconomy", "name": "VnEconomy", "type": "market", "available": VNSTOCK_NEWS_AVAILABLE},
+    ]
+    
+    return {
+        "sources": sources,
+        "vnstock_news_available": VNSTOCK_NEWS_AVAILABLE,
+        "timestamp": datetime.now().isoformat()
+    }
 
 
 @app.get("/api/company/financial/{symbol}")

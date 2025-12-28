@@ -115,6 +115,121 @@ export const COMBO_SIGNALS = {
     reliability: 'high',
     icon: '⚪🎯',
     color: '#FEB019'
+  },
+
+  // ===== COMBO 5: Bullish Engulfing + RSI < 40 (Context Filter) =====
+  // Nguồn ý tưởng: combo RSI + Engulfing được đánh giá hiệu quả trong file tổng hợp.
+  'bullish_engulfing_rsi_filter': {
+    id: 'bullish_engulfing_rsi_filter',
+    name: 'Bullish Engulfing + RSI Filter',
+    description: 'Bullish Engulfing kết hợp RSI(14) < 40 để lọc bối cảnh quá bán nhẹ/đà giảm suy yếu, kỳ vọng đảo chiều tăng trong 5-10 phiên.',
+    pattern: 'bullish_engulfing',
+    indicators: [
+      {
+        type: 'rsi',
+        period: 14,
+        condition: 'lessThan',
+        threshold: 40
+      }
+    ],
+    prediction: {
+      direction: 'bullish',
+      timeframe: 10,
+      targetGain: 4,   // +4%
+      stopLoss: 2.5    // -2.5%
+    },
+    sentiment: 'bullish',
+    reliability: 'high',
+    icon: '📈🟣',
+    color: '#00E396'
+  },
+
+  // ===== COMBO 6: Hammer + Uptrend MA Filter (MA20/MA50) =====
+  // Nguồn ý tưởng: Hammer tại MA quan trọng (tài liệu nói đa khung; ở daily ta dùng MA làm "hỗ trợ động").
+  'hammer_ma_uptrend_filter': {
+    id: 'hammer_ma_uptrend_filter',
+    name: 'Hammer + MA Uptrend Filter',
+    description: 'Hammer xuất hiện khi giá chạm/ở ngay trên MA20 hoặc MA50 và MA đang dốc lên, báo hiệu kết thúc nhịp điều chỉnh trong xu hướng tăng (5-12 phiên).',
+    pattern: 'hammer',
+    indicators: [
+      {
+        type: 'ma_slope',
+        maType: 'sma',
+        period: 50,
+        condition: 'slopeUp' // MA dốc lên (filter xu hướng)
+      },
+      {
+        type: 'price_vs_ma',
+        maType: 'sma',
+        period: 20,
+        condition: 'nearOrAbove', // giá gần MA hoặc trên MA (hỗ trợ động)
+        threshold: 1.0 // trong vòng 1% quanh MA (gợi ý)
+      }
+    ],
+    prediction: {
+      direction: 'bullish',
+      timeframe: 12,
+      targetGain: 5,   // +5%
+      stopLoss: 2.5    // -2.5%
+    },
+    sentiment: 'bullish',
+    reliability: 'high',
+    icon: '🔨📏',
+    color: '#00E396'
+  },
+
+  // ===== COMBO 7: Hammer + Volume Spike Confirmation =====
+  // Nguồn ý tưởng: volume spike (gấp 2-3 lần trung bình) xác nhận đảo chiều giúp giảm nhiễu.
+  'hammer_volume_spike_reversal': {
+    id: 'hammer_volume_spike_reversal',
+    name: 'Hammer + Volume Spike Confirmation',
+    description: 'Hammer kèm Volume Spike (Vol hôm nay ≥ 2x SMA20 Vol) để xác nhận dòng tiền đảo chiều, kỳ vọng tăng trong 3-8 phiên.',
+    pattern: 'hammer',
+    indicators: [
+      {
+        type: 'volume_spike',
+        period: 20,
+        condition: 'greaterThanMultiple',
+        threshold: 2 // Vol >= 2 * SMA20(Vol)
+      }
+    ],
+    prediction: {
+      direction: 'bullish',
+      timeframe: 8,
+      targetGain: 3.5, // +3.5%
+      stopLoss: 2.0    // -2%
+    },
+    sentiment: 'bullish',
+    reliability: 'very_high',
+    icon: '🔨📊',
+    color: '#00E396'
+  },
+
+  // ===== COMBO 8: Three White Soldiers + RSI < 35 (Oversold Context) =====
+  // Nguồn ý tưởng: mô hình nến + RSI filter (ví dụ Three White Soldiers & RSI<35) cho tỷ lệ thắng cao trong file.
+  'three_white_soldiers_rsi_oversold': {
+    id: 'three_white_soldiers_rsi_oversold',
+    name: 'Three White Soldiers + RSI Oversold',
+    description: 'Three White Soldiers xuất hiện sau khi RSI(14) < 35 (bối cảnh quá bán), báo hiệu lực mua quay lại mạnh, kỳ vọng tăng 7-15 phiên.',
+    pattern: 'three_white_soldiers',
+    indicators: [
+      {
+        type: 'rsi',
+        period: 14,
+        condition: 'lessThan',
+        threshold: 35
+      }
+    ],
+    prediction: {
+      direction: 'bullish',
+      timeframe: 15,
+      targetGain: 6,  // +6%
+      stopLoss: 3     // -3%
+    },
+    sentiment: 'bullish',
+    reliability: 'high',
+    icon: '🪖🪖🪖📈',
+    color: '#00E396'
   }
 };
 

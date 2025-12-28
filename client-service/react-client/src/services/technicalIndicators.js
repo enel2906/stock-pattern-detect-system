@@ -251,10 +251,139 @@ export const calculateBollingerBands = (data, period = 20, stdDev = 2) => {
 };
 
 /**
+ * Calculate Volume Spike
+ * Detects when current volume is significantly higher than average volume
+ * @param {Array} data - Array of candle data with {time, volume}
+ * @param {number} period - Period for volume moving average (default 20)
+ * @returns {Array} Array of {time, value, avgVolume, spikeRatio} for volume analysis
+ */
+export const calculateVolumeSpike = (data, period = 20) => {
+  if (!data || data.length < period) {
+    console.warn(`Not enough data for Volume Spike(${period}). Need ${period}, got ${data.length}`);
+    return [];
+  }
+
+  const result = [];
+
+  for (let i = period - 1; i < data.length; i++) {
+    // Calculate average volume over the period (excluding current candle for fair comparison)
+    let sum = 0;
+    for (let j = 1; j <= period; j++) {
+      sum += data[i - j]?.volume || 0;
+    }
+    const avgVolume = sum / period;
+
+    const currentVolume = data[i].volume || 0;
+    const spikeRatio = avgVolume > 0 ? currentVolume / avgVolume : 0;
+
+    result.push({
+      time: data[i].time,
+      value: currentVolume,
+      avgVolume: avgVolume,
+      spikeRatio: spikeRatio,
+      isSpike: spikeRatio >= 2 // Default spike threshold is 2x
+    });
+  }
+
+  return result;
+};
+
+/**
+ * Calculate MA Slope (Moving Average Slope)
+ * Determines if the moving average is trending up or down
+ * @param {Array} data - Array of candle data with {time, close}
+ * @param {string} maType - Type of MA ('sma' or 'ema')
+ * @param {number} period - Period for moving average
+ * @param {number} slopeLookback - Number of periods to check slope (default 5)
+ * @returns {Array} Array of {time, value, slope, slopeUp, slopeDown}
+ */
+export const calculateMASlope = (data, maType = 'sma', period = 50, slopeLookback = 5) => {
+  if (!data || data.length < period + slopeLookback) {
+    console.warn(`Not enough data for MA Slope(${period}). Need ${period + slopeLookback}, got ${data.length}`);
+    return [];
+  }
+
+  // Calculate the moving average first
+  const maData = maType === 'ema' ? calculateEMA(data, period) : calculateSMA(data, period);
+  
+  if (maData.length < slopeLookback + 1) {
+    return [];
+  }
+
+  const result = [];
+
+  for (let i = slopeLookback; i < maData.length; i++) {
+    const currentMA = maData[i].value;
+    const prevMA = maData[i - slopeLookback].value;
+    
+    // Calculate slope as percentage change
+    const slope = prevMA > 0 ? ((currentMA - prevMA) / prevMA) * 100 : 0;
+    
+    result.push({
+      time: maData[i].time,
+      value: currentMA,
+      slope: slope,
+      slopeUp: slope > 0.1, // MA is trending up (at least 0.1% increase)
+      slopeDown: slope < -0.1 // MA is trending down (at least 0.1% decrease)
+    });
+  }
+
+  return result;
+};
+
+/**
+ * Calculate Price vs MA relationship
+ * Determines how close the price is to a moving average
+ * @param {Array} data - Array of candle data with {time, close, low, high}
+ * @param {string} maType - Type of MA ('sma' or 'ema')
+ * @param {number} period - Period for moving average
+ * @returns {Array} Array of {time, close, maValue, distancePercent, isNearMA, isAboveMA, isBelowMA}
+ */
+export const calculatePriceVsMA = (data, maType = 'sma', period = 20) => {
+  if (!data || data.length < period) {
+    console.warn(`Not enough data for Price vs MA(${period}). Need ${period}, got ${data.length}`);
+    return [];
+  }
+
+  // Calculate the moving average
+  const maData = maType === 'ema' ? calculateEMA(data, period) : calculateSMA(data, period);
+
+  const result = [];
+
+  for (let i = 0; i < maData.length; i++) {
+    const dataIndex = period - 1 + i;
+    const candle = data[dataIndex];
+    const maValue = maData[i].value;
+    
+    // Calculate distance from close to MA
+    const distancePercent = maValue > 0 ? ((candle.close - maValue) / maValue) * 100 : 0;
+    
+    // Check if price touched or is near MA (using low/high for touch detection)
+    const touchedMA = candle.low <= maValue && candle.high >= maValue;
+    
+    result.push({
+      time: candle.time,
+      close: candle.close,
+      low: candle.low,
+      high: candle.high,
+      maValue: maValue,
+      distancePercent: distancePercent,
+      touchedMA: touchedMA,
+      isNearMA: Math.abs(distancePercent) <= 1.0, // Within 1% of MA
+      isAboveMA: distancePercent > 0,
+      isBelowMA: distancePercent < 0,
+      nearOrAbove: distancePercent >= -1.0 // Price is at or above MA (within 1% tolerance below)
+    });
+  }
+
+  return result;
+};
+
+/**
  * Check if an indicator is supported
  */
 export const isSupportedIndicator = (indicatorName) => {
-  const supported = ['sma', 'ema', 'rsi', 'macd', 'bollinger_bands'];
+  const supported = ['sma', 'ema', 'rsi', 'macd', 'bollinger_bands', 'volume_spike', 'ma_slope', 'price_vs_ma'];
   return supported.includes(indicatorName.toLowerCase());
 };
 
@@ -267,7 +396,10 @@ export const getSupportedIndicators = () => {
     'ema', 
     'rsi',
     'macd',
-    'bollinger_bands'
+    'bollinger_bands',
+    'volume_spike',
+    'ma_slope',
+    'price_vs_ma'
   ];
 };
 
@@ -277,6 +409,9 @@ export default {
   calculateRSI,
   calculateMACD,
   calculateBollingerBands,
+  calculateVolumeSpike,
+  calculateMASlope,
+  calculatePriceVsMA,
   isSupportedIndicator,
   getSupportedIndicators
 };

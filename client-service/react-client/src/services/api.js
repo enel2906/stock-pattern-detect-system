@@ -144,10 +144,10 @@ export const stockApi = {
     }
   },
 
-  // Fetch company news
-  getCompanyNews: async (stockSymbol, limit = 20) => {
+  // Fetch company news (upgraded with vnstock_news sources)
+  getCompanyNews: async (stockSymbol, limit = 20, source = 'vci') => {
     try {
-      const res = await fetch(`${PYTHON_API_URL}/api/company/news/${stockSymbol}?limit=${limit}`, {
+      const res = await fetch(`${PYTHON_API_URL}/api/company/news/${stockSymbol}?limit=${limit}&source=${source}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -163,6 +163,55 @@ export const stockApi = {
     } catch (error) {
       console.error('Error fetching news:', error.message);
       throw error;
+    }
+  },
+
+  // Fetch market news from financial news sources (vnstock_news - Silver package)
+  getMarketNews: async (source = 'cafef', limit = 30, keyword = null) => {
+    try {
+      let url = `${PYTHON_API_URL}/api/market/news?source=${source}&limit=${limit}`;
+      if (keyword) {
+        url += `&keyword=${encodeURIComponent(keyword)}`;
+      }
+      
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch market news');
+      }
+
+      const response = await res.json();
+      return response;
+    } catch (error) {
+      console.error('Error fetching market news:', error.message);
+      throw error;
+    }
+  },
+
+  // Get available news sources
+  getNewsSources: async () => {
+    try {
+      const res = await fetch(`${PYTHON_API_URL}/api/news/sources`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch news sources');
+      }
+
+      const response = await res.json();
+      return response;
+    } catch (error) {
+      console.error('Error fetching news sources:', error.message);
+      return { sources: [], vnstock_news_available: false };
     }
   },
 

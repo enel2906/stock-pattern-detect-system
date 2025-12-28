@@ -3,7 +3,7 @@
  * Service xử lý logic phát hiện combo tín hiệu và backtest
  */
 
-import { calculateRSI, calculateMACD, calculateBollingerBands } from './technicalIndicators';
+import { calculateRSI, calculateMACD, calculateBollingerBands, calculateVolumeSpike, calculateMASlope, calculatePriceVsMA } from './technicalIndicators';
 import { 
   detectHammer, 
   detectInvertedHammer, 
@@ -15,7 +15,7 @@ import {
   detectGravestoneDoji,
   detectDoji
 } from './candlePatternDetector';
-import { detectMorningStar, detectEveningStar } from './candlePatternDetectorPart2';
+import { detectMorningStar, detectEveningStar, detectThreeWhiteSoldiers, detectThreeBlackCrows } from './candlePatternDetectorPart2';
 import { getComboSignal, getAllComboSignals } from '../constants/comboSignalDefinitions';
 
 // Pattern detector mapping
@@ -31,6 +31,8 @@ const PATTERN_DETECTORS = {
   'dragonfly_doji': detectDragonflyDoji,
   'gravestone_doji': detectGravestoneDoji,
   'doji': detectDoji,
+  'three_white_soldiers': detectThreeWhiteSoldiers,
+  'three_black_crows': detectThreeBlackCrows,
 };
 
 /**
@@ -129,6 +131,73 @@ const getIndicatorValueAtIndex = (indicatorType, candles, period, targetIndex, i
       bandwidth,
       isSqueeze: bandwidth <= (indicatorConfig.threshold || 5)
     };
+  } else if (indicatorType === 'volume_spike') {
+    // Volume Spike indicator
+    const volumePeriod = indicatorConfig.period || period || 20;
+    const volumeData = calculateVolumeSpike(candles, volumePeriod);
+    
+    if (!volumeData.length) return null;
+    
+    // Find the volume data at targetIndex
+    const targetTime = candles[targetIndex]?.time;
+    const volIndex = volumeData.findIndex(v => v.time === targetTime);
+    
+    if (volIndex < 0) return null;
+    
+    const volData = volumeData[volIndex];
+    
+    return {
+      currentVolume: volData.value,
+      avgVolume: volData.avgVolume,
+      spikeRatio: volData.spikeRatio,
+      isSpike: volData.spikeRatio >= (indicatorConfig.threshold || 2)
+    };
+  } else if (indicatorType === 'ma_slope') {
+    // MA Slope indicator - checks if MA is trending up or down
+    const { maType = 'sma', period: maPeriod = 50 } = indicatorConfig;
+    const slopeData = calculateMASlope(candles, maType, maPeriod, 5);
+    
+    if (!slopeData.length) return null;
+    
+    // Find the slope data at targetIndex
+    const targetTime = candles[targetIndex]?.time;
+    const slopeIndex = slopeData.findIndex(s => s.time === targetTime);
+    
+    if (slopeIndex < 0) return null;
+    
+    const sData = slopeData[slopeIndex];
+    
+    return {
+      maValue: sData.value,
+      slope: sData.slope,
+      slopeUp: sData.slopeUp,
+      slopeDown: sData.slopeDown
+    };
+  } else if (indicatorType === 'price_vs_ma') {
+    // Price vs MA relationship
+    const { maType = 'sma', period: maPeriod = 20 } = indicatorConfig;
+    const priceMAData = calculatePriceVsMA(candles, maType, maPeriod);
+    
+    if (!priceMAData.length) return null;
+    
+    // Find the price vs MA data at targetIndex
+    const targetTime = candles[targetIndex]?.time;
+    const priceMAIndex = priceMAData.findIndex(p => p.time === targetTime);
+    
+    if (priceMAIndex < 0) return null;
+    
+    const pmaData = priceMAData[priceMAIndex];
+    
+    return {
+      close: pmaData.close,
+      maValue: pmaData.maValue,
+      distancePercent: pmaData.distancePercent,
+      touchedMA: pmaData.touchedMA,
+      isNearMA: pmaData.isNearMA,
+      isAboveMA: pmaData.isAboveMA,
+      isBelowMA: pmaData.isBelowMA,
+      nearOrAbove: pmaData.nearOrAbove
+    };
   }
   return null;
 };
@@ -136,7 +205,7 @@ const getIndicatorValueAtIndex = (indicatorType, candles, period, targetIndex, i
 /**
  * Check if indicator condition is met
  * @param {number|Object} value - Indicator value
- * @param {string} condition - Condition type (lessThan, greaterThan, crossUp, crossDown, squeeze)
+ * @param {string} condition - Condition type (lessThan, greaterThan, crossUp, crossDown, squeeze, slopeUp, slopeDown, nearOrAbove, greaterThanMultiple)
  * @param {number} threshold - Threshold value
  * @returns {boolean}
  */
@@ -160,6 +229,27 @@ const checkIndicatorCondition = (value, condition, threshold) => {
       return typeof value === 'object' && value.crossDown === true;
     case 'squeeze':
       return typeof value === 'object' && value.isSqueeze === true;
+    // New conditions for advanced combos
+    case 'slopeUp':
+      return typeof value === 'object' && value.slopeUp === true;
+    case 'slopeDown':
+      return typeof value === 'object' && value.slopeDown === true;
+    case 'nearOrAbove':
+      // Price is near or above MA (within threshold % below MA, or above)
+      return typeof value === 'object' && value.nearOrAbove === true;
+    case 'nearMA':
+      return typeof value === 'object' && value.isNearMA === true;
+    case 'aboveMA':
+      return typeof value === 'object' && value.isAboveMA === true;
+    case 'belowMA':
+      return typeof value === 'object' && value.isBelowMA === true;
+    case 'touchedMA':
+      return typeof value === 'object' && value.touchedMA === true;
+    case 'greaterThanMultiple':
+      // For volume spike: spikeRatio >= threshold
+      return typeof value === 'object' && value.spikeRatio >= threshold;
+    case 'isSpike':
+      return typeof value === 'object' && value.isSpike === true;
     default:
       return false;
   }

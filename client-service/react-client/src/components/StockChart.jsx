@@ -340,7 +340,7 @@ const StockChart = ({
     }
 
     try {
-      onStatusChange(`Đang tìm ${patternNames.length} mô hình...`);
+      // onStatusChange(`Đang tìm ${patternNames.length} mô hình...`);
       resetPatterns();
 
       // Collect all markers and lines from all patterns
@@ -434,7 +434,7 @@ const StockChart = ({
       // Setup tooltips for all patterns
       setupMultiPatternTooltips(patternNames);
 
-      onStatusChange(`Tìm thấy ${totalPatternsFound} mô hình từ ${patternNames.length} loại.`);
+      // onStatusChange(`Tìm thấy ${totalPatternsFound} mô hình từ ${patternNames.length} loại.`);
     } catch (error) {
       console.error('Error loading patterns:', error);
       onStatusChange('Lỗi: ' + error.message);

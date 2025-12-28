@@ -2,16 +2,26 @@ import { useState, useEffect } from 'react';
 import { stockApi } from '../services/api';
 import './NewsModal.css';
 
+// Các nguồn tin tức có sẵn
+const NEWS_SOURCES = [
+  { id: 'vci', name: 'VCI (Mặc định)', description: 'Tin từ VCI Company API' },
+  { id: 'cafef', name: 'CafeF', description: 'Tin từ CafeF' },
+  { id: 'vietstock', name: 'VietStock', description: 'Tin từ VietStock' },
+  { id: 'vnexpress', name: 'VnExpress', description: 'Tin từ VnExpress' },
+  { id: 'all', name: 'Tất cả nguồn', description: 'Tổng hợp từ nhiều nguồn' },
+];
+
 const NewsModal = ({ isOpen, onClose, stockSymbol }) => {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedSource, setSelectedSource] = useState('vci');
 
   useEffect(() => {
     if (isOpen && stockSymbol) {
       fetchNews();
     }
-  }, [isOpen, stockSymbol]);
+  }, [isOpen, stockSymbol, selectedSource]);
 
   // Handle ESC key
   useEffect(() => {
@@ -30,7 +40,7 @@ const NewsModal = ({ isOpen, onClose, stockSymbol }) => {
       setLoading(true);
       setError(null);
       
-      const data = await stockApi.getCompanyNews(stockSymbol, 20);
+      const data = await stockApi.getCompanyNews(stockSymbol, 20, selectedSource);
       
       if (data.error) {
         setError(data.error);
@@ -45,6 +55,10 @@ const NewsModal = ({ isOpen, onClose, stockSymbol }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSourceChange = (e) => {
+    setSelectedSource(e.target.value);
   };
 
   const formatDate = (dateString) => {
@@ -90,6 +104,26 @@ const NewsModal = ({ isOpen, onClose, stockSymbol }) => {
           <button className="news-modal-close-btn" onClick={onClose}>
             ✕
           </button>
+        </div>
+
+        {/* Source selector */}
+        <div className="news-source-selector">
+          <label htmlFor="news-source">Nguồn tin:</label>
+          <select 
+            id="news-source" 
+            value={selectedSource} 
+            onChange={handleSourceChange}
+            disabled={loading}
+          >
+            {NEWS_SOURCES.map(source => (
+              <option key={source.id} value={source.id}>
+                {source.name}
+              </option>
+            ))}
+          </select>
+          <span className="news-source-hint">
+            {NEWS_SOURCES.find(s => s.id === selectedSource)?.description}
+          </span>
         </div>
 
         <div className="news-modal-body">
@@ -156,6 +190,12 @@ const NewsModal = ({ isOpen, onClose, stockSymbol }) => {
                       <span className="news-date">
                         📅 {formatDate(item.publishTime)}
                       </span>
+                      
+                      {item.source && (
+                        <span className="news-source-badge">
+                          📡 {item.source}
+                        </span>
+                      )}
                       
                       {item.priceChange !== 0 && (
                         <span className={`news-price-change ${item.priceChange > 0 ? 'positive' : 'negative'}`}>
