@@ -158,7 +158,7 @@ const AdvanceSignalModal = ({
                              combo.reliability === 'high' ? '⭐⭐' : '⭐'}
                           </span>
                           <span className="target">
-                            Target: +{combo.prediction.targetGain}% / {combo.prediction.timeframe} phiên
+                            🎯 ATR-based R/R 1:2 | {combo.prediction.timeframe} phiên
                           </span>
                         </div>
                       </div>
@@ -192,7 +192,7 @@ const AdvanceSignalModal = ({
                              combo.reliability === 'high' ? '⭐⭐' : '⭐'}
                           </span>
                           <span className="target">
-                            Target: -{combo.prediction.targetGain}% / {combo.prediction.timeframe} phiên
+                            🎯 ATR-based R/R 1:2 | {combo.prediction.timeframe} phiên
                           </span>
                         </div>
                       </div>
@@ -227,8 +227,8 @@ const AdvanceSignalModal = ({
                                combo.reliability === 'high' ? '⭐⭐' : '⭐'}
                             </span>
                             <span className="target">
-                              Target: ±{combo.prediction.targetGain}% / {combo.prediction.timeframe} phiên
-                            </span>
+                            ⚡ Breakout ±{combo.prediction.targetGain}% | {combo.prediction.timeframe} phiên
+                          </span>
                           </div>
                         </div>
                         <div className="combo-toggle">
@@ -349,9 +349,15 @@ const AdvanceSignalModal = ({
                       if (prediction.direction === 'neutral') {
                         return `✓ ĐÚNG nếu giá biến động ≥ ±${prediction.targetGain}% | ✗ SAI nếu biên động chỉ trong ±${prediction.stopLoss}%`;
                       }
-                      const gainSign = prediction.direction === 'bullish' ? '+' : '-';
-                      const lossSign = prediction.direction === 'bullish' ? '-' : '+';
-                      return `✓ ĐÚNG nếu đạt ${gainSign}${prediction.targetGain}% | ✗ SAI nếu chạm ${lossSign}${prediction.stopLoss}%`;
+                      // ATR-based for bullish/bearish
+                      const direction = prediction.direction === 'bullish' ? 'TĂNG' : 'GIẢM';
+                      return (
+                        <>
+                          <div>📈 <strong>ATR-based Risk Management (R/R = 1:2)</strong></div>
+                          <div>✓ ĐÚNGnếu đạt Target (Entry ± 2×ATR) | ✗ SAI nếu chạm Stop (Entry ± 1×ATR)</div>
+                          <div className="fallback-note">📌 Fallback: Target {prediction.direction === 'bullish' ? '+' : '-'}{prediction.targetGain}% / Stop {prediction.direction === 'bullish' ? '-' : '+'}{prediction.stopLoss}%</div>
+                        </>
+                      );
                     };
                     
                     return (
@@ -448,6 +454,23 @@ const AdvanceSignalModal = ({
                       <div className="performance-info">
                         <span>Avg Max Gain: <strong className="gain">+{currentBacktestResult.avgMaxGain}%</strong></span>
                         <span>Avg Max Loss: <strong className="loss">-{currentBacktestResult.avgMaxLoss}%</strong></span>
+                        {currentBacktestResult.riskManagement && (
+                          <>
+                            <span className="atr-info">
+                              📈 ATR Model: <strong>{currentBacktestResult.riskManagement.atrUsedCount}</strong> signals
+                            </span>
+                            {currentBacktestResult.riskManagement.avgATR && (
+                              <span className="atr-info">
+                                Avg ATR: <strong>{currentBacktestResult.riskManagement.avgATR}</strong>
+                              </span>
+                            )}
+                            {currentBacktestResult.riskManagement.avgRiskReward && (
+                              <span className="atr-info">
+                                R/R: <strong>{currentBacktestResult.riskManagement.avgRiskReward}:1</strong>
+                              </span>
+                            )}
+                          </>
+                        )}
                       </div>
                     </>
                   )}
@@ -459,38 +482,41 @@ const AdvanceSignalModal = ({
                       <div className="signal-table">
                         <div className="table-header">
                           <span>Ngày</span>
-                          <span>Giá vào</span>
-                          <span>Chỉ báo</span>
+                          <span>Entry</span>
+                          <span>Stop/Target</span>
                           <span>Kết quả</span>
-                          <span>Max Gain</span>
-                          <span>Max Loss</span>
+                          <span>Model</span>
                         </div>
                         {currentBacktestResult.evaluations.map((eval_, idx) => {
-                          // Format indicator display
-                          const formatIndicatorValue = (indicators) => {
-                            if (!indicators || indicators.length === 0) return '-';
-                            return indicators.map(ind => {
-                              if (ind.type === 'rsi' && typeof ind.value === 'number') {
-                                return `RSI: ${ind.value.toFixed(1)}`;
-                              } else if (ind.type === 'macd_crossover' && ind.value) {
-                                return ind.value.crossUp ? 'MACD↑' : ind.value.crossDown ? 'MACD↓' : 'MACD';
-                              } else if (ind.type === 'bollinger_squeeze' && ind.value) {
-                                return `BB: ${ind.value.bandwidth?.toFixed(1)}%`;
-                              }
-                              return ind.type;
-                            }).join(', ');
+                          // Format stop/target display
+                          const formatStopTarget = (evaluation) => {
+                            if (evaluation.usedRiskModel === 'ATR' && evaluation.atrValue) {
+                              return (
+                                <span className="atr-values">
+                                  <span className="stop">S: {evaluation.stopPrice}</span>
+                                  <span className="target">T: {evaluation.targetPrice}</span>
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="percent-values">
+                                <span className="stop">S: {evaluation.stopPriceDown || evaluation.stopPriceUp}</span>
+                                <span className="target">T: {evaluation.targetPriceUp || evaluation.targetPriceDown}</span>
+                              </span>
+                            );
                           };
                           
                           return (
                             <div key={idx} className={`table-row ${getResultClass(eval_.result)}`}>
                               <span>{formatDate(eval_.signalTime)}</span>
                               <span>{eval_.entryPrice?.toFixed(2)}</span>
-                              <span>{formatIndicatorValue(eval_.indicators)}</span>
+                              <span>{formatStopTarget(eval_)}</span>
                               <span className="result-badge">
                                 {getResultIcon(eval_.result)} {eval_.result === 'success' ? 'Đúng' : eval_.result === 'failure' ? 'Sai' : 'Trung lập'}
                               </span>
-                              <span className="gain">+{eval_.maxGain}%</span>
-                              <span className="loss">-{eval_.maxLoss}%</span>
+                              <span className={`model-badge ${eval_.usedRiskModel?.toLowerCase()}`}>
+                                {eval_.usedRiskModel === 'ATR' ? '📈 ATR' : '📊 %'}
+                              </span>
                             </div>
                           );
                         })}

@@ -383,7 +383,7 @@ export const calculatePriceVsMA = (data, maType = 'sma', period = 20) => {
  * Check if an indicator is supported
  */
 export const isSupportedIndicator = (indicatorName) => {
-  const supported = ['sma', 'ema', 'rsi', 'macd', 'bollinger_bands', 'volume_spike', 'ma_slope', 'price_vs_ma'];
+  const supported = ['sma', 'ema', 'rsi', 'macd', 'bollinger_bands', 'volume_spike', 'ma_slope', 'price_vs_ma', 'atr'];
   return supported.includes(indicatorName.toLowerCase());
 };
 
@@ -399,8 +399,88 @@ export const getSupportedIndicators = () => {
     'bollinger_bands',
     'volume_spike',
     'ma_slope',
-    'price_vs_ma'
+    'price_vs_ma',
+    'atr'
   ];
+};
+
+/**
+ * Calculate Average True Range (ATR) using Wilder's smoothing method
+ * ATR measures market volatility by decomposing the entire range of an asset price
+ * @param {Array} data - Array of candle data with {time, high, low, close}
+ * @param {number} period - Period for ATR calculation (default 14)
+ * @returns {Array} Array of {time, value, trueRange} for ATR data
+ */
+export const calculateATR = (data, period = 14) => {
+  if (!data || data.length < period + 1) {
+    console.warn(`Not enough data for ATR(${period}). Need ${period + 1}, got ${data.length}`);
+    return [];
+  }
+
+  const result = [];
+  const trueRanges = [];
+
+  // Calculate True Range for each candle (starting from index 1 since we need previous close)
+  for (let i = 1; i < data.length; i++) {
+    const current = data[i];
+    const prevClose = data[i - 1].close;
+    
+    // True Range = max(high - low, |high - prevClose|, |low - prevClose|)
+    const highLow = current.high - current.low;
+    const highPrevClose = Math.abs(current.high - prevClose);
+    const lowPrevClose = Math.abs(current.low - prevClose);
+    
+    const trueRange = Math.max(highLow, highPrevClose, lowPrevClose);
+    trueRanges.push({
+      time: current.time,
+      value: trueRange
+    });
+  }
+
+  // Calculate first ATR as SMA of first 'period' True Ranges
+  if (trueRanges.length < period) {
+    return [];
+  }
+
+  let sum = 0;
+  for (let i = 0; i < period; i++) {
+    sum += trueRanges[i].value;
+  }
+  let atr = sum / period;
+
+  result.push({
+    time: trueRanges[period - 1].time,
+    value: atr,
+    trueRange: trueRanges[period - 1].value
+  });
+
+  // Calculate ATR for remaining data using Wilder's smoothing:
+  // ATR = (ATR_prev * (period - 1) + TR_current) / period
+  for (let i = period; i < trueRanges.length; i++) {
+    const currentTR = trueRanges[i].value;
+    atr = (atr * (period - 1) + currentTR) / period;
+    
+    result.push({
+      time: trueRanges[i].time,
+      value: atr,
+      trueRange: currentTR
+    });
+  }
+
+  return result;
+};
+
+/**
+ * Get ATR value at a specific time/index
+ * Utility function for easy lookup
+ * @param {Array} atrData - Pre-calculated ATR data array
+ * @param {string} time - Time string to find
+ * @returns {number|null} ATR value or null if not found
+ */
+export const getATRAtTime = (atrData, time) => {
+  if (!atrData || !atrData.length) return null;
+  const found = atrData.find(a => a.time === time);
+  return found ? found.value : null;
 };
 
 export default {
@@ -412,6 +492,8 @@ export default {
   calculateVolumeSpike,
   calculateMASlope,
   calculatePriceVsMA,
+  calculateATR,
+  getATRAtTime,
   isSupportedIndicator,
   getSupportedIndicators
 };

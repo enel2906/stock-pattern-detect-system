@@ -11,9 +11,15 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
+    // Stock market data (candlestick updates)
     public static final String EXCHANGE_NAME = "stock.market.data";
     public static final String QUEUE_NAME = "stock.live.updates";
     public static final String ROUTING_KEY_PATTERN = "stock.update.*";
+
+    // Price board realtime updates
+    public static final String PRICE_BOARD_EXCHANGE_NAME = "stock.price.board";
+    public static final String PRICE_BOARD_QUEUE_NAME = "price.board.updates";
+    public static final String PRICE_BOARD_ROUTING_KEY = "price.board.update";
 
     @Bean
     public TopicExchange stockExchange() {
@@ -31,6 +37,25 @@ public class RabbitMQConfig {
                 .bind(stockQueue)
                 .to(stockExchange)
                 .with(ROUTING_KEY_PATTERN);
+    }
+
+    // Price Board Exchange, Queue and Binding
+    @Bean
+    public TopicExchange priceBoardExchange() {
+        return new TopicExchange(PRICE_BOARD_EXCHANGE_NAME, true, false);
+    }
+
+    @Bean
+    public Queue priceBoardQueue() {
+        return new Queue(PRICE_BOARD_QUEUE_NAME, true);
+    }
+
+    @Bean
+    public Binding priceBoardBinding(Queue priceBoardQueue, TopicExchange priceBoardExchange) {
+        return BindingBuilder
+                .bind(priceBoardQueue)
+                .to(priceBoardExchange)
+                .with(PRICE_BOARD_ROUTING_KEY);
     }
 
     @Bean

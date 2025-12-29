@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { getPriceBoard } from '../services/watchlistApi';
 import './WatchlistPage.css';
+
+// WebSocket server URL (alert-service)
+const WS_URL = 'http://localhost:60/ws';
 
 const WatchlistPage = () => {
   const navigate = useNavigate();
@@ -9,15 +14,77 @@ const WatchlistPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('Đang kết nối...');
+  const stompClientRef = useRef(null);
 
-  // Fetch price board data
-  const fetchPriceBoard = useCallback(async () => {
+  // Connect to WebSocket and subscribe to price board updates
+  const connectWebSocket = useCallback(() => {
     try {
-      setIsRefreshing(true);
+      const client = new Client({
+        webSocketFactory: () => new SockJS(WS_URL),
+        debug: (str) => {
+          console.log('Price Board STOMP Debug:', str);
+        },
+        reconnectDelay: 5000,
+        heartbeatIncoming: 4000,
+        heartbeatOutgoing: 4000,
+      });
+
+      client.onConnect = () => {
+        console.log('Price Board WebSocket connected');
+        setIsConnected(true);
+        setConnectionStatus('Đã kết nối');
+        setError(null);
+
+        // Subscribe to price board topic
+        client.subscribe('/topic/price-board', (message) => {
+          try {
+            const priceBoardDTO = JSON.parse(message.body);
+            if (priceBoardDTO && priceBoardDTO.data) {
+              setPriceData(priceBoardDTO.data);
+              setLastUpdate(new Date(priceBoardDTO.timestamp));
+              setLoading(false);
+            }
+          } catch (err) {
+            console.error('Error parsing price board message:', err);
+          }
+        });
+      };
+
+      client.onStompError = (frame) => {
+        console.error('Price Board STOMP error:', frame);
+        setIsConnected(false);
+        setConnectionStatus('Lỗi kết nối');
+        setError('Lỗi kết nối STOMP. Đang thử kết nối lại...');
+      };
+
+      client.onWebSocketError = (event) => {
+        console.error('Price Board WebSocket error:', event);
+        setIsConnected(false);
+        setConnectionStatus('Lỗi WebSocket');
+      };
+
+      client.onDisconnect = () => {
+        console.log('Price Board WebSocket disconnected');
+        setIsConnected(false);
+        setConnectionStatus('Đã ngắt kết nối');
+      };
+
+      client.activate();
+      stompClientRef.current = client;
+    } catch (err) {
+      console.error('Error creating WebSocket client:', err);
+      setError('Không thể kết nối WebSocket. Chuyển sang chế độ polling...');
+      // Fallback to polling if WebSocket fails
+      fetchPriceBoardFallback();
+    }
+  }, []);
+
+  // Fallback: Fetch price board via API (used when WebSocket not available)
+  const fetchPriceBoardFallback = useCallback(async () => {
+    try {
       setError(null);
-      
       const response = await getPriceBoard();
       
       if (response && response.data) {
@@ -29,29 +96,29 @@ const WatchlistPage = () => {
       setError('Không thể tải dữ liệu bảng giá. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
-      setIsRefreshing(false);
     }
   }, []);
 
-  // Initial load
+  // Initial load - fetch data first, then connect WebSocket
   useEffect(() => {
-    fetchPriceBoard();
-  }, [fetchPriceBoard]);
+    // Fetch initial data via API
+    fetchPriceBoardFallback();
+    
+    // Then connect to WebSocket for real-time updates
+    connectWebSocket();
 
-  // Auto refresh every 2 seconds (real-time price board)
-  useEffect(() => {
-    if (!autoRefresh) return;
+    // Cleanup on unmount
+    return () => {
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+        stompClientRef.current = null;
+      }
+    };
+  }, [connectWebSocket, fetchPriceBoardFallback]);
 
-    const interval = setInterval(() => {
-      fetchPriceBoard();
-    }, 3000); // 2 seconds for real-time updates
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, fetchPriceBoard]);
-
-  // Handle manual refresh
+  // Handle manual refresh (fallback fetch)
   const handleRefresh = () => {
-    fetchPriceBoard();
+    fetchPriceBoardFallback();
   };
 
   // Handle stock click - navigate to chart
@@ -113,6 +180,27 @@ const WatchlistPage = () => {
     <div className="watchlist-page">
       <div className="watchlist-header">
         <h1 className="watchlist-title">⚡ Price Board</h1>
+        
+        <div className="header-status">
+          <span 
+            className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}
+            title={connectionStatus}
+          >
+            {isConnected ? '🟢' : '🔴'} {connectionStatus}
+          </span>
+          {lastUpdate && (
+            <span className="last-update">
+              Cập nhật: {formatTime(lastUpdate)}
+            </span>
+          )}
+          <button 
+            className="refresh-button"
+            onClick={handleRefresh}
+            title="Làm mới dữ liệu"
+          >
+            🔄
+          </button>
+        </div>
         
         <button 
           className="header-chart-button"

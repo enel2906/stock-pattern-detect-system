@@ -74,6 +74,7 @@ MONGODB_URI = "mongodb://localhost:27017/candlestick_db"
 RABBITMQ_URI = "amqp://guest:guest@localhost:5672/"
 PORT = 8000
 UPDATE_INTERVAL = 900  # 900 giây (15 phút) - reduced from 60s để giảm request rate
+PRICE_BOARD_UPDATE_INTERVAL = 1  # 1 giây - interval cập nhật bảng giá realtime
 RESET_DB = False  # Đặt True nếu muốn xóa và nạp lại dữ liệu toàn bộ (chỉ dùng khi cần)
 INITIAL_BACKFILL_DAYS = 3650  # 10 năm dữ liệu lịch sử cho lần init đầu tiên
 UPDATE_LOOKBACK_DAYS = 3  # Số ngày để xem lại khi cập nhật (để recover missing/revised data)
@@ -128,8 +129,12 @@ rabbitmq_connection = None
 rabbitmq_channel = None
 rabbitmq_exchange = None
 
+# Price Board RabbitMQ connection (separate for price board updates)
+rabbitmq_price_board_exchange = None
+
 # Background task reference
 update_task = None
+price_board_task = None
 
 
 def init_mongodb():
@@ -158,20 +163,27 @@ def init_mongodb():
 
 async def init_rabbitmq():
     """Khởi tạo kết nối RabbitMQ"""
-    global rabbitmq_connection, rabbitmq_channel, rabbitmq_exchange
+    global rabbitmq_connection, rabbitmq_channel, rabbitmq_exchange, rabbitmq_price_board_exchange
     
     try:
         rabbitmq_connection = await connect_robust(RABBITMQ_URI)
         rabbitmq_channel = await rabbitmq_connection.channel()
         
-        # Declare exchange
+        # Declare exchange for stock updates (candlestick data)
         rabbitmq_exchange = await rabbitmq_channel.declare_exchange(
             'stock.market.data',
             ExchangeType.TOPIC,
             durable=True
         )
         
-        logger.info("RabbitMQ connected successfully")
+        # Declare exchange for price board updates (realtime trading data)
+        rabbitmq_price_board_exchange = await rabbitmq_channel.declare_exchange(
+            'stock.price.board',
+            ExchangeType.TOPIC,
+            durable=True
+        )
+        
+        logger.info("RabbitMQ connected successfully (stock.market.data + stock.price.board)")
         return True
     except Exception as e:
         logger.error(f"Failed to connect to RabbitMQ: {e}")
@@ -229,6 +241,143 @@ async def publish_stock_update(candle_data: dict, symbol: str):
         logger.error(f"Error publishing stock update for {symbol}: {e}")
         # Reset exchange để trigger reconnect ở lần tiếp theo
         rabbitmq_exchange = None
+
+
+async def publish_price_board_update(price_board_data: list):
+    """
+    Publish price board update to RabbitMQ
+    
+    Args:
+        price_board_data: List of stock price data from trading.price_board()
+    """
+    global rabbitmq_price_board_exchange
+    
+    try:
+        # Nếu chưa có exchange, thử kết nối lại
+        if not rabbitmq_price_board_exchange:
+            logger.info("RabbitMQ price board exchange not initialized, attempting to reconnect...")
+            reconnected = await init_rabbitmq()
+            
+            if not reconnected or not rabbitmq_price_board_exchange:
+                logger.warning("Failed to reconnect to RabbitMQ for price board, skipping publish")
+                return
+            
+            logger.info("Successfully reconnected to RabbitMQ for price board")
+        
+        routing_key = "price.board.update"
+        
+        message_body = json.dumps({
+            "data": price_board_data,
+            "total": len(price_board_data),
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        message = Message(
+            body=message_body.encode(),
+            delivery_mode=DeliveryMode.NOT_PERSISTENT,  # Non-persistent for realtime data
+            content_type='application/json'
+        )
+        
+        await rabbitmq_price_board_exchange.publish(
+            message,
+            routing_key=routing_key
+        )
+        
+        logger.debug(f"Published price board update: {len(price_board_data)} stocks")
+    except Exception as e:
+        logger.error(f"Error publishing price board update: {e}")
+        # Reset exchange để trigger reconnect ở lần tiếp theo
+        rabbitmq_price_board_exchange = None
+
+
+async def update_price_board_realtime():
+    """
+    Background task: Cập nhật bảng giá realtime mỗi PRICE_BOARD_UPDATE_INTERVAL giây
+    và publish qua RabbitMQ để alert-service push qua WebSocket
+    """
+    logger.info(f"Starting price board realtime update loop (interval: {PRICE_BOARD_UPDATE_INTERVAL}s)")
+    
+    while True:
+        try:
+            if Trading is None:
+                logger.warning("Trading API not available, skipping price board update")
+                await asyncio.sleep(PRICE_BOARD_UPDATE_INTERVAL)
+                continue
+            
+            # Lấy tất cả mã Việt Nam từ database (không bao gồm US stocks)
+            vietnam_stocks = list(stocks_collection.find(
+                {"market": {"$ne": "US"}},
+                {"symbol": 1}
+            ))
+            symbols_list = [stock['symbol'] for stock in vietnam_stocks]
+            
+            if not symbols_list:
+                logger.debug("No stocks to fetch price board")
+                await asyncio.sleep(PRICE_BOARD_UPDATE_INTERVAL)
+                continue
+            
+            # Khởi tạo Trading adapter
+            trading = Trading(source="vci")
+            
+            # Lấy bảng giá
+            df = trading.price_board(symbols_list=symbols_list)
+            
+            if df is None or df.empty:
+                logger.debug("Empty price board data received")
+                await asyncio.sleep(PRICE_BOARD_UPDATE_INTERVAL)
+                continue
+            
+            # === Xử lý dữ liệu tương tự get_price_board API ===
+            result_df = pd.DataFrame()
+            
+            try:
+                result_df['symbol'] = df[('listing', 'symbol')].astype(str)
+                result_df['refPrice'] = df[('listing', 'ref_price')].fillna(0).astype(float)
+                result_df['ceilingPrice'] = df[('listing', 'ceiling')].fillna(0).astype(float)
+                result_df['floorPrice'] = df[('listing', 'floor')].fillna(0).astype(float)
+                result_df['matchPrice'] = df[('match', 'match_price')].fillna(0).astype(float)
+                result_df['matchVolume'] = df[('match', 'accumulated_volume')].fillna(0).astype(int)
+                result_df['matchValue'] = df[('match', 'accumulated_value')].fillna(0).astype(float)
+                result_df['highest'] = df[('match', 'highest')].fillna(0).astype(float)
+                result_df['lowest'] = df[('match', 'lowest')].fillna(0).astype(float)
+                result_df['openPrice'] = df[('match', 'open_price')].fillna(0).astype(float)
+                result_df['avgPrice'] = df[('match', 'avg_match_price')].fillna(0).astype(float)
+                result_df['bid1Price'] = df[('bid_ask', 'bid_1_price')].fillna(0).astype(float)
+                result_df['bid1Volume'] = df[('bid_ask', 'bid_1_volume')].fillna(0).astype(int)
+                result_df['bid2Price'] = df[('bid_ask', 'bid_2_price')].fillna(0).astype(float)
+                result_df['bid2Volume'] = df[('bid_ask', 'bid_2_volume')].fillna(0).astype(int)
+                result_df['bid3Price'] = df[('bid_ask', 'bid_3_price')].fillna(0).astype(float)
+                result_df['bid3Volume'] = df[('bid_ask', 'bid_3_volume')].fillna(0).astype(int)
+                result_df['ask1Price'] = df[('bid_ask', 'ask_1_price')].fillna(0).astype(float)
+                result_df['ask1Volume'] = df[('bid_ask', 'ask_1_volume')].fillna(0).astype(int)
+                result_df['ask2Price'] = df[('bid_ask', 'ask_2_price')].fillna(0).astype(float)
+                result_df['ask2Volume'] = df[('bid_ask', 'ask_2_volume')].fillna(0).astype(int)
+                result_df['ask3Price'] = df[('bid_ask', 'ask_3_price')].fillna(0).astype(float)
+                result_df['ask3Volume'] = df[('bid_ask', 'ask_3_volume')].fillna(0).astype(int)
+            except KeyError as e:
+                logger.error(f"Missing column in price board data: {e}")
+                await asyncio.sleep(PRICE_BOARD_UPDATE_INTERVAL)
+                continue
+            
+            # Tính change và changePercent
+            result_df['change'] = (result_df['matchPrice'] - result_df['refPrice']).round(2)
+            result_df['changePercent'] = (
+                (result_df['change'] / result_df['refPrice'].replace(0, 1)) * 100
+            ).round(2)
+            result_df.loc[result_df['refPrice'] == 0, 'changePercent'] = 0
+            
+            # Chuyển đổi sang list of dicts
+            price_board_data = result_df.to_dict(orient='records')
+            
+            # Publish to RabbitMQ
+            await publish_price_board_update(price_board_data)
+            
+            logger.debug(f"Price board updated: {len(price_board_data)} stocks")
+            
+        except Exception as e:
+            logger.error(f"Error in price board realtime update: {e}")
+        
+        await asyncio.sleep(PRICE_BOARD_UPDATE_INTERVAL)
 
 
 def is_database_empty():
@@ -549,7 +698,7 @@ async def initialize_data():
                 
                 # Lấy dữ liệu lịch sử bằng yfinance
                 logger.info(f"Fetching historical data for {symbol} (US) using yfinance")
-                df = get_stock_data_yfinance(symbol, period="5y")
+                df = get_stock_data_yfinance(symbol, period="10y")
                 
                 if df is not None:
                     # Lưu candlesticks (trả về list candles)
@@ -644,7 +793,7 @@ async def update_latest_data():
 @app.on_event("startup")
 async def startup_event():
 
-    global update_task
+    global update_task, price_board_task
     
     logger.info(f"Starting up Stock Data Service (RESET_DB={RESET_DB})...")
     
@@ -657,19 +806,30 @@ async def startup_event():
     # Khởi tạo dữ liệu chỉ khi DB trống hoặc RESET_DB=True
     await initialize_data()
 
-    # Bắt đầu background update loop
+    # Bắt đầu background update loop cho candlestick data
     update_task = asyncio.create_task(update_latest_data())
-    logger.info(f"Server started on port {PORT}. Update interval: {UPDATE_INTERVAL}s")
+    
+    # Bắt đầu background update loop cho price board realtime
+    price_board_task = asyncio.create_task(update_price_board_realtime())
+    
+    logger.info(f"Server started on port {PORT}. Candlestick update: {UPDATE_INTERVAL}s, Price board update: {PRICE_BOARD_UPDATE_INTERVAL}s")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    global update_task, rabbitmq_connection
+    global update_task, price_board_task, rabbitmq_connection
 
     if update_task:
         update_task.cancel()
         try:
             await update_task
+        except asyncio.CancelledError:
+            pass
+    
+    if price_board_task:
+        price_board_task.cancel()
+        try:
+            await price_board_task
         except asyncio.CancelledError:
             pass
 

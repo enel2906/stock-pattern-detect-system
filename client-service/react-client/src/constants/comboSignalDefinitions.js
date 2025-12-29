@@ -1,14 +1,27 @@
 /**
  * Combo Signal Definitions
  * Định nghĩa các combo tín hiệu kết hợp mô hình nến với chỉ báo kỹ thuật
+ * 
+ * 🎯 ATR-Based Risk Management (v2.0):
+ * - Stop/Target giờ được tính động dựa trên ATR(14) thay vì % cố định
+ * - Bullish: Stop = Entry - 1×ATR, Target = Entry + 2×ATR (R/R = 1:2)
+ * - Bearish: Stop = Entry + 1×ATR, Target = Entry - 2×ATR (R/R = 1:2)
+ * - targetGain/stopLoss chỉ dùng làm fallback khi không đủ dữ liệu tính ATR
  */
+
+// Default ATR multipliers (có thể customize trong từng combo)
+export const DEFAULT_ATR_CONFIG = {
+  stopMultiplier: 1.0,    // Stop = Entry ± 1.0×ATR
+  targetMultiplier: 2.0,  // Target = Entry ± 2.0×ATR
+  period: 14              // ATR(14)
+};
 
 export const COMBO_SIGNALS = {
   // ===== COMBO 1: Hammer + RSI < 30 (Bullish Reversal) =====
   'hammer_rsi_oversold': {
     id: 'hammer_rsi_oversold',
     name: 'Hammer + RSI Oversold',
-    description: 'Kết hợp mô hình nến Hammer với RSI(14) < 30, báo hiệu khả năng đảo chiều tăng trong 3-7 phiên.',
+    description: 'Kết hợp mô hình nến Hammer với RSI(14) < 30, báo hiệu khả năng đảo chiều tăng trong 3-7 phiên. Stop/Target tự động theo ATR.',
     pattern: 'hammer',
     indicators: [
       {
@@ -21,8 +34,11 @@ export const COMBO_SIGNALS = {
     prediction: {
       direction: 'bullish',
       timeframe: 7, // Đánh giá trong 7 phiên
-      targetGain: 3, // +3%
-      stopLoss: 2 // -2%
+      targetGain: 3, // Fallback: +3%
+      stopLoss: 2,   // Fallback: -2%
+      // ATR-based (mặc định): Stop = Entry - 1×ATR, Target = Entry + 2×ATR
+      atrStopMultiplier: 1.0,
+      atrTargetMultiplier: 2.0
     },
     sentiment: 'bullish',
     reliability: 'high',
@@ -34,7 +50,7 @@ export const COMBO_SIGNALS = {
   'bullish_engulfing_macd_crossover': {
     id: 'bullish_engulfing_macd_crossover',
     name: 'Bullish Engulfing + MACD Crossover',
-    description: 'Mô hình Bullish Engulfing kết hợp MACD cắt lên Signal, tín hiệu đảo chiều tăng trong 5-10 phiên.',
+    description: 'Mô hình Bullish Engulfing kết hợp MACD cắt lên Signal, tín hiệu đảo chiều tăng trong 5-10 phiên. Stop/Target tự động theo ATR.',
     pattern: 'bullish_engulfing',
     indicators: [
       {
@@ -48,8 +64,10 @@ export const COMBO_SIGNALS = {
     prediction: {
       direction: 'bullish',
       timeframe: 10, // Đánh giá trong 10 phiên
-      targetGain: 4, // +4%
-      stopLoss: 2.5 // -2.5%
+      targetGain: 4, // Fallback: +4%
+      stopLoss: 2.5, // Fallback: -2.5%
+      atrStopMultiplier: 1.0,
+      atrTargetMultiplier: 2.0
     },
     sentiment: 'bullish',
     reliability: 'high',
@@ -61,7 +79,7 @@ export const COMBO_SIGNALS = {
   'shooting_star_rsi_macd': {
     id: 'shooting_star_rsi_macd',
     name: 'Shooting Star + RSI Overbought + MACD Crossdown',
-    description: 'Mô hình Shooting Star kết hợp RSI > 70 và MACD cắt xuống Signal, tín hiệu đảo chiều giảm mạnh trong 3-6 phiên.',
+    description: 'Mô hình Shooting Star kết hợp RSI > 70 và MACD cắt xuống Signal, tín hiệu đảo chiều giảm mạnh trong 3-6 phiên. Stop/Target tự động theo ATR.',
     pattern: 'shooting_star',
     indicators: [
       {
@@ -81,8 +99,10 @@ export const COMBO_SIGNALS = {
     prediction: {
       direction: 'bearish',
       timeframe: 6, // Đánh giá trong 6 phiên
-      targetGain: 3, // Kỳ vọng giảm 3%
-      stopLoss: 2 // +2% là stop loss
+      targetGain: 3, // Fallback: giảm 3%
+      stopLoss: 2,   // Fallback: +2% là stop loss
+      atrStopMultiplier: 1.0,
+      atrTargetMultiplier: 2.0
     },
     sentiment: 'bearish',
     reliability: 'very_high',
@@ -91,10 +111,11 @@ export const COMBO_SIGNALS = {
   },
 
   // ===== COMBO 4: Doji + Bollinger Bands bó hẹp =====
+  // Note: Neutral/Breakout signals vẫn dùng % cố định vì không xác định được hướng
   'doji_bollinger_squeeze': {
     id: 'doji_bollinger_squeeze',
     name: 'Doji + Bollinger Squeeze',
-    description: 'Mô hình Doji kết hợp Bollinger Bands bó hẹp (độ rộng ≤ 5%), báo hiệu sắp có biến động mạnh (breakout) trong 5-10 phiên.',
+    description: 'Mô hình Doji kết hợp Bollinger Bands bó hẹp (độ rộng ≤ 5%), báo hiệu sắp có biến động mạnh (breakout) trong 5-10 phiên. Dùng % cố định do không xác định hướng.',
     pattern: 'doji',
     indicators: [
       {
@@ -108,8 +129,9 @@ export const COMBO_SIGNALS = {
     prediction: {
       direction: 'neutral', // Có thể tăng hoặc giảm mạnh
       timeframe: 10, // Đánh giá trong 10 phiên
-      targetGain: 3, // ±3% là breakout thành công
-      stopLoss: 2 // ±2% là không có breakout
+      targetGain: 3, // ±3% là breakout thành công (% cố định cho neutral)
+      stopLoss: 2    // ±2% là không có breakout
+      // Note: Neutral không dùng ATR vì không biết hướng
     },
     sentiment: 'neutral',
     reliability: 'high',
@@ -122,7 +144,7 @@ export const COMBO_SIGNALS = {
   'bullish_engulfing_rsi_filter': {
     id: 'bullish_engulfing_rsi_filter',
     name: 'Bullish Engulfing + RSI Filter',
-    description: 'Bullish Engulfing kết hợp RSI(14) < 40 để lọc bối cảnh quá bán nhẹ/đà giảm suy yếu, kỳ vọng đảo chiều tăng trong 5-10 phiên.',
+    description: 'Bullish Engulfing kết hợp RSI(14) < 40 để lọc bối cảnh quá bán nhẹ/đà giảm suy yếu, kỳ vọng đảo chiều tăng trong 5-10 phiên. Stop/Target tự động theo ATR.',
     pattern: 'bullish_engulfing',
     indicators: [
       {
@@ -135,8 +157,10 @@ export const COMBO_SIGNALS = {
     prediction: {
       direction: 'bullish',
       timeframe: 10,
-      targetGain: 4,   // +4%
-      stopLoss: 2.5    // -2.5%
+      targetGain: 4,   // Fallback: +4%
+      stopLoss: 2.5,   // Fallback: -2.5%
+      atrStopMultiplier: 1.0,
+      atrTargetMultiplier: 2.0
     },
     sentiment: 'bullish',
     reliability: 'high',
@@ -149,7 +173,7 @@ export const COMBO_SIGNALS = {
   'hammer_ma_uptrend_filter': {
     id: 'hammer_ma_uptrend_filter',
     name: 'Hammer + MA Uptrend Filter',
-    description: 'Hammer xuất hiện khi giá chạm/ở ngay trên MA20 hoặc MA50 và MA đang dốc lên, báo hiệu kết thúc nhịp điều chỉnh trong xu hướng tăng (5-12 phiên).',
+    description: 'Hammer xuất hiện khi giá chạm/ở ngay trên MA20 hoặc MA50 và MA đang dốc lên, báo hiệu kết thúc nhịp điều chỉnh trong xu hướng tăng (5-12 phiên). Stop/Target tự động theo ATR.',
     pattern: 'hammer',
     indicators: [
       {
@@ -169,8 +193,10 @@ export const COMBO_SIGNALS = {
     prediction: {
       direction: 'bullish',
       timeframe: 12,
-      targetGain: 5,   // +5%
-      stopLoss: 2.5    // -2.5%
+      targetGain: 5,   // Fallback: +5%
+      stopLoss: 2.5,   // Fallback: -2.5%
+      atrStopMultiplier: 1.0,
+      atrTargetMultiplier: 2.0
     },
     sentiment: 'bullish',
     reliability: 'high',
@@ -183,7 +209,7 @@ export const COMBO_SIGNALS = {
   'hammer_volume_spike_reversal': {
     id: 'hammer_volume_spike_reversal',
     name: 'Hammer + Volume Spike Confirmation',
-    description: 'Hammer kèm Volume Spike (Vol hôm nay ≥ 2x SMA20 Vol) để xác nhận dòng tiền đảo chiều, kỳ vọng tăng trong 3-8 phiên.',
+    description: 'Hammer kèm Volume Spike (Vol hôm nay ≥ 2x SMA20 Vol) để xác nhận dòng tiền đảo chiều, kỳ vọng tăng trong 3-8 phiên. Stop/Target tự động theo ATR.',
     pattern: 'hammer',
     indicators: [
       {
@@ -196,8 +222,10 @@ export const COMBO_SIGNALS = {
     prediction: {
       direction: 'bullish',
       timeframe: 8,
-      targetGain: 3.5, // +3.5%
-      stopLoss: 2.0    // -2%
+      targetGain: 3.5, // Fallback: +3.5%
+      stopLoss: 2.0,   // Fallback: -2%
+      atrStopMultiplier: 1.0,
+      atrTargetMultiplier: 2.0
     },
     sentiment: 'bullish',
     reliability: 'very_high',
@@ -210,7 +238,7 @@ export const COMBO_SIGNALS = {
   'three_white_soldiers_rsi_oversold': {
     id: 'three_white_soldiers_rsi_oversold',
     name: 'Three White Soldiers + RSI Oversold',
-    description: 'Three White Soldiers xuất hiện sau khi RSI(14) < 35 (bối cảnh quá bán), báo hiệu lực mua quay lại mạnh, kỳ vọng tăng 7-15 phiên.',
+    description: 'Three White Soldiers xuất hiện sau khi RSI(14) < 35 (bối cảnh quá bán), báo hiệu lực mua quay lại mạnh, kỳ vọng tăng 7-15 phiên. Stop/Target tự động theo ATR.',
     pattern: 'three_white_soldiers',
     indicators: [
       {
@@ -223,8 +251,10 @@ export const COMBO_SIGNALS = {
     prediction: {
       direction: 'bullish',
       timeframe: 15,
-      targetGain: 6,  // +6%
-      stopLoss: 3     // -3%
+      targetGain: 6,  // Fallback: +6%
+      stopLoss: 3,    // Fallback: -3%
+      atrStopMultiplier: 1.0,
+      atrTargetMultiplier: 2.0
     },
     sentiment: 'bullish',
     reliability: 'high',

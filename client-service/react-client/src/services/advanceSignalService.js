@@ -3,7 +3,7 @@
  * Service xử lý logic phát hiện combo tín hiệu và backtest
  */
 
-import { calculateRSI, calculateMACD, calculateBollingerBands, calculateVolumeSpike, calculateMASlope, calculatePriceVsMA } from './technicalIndicators';
+import { calculateRSI, calculateMACD, calculateBollingerBands, calculateVolumeSpike, calculateMASlope, calculatePriceVsMA, calculateATR } from './technicalIndicators';
 import { 
   detectHammer, 
   detectInvertedHammer, 
@@ -353,24 +353,99 @@ export const detectAllActiveComboSignals = (activeComboIds, candles) => {
 
 /**
  * Evaluate a single signal for backtest
+ * Uses ATR-based stop/target for adaptive volatility management
+ * Falls back to percentage-based if ATR cannot be calculated
  * @param {Object} signal - Signal object
  * @param {Array} candles - All candle data
  * @param {Object} prediction - Prediction settings
+ * @param {Array} atrData - Pre-calculated ATR(14) data (optional, will calculate if not provided)
  * @returns {Object} Evaluation result
  */
-const evaluateSignal = (signal, candles, prediction) => {
+const evaluateSignal = (signal, candles, prediction, atrData = null) => {
   const { index, time, price, candle } = signal;
   const { direction, timeframe, targetGain, stopLoss } = prediction;
   
   const entryPrice = candle.close;
-  
-  // For neutral direction (breakout in either direction), we check for ±targetGain%
   const isNeutral = direction === 'neutral';
   
-  const targetPriceUp = entryPrice * (1 + targetGain / 100);
-  const targetPriceDown = entryPrice * (1 - targetGain / 100);
-  const stopPriceUp = entryPrice * (1 + stopLoss / 100); // For neutral: if stays within ±stopLoss%, it's failure
-  const stopPriceDown = entryPrice * (1 - stopLoss / 100);
+  // ATR-based risk management
+  let atrValue = null;
+  let stopPrice = null;
+  let targetPrice = null;
+  let usedRiskModel = 'PERCENT'; // Default to percent-based
+  let fallbackToPercent = false;
+  let riskRewardRatio = null;
+  
+  // Try to get ATR value at signal time
+  if (atrData && atrData.length > 0) {
+    const atrEntry = atrData.find(a => a.time === time);
+    if (atrEntry) {
+      atrValue = atrEntry.value;
+    }
+  } else {
+    // Calculate ATR if not provided
+    const calculatedATR = calculateATR(candles, 14);
+    if (calculatedATR.length > 0) {
+      const atrEntry = calculatedATR.find(a => a.time === time);
+      if (atrEntry) {
+        atrValue = atrEntry.value;
+      }
+    }
+  }
+  
+  // Determine stop/target based on ATR or fallback to percentage
+  let targetPriceUp, targetPriceDown, stopPriceUp, stopPriceDown;
+  
+  if (atrValue !== null && atrValue > 0 && !isNeutral) {
+    // ATR-based stop/target (adaptive to volatility)
+    usedRiskModel = 'ATR';
+    const atrMultiplierStop = 1.0;
+    const atrMultiplierTarget = 2.0;
+    
+    if (direction === 'bullish') {
+      stopPrice = entryPrice - (atrMultiplierStop * atrValue);
+      targetPrice = entryPrice + (atrMultiplierTarget * atrValue);
+      stopPriceDown = stopPrice;
+      targetPriceUp = targetPrice;
+      stopPriceUp = null; // Not used for bullish
+      targetPriceDown = null; // Not used for bullish
+    } else if (direction === 'bearish') {
+      stopPrice = entryPrice + (atrMultiplierStop * atrValue);
+      targetPrice = entryPrice - (atrMultiplierTarget * atrValue);
+      stopPriceUp = stopPrice;
+      targetPriceDown = targetPrice;
+      stopPriceDown = null; // Not used for bearish
+      targetPriceUp = null; // Not used for bearish
+    }
+    
+    // Calculate Risk/Reward ratio
+    const riskAmount = Math.abs(entryPrice - stopPrice);
+    const rewardAmount = Math.abs(targetPrice - entryPrice);
+    riskRewardRatio = riskAmount > 0 ? (rewardAmount / riskAmount).toFixed(2) : null;
+    
+  } else {
+    // Fallback to percentage-based (original logic)
+    fallbackToPercent = true;
+    usedRiskModel = 'PERCENT';
+    
+    targetPriceUp = entryPrice * (1 + targetGain / 100);
+    targetPriceDown = entryPrice * (1 - targetGain / 100);
+    stopPriceUp = entryPrice * (1 + stopLoss / 100);
+    stopPriceDown = entryPrice * (1 - stopLoss / 100);
+    
+    if (direction === 'bullish') {
+      stopPrice = stopPriceDown;
+      targetPrice = targetPriceUp;
+    } else if (direction === 'bearish') {
+      stopPrice = stopPriceUp;
+      targetPrice = targetPriceDown;
+    }
+    
+    // Calculate Risk/Reward ratio for percent-based
+    if (!isNeutral) {
+      riskRewardRatio = stopLoss > 0 ? (targetGain / stopLoss).toFixed(2) : null;
+    }
+  }
 
   let result = 'neutral'; // neutral, success, failure
   let exitIndex = null;
@@ -388,7 +463,10 @@ const evaluateSignal = (signal, candles, prediction) => {
     const currentClose = futureCandle.close;
 
     if (isNeutral) {
-      // For neutral (breakout) direction - success if price moves ±targetGain%
+      // For neutral (breakout) direction - use percentage-based for neutral
+      const neutralTargetUp = entryPrice * (1 + targetGain / 100);
+      const neutralTargetDown = entryPrice * (1 - targetGain / 100);
+      
       const gainUp = ((currentHigh - entryPrice) / entryPrice) * 100;
       const gainDown = ((entryPrice - currentLow) / entryPrice) * 100;
       maxGain = Math.max(maxGain, gainUp, gainDown);
@@ -398,43 +476,47 @@ const evaluateSignal = (signal, candles, prediction) => {
       );
 
       // Check for breakout up
-      if (currentHigh >= targetPriceUp) {
+      if (currentHigh >= neutralTargetUp) {
         result = 'success';
         exitIndex = index + i;
-        exitPrice = targetPriceUp;
+        exitPrice = neutralTargetUp;
         exitTime = futureCandle.time;
         breakoutDirection = 'up';
         break;
       }
       // Check for breakout down
-      if (currentLow <= targetPriceDown) {
+      if (currentLow <= neutralTargetDown) {
         result = 'success';
         exitIndex = index + i;
-        exitPrice = targetPriceDown;
+        exitPrice = neutralTargetDown;
         exitTime = futureCandle.time;
         breakoutDirection = 'down';
         break;
       }
     } else if (direction === 'bullish') {
-      // Track max gain
+      // Track max gain/loss in percentage
       const gain = ((currentHigh - entryPrice) / entryPrice) * 100;
       const loss = ((entryPrice - currentLow) / entryPrice) * 100;
       maxGain = Math.max(maxGain, gain);
       maxLoss = Math.max(maxLoss, loss);
 
+      // Use ATR-based or percent-based stopPriceDown and targetPriceUp
+      const effectiveStop = usedRiskModel === 'ATR' ? stopPrice : stopPriceDown;
+      const effectiveTarget = usedRiskModel === 'ATR' ? targetPrice : targetPriceUp;
+
       // Check stop loss first
-      if (currentLow <= stopPriceDown) {
+      if (currentLow <= effectiveStop) {
         result = 'failure';
         exitIndex = index + i;
-        exitPrice = stopPriceDown;
+        exitPrice = effectiveStop;
         exitTime = futureCandle.time;
         break;
       }
       // Check target
-      if (currentHigh >= targetPriceUp) {
+      if (currentHigh >= effectiveTarget) {
         result = 'success';
         exitIndex = index + i;
-        exitPrice = targetPriceUp;
+        exitPrice = effectiveTarget;
         exitTime = futureCandle.time;
         break;
       }
@@ -445,19 +527,23 @@ const evaluateSignal = (signal, candles, prediction) => {
       maxGain = Math.max(maxGain, gain);
       maxLoss = Math.max(maxLoss, loss);
 
+      // Use ATR-based or percent-based stopPriceUp and targetPriceDown
+      const effectiveStop = usedRiskModel === 'ATR' ? stopPrice : stopPriceUp;
+      const effectiveTarget = usedRiskModel === 'ATR' ? targetPrice : targetPriceDown;
+
       // Check stop loss first
-      if (currentHigh >= stopPriceUp) {
+      if (currentHigh >= effectiveStop) {
         result = 'failure';
         exitIndex = index + i;
-        exitPrice = stopPriceUp;
+        exitPrice = effectiveStop;
         exitTime = futureCandle.time;
         break;
       }
       // Check target
-      if (currentLow <= targetPriceDown) {
+      if (currentLow <= effectiveTarget) {
         result = 'success';
         exitIndex = index + i;
-        exitPrice = targetPriceDown;
+        exitPrice = effectiveTarget;
         exitTime = futureCandle.time;
         break;
       }
@@ -480,14 +566,23 @@ const evaluateSignal = (signal, candles, prediction) => {
     signalTime: time,
     signalIndex: index,
     entryPrice,
-    targetPriceUp,
-    targetPriceDown,
-    stopPriceUp,
-    stopPriceDown,
+    // ATR-based fields
+    atrValue: atrValue !== null ? parseFloat(atrValue.toFixed(2)) : null,
+    stopPrice: stopPrice !== null ? parseFloat(stopPrice.toFixed(2)) : null,
+    targetPrice: targetPrice !== null ? parseFloat(targetPrice.toFixed(2)) : null,
+    riskRewardRatio: riskRewardRatio !== null ? parseFloat(riskRewardRatio) : null,
+    usedRiskModel,
+    fallbackToPercent,
+    // Legacy fields for backward compatibility
+    targetPriceUp: targetPriceUp !== null ? parseFloat(targetPriceUp?.toFixed(2)) : null,
+    targetPriceDown: targetPriceDown !== null ? parseFloat(targetPriceDown?.toFixed(2)) : null,
+    stopPriceUp: stopPriceUp !== null ? parseFloat(stopPriceUp?.toFixed(2)) : null,
+    stopPriceDown: stopPriceDown !== null ? parseFloat(stopPriceDown?.toFixed(2)) : null,
+    // Result fields
     result,
     exitTime,
     exitIndex,
-    exitPrice,
+    exitPrice: exitPrice !== null ? parseFloat(exitPrice.toFixed(2)) : null,
     maxGain: maxGain.toFixed(2),
     maxLoss: maxLoss.toFixed(2),
     indicators: indicatorInfo,
@@ -499,6 +594,7 @@ const evaluateSignal = (signal, candles, prediction) => {
 
 /**
  * Run backtest for a combo signal
+ * Uses ATR-based stop/target for adaptive volatility management
  * @param {string} comboId - Combo signal ID
  * @param {Array} candles - Candle data array
  * @param {number} lookbackMonths - Number of months to lookback (default 3)
@@ -528,15 +624,18 @@ export const runBacktest = (comboId, candles, lookbackMonths = 3) => {
   // Use the start index in original array for proper indicator calculation
   const startIndexInOriginal = candles.findIndex(c => c.time === filteredCandles[0].time);
 
+  // Pre-calculate ATR(14) for all candles (performance optimization)
+  const atrData = calculateATR(candles, 14);
+
   // Detect signals
   const signals = detectComboSignal(comboId, candles);
   
   // Filter signals within lookback period
   const filteredSignals = signals.filter(s => s.time >= lookbackDateStr);
 
-  // Evaluate each signal
+  // Evaluate each signal with pre-calculated ATR data
   const evaluations = filteredSignals.map(signal => 
-    evaluateSignal(signal, candles, combo.prediction)
+    evaluateSignal(signal, candles, combo.prediction, atrData)
   );
 
   // Calculate statistics
@@ -557,6 +656,16 @@ export const runBacktest = (comboId, candles, lookbackMonths = 3) => {
     ? (evaluations.reduce((sum, e) => sum + parseFloat(e.maxLoss), 0) / evaluations.length).toFixed(2)
     : 0;
 
+  // Calculate ATR usage statistics
+  const atrUsedCount = evaluations.filter(e => e.usedRiskModel === 'ATR').length;
+  const percentUsedCount = evaluations.filter(e => e.usedRiskModel === 'PERCENT').length;
+  const avgATR = evaluations.length > 0
+    ? evaluations.reduce((sum, e) => sum + (e.atrValue || 0), 0) / evaluations.filter(e => e.atrValue !== null).length
+    : null;
+  const avgRiskReward = evaluations.length > 0
+    ? evaluations.reduce((sum, e) => sum + (e.riskRewardRatio || 0), 0) / evaluations.filter(e => e.riskRewardRatio !== null).length
+    : null;
+
   return {
     comboId,
     comboName: combo.name,
@@ -573,6 +682,13 @@ export const runBacktest = (comboId, candles, lookbackMonths = 3) => {
     neutralRate,
     avgMaxGain,
     avgMaxLoss,
+    // ATR risk management stats
+    riskManagement: {
+      atrUsedCount,
+      percentUsedCount,
+      avgATR: avgATR !== null && !isNaN(avgATR) ? parseFloat(avgATR.toFixed(2)) : null,
+      avgRiskReward: avgRiskReward !== null && !isNaN(avgRiskReward) ? parseFloat(avgRiskReward.toFixed(2)) : null
+    },
     evaluations,
     signals: filteredSignals.map(s => ({
       time: s.time,
@@ -585,9 +701,10 @@ export const runBacktest = (comboId, candles, lookbackMonths = 3) => {
 
 /**
  * Check for real-time combo signals on the latest candle
+ * Includes ATR-based stop/target calculations
  * @param {Array} activeComboIds - Array of active combo IDs
  * @param {Array} candles - All candle data
- * @returns {Array} Array of triggered signals on the latest candle
+ * @returns {Array} Array of triggered signals on the latest candle with ATR info
  */
 export const checkRealtimeSignals = (activeComboIds, candles) => {
   if (!candles || candles.length < 15) return [];
@@ -595,6 +712,9 @@ export const checkRealtimeSignals = (activeComboIds, candles) => {
   const triggeredSignals = [];
   const latestIndex = candles.length - 1;
   const latestTime = candles[latestIndex].time;
+  
+  // Pre-calculate ATR for realtime signals
+  const atrData = calculateATR(candles, 14);
 
   activeComboIds.forEach(comboId => {
     const signals = detectComboSignal(comboId, candles);
@@ -604,12 +724,62 @@ export const checkRealtimeSignals = (activeComboIds, candles) => {
     
     if (latestSignal) {
       const combo = getComboSignal(comboId);
+      const entryPrice = latestSignal.candle?.close || latestSignal.price;
+      
+      // Get ATR value at signal time
+      let atrValue = null;
+      let stopPrice = null;
+      let targetPrice = null;
+      let riskRewardRatio = null;
+      let usedRiskModel = 'PERCENT';
+      
+      const atrEntry = atrData.find(a => a.time === latestTime);
+      if (atrEntry && atrEntry.value > 0) {
+        atrValue = atrEntry.value;
+        usedRiskModel = 'ATR';
+        
+        const direction = combo.sentiment;
+        if (direction === 'bullish') {
+          stopPrice = entryPrice - (1.0 * atrValue);
+          targetPrice = entryPrice + (2.0 * atrValue);
+        } else if (direction === 'bearish') {
+          stopPrice = entryPrice + (1.0 * atrValue);
+          targetPrice = entryPrice - (2.0 * atrValue);
+        }
+        
+        if (stopPrice && targetPrice) {
+          const riskAmount = Math.abs(entryPrice - stopPrice);
+          const rewardAmount = Math.abs(targetPrice - entryPrice);
+          riskRewardRatio = riskAmount > 0 ? parseFloat((rewardAmount / riskAmount).toFixed(2)) : null;
+        }
+      } else {
+        // Fallback to percent-based
+        const { targetGain, stopLoss } = combo.prediction;
+        const direction = combo.sentiment;
+        
+        if (direction === 'bullish') {
+          stopPrice = entryPrice * (1 - stopLoss / 100);
+          targetPrice = entryPrice * (1 + targetGain / 100);
+        } else if (direction === 'bearish') {
+          stopPrice = entryPrice * (1 + stopLoss / 100);
+          targetPrice = entryPrice * (1 - targetGain / 100);
+        }
+        riskRewardRatio = stopLoss > 0 ? parseFloat((targetGain / stopLoss).toFixed(2)) : null;
+      }
+      
       triggeredSignals.push({
         ...latestSignal,
         comboName: combo.name,
         comboIcon: combo.icon,
         comboColor: combo.color,
-        sentiment: combo.sentiment
+        sentiment: combo.sentiment,
+        // ATR-based risk management
+        entryPrice: parseFloat(entryPrice.toFixed(2)),
+        atrValue: atrValue !== null ? parseFloat(atrValue.toFixed(2)) : null,
+        stopPrice: stopPrice !== null ? parseFloat(stopPrice.toFixed(2)) : null,
+        targetPrice: targetPrice !== null ? parseFloat(targetPrice.toFixed(2)) : null,
+        riskRewardRatio,
+        usedRiskModel
       });
     }
   });
@@ -638,6 +808,7 @@ export const generateComboSignalMarkers = (signals, combo) => {
 
 /**
  * Generate backtest result markers for chart
+ * Includes ATR-based stop/target information
  * @param {Object} backtestResult - Backtest result object
  * @returns {Array} Array of chart markers with evaluation info
  */
@@ -668,7 +839,14 @@ export const generateBacktestMarkers = (backtestResult) => {
       entryPrice: evaluation.entryPrice,
       exitPrice: evaluation.exitPrice,
       exitTime: evaluation.exitTime,
-      indicatorValue: evaluation.indicatorValue
+      indicatorValue: evaluation.indicatorValue,
+      // ATR-based risk management info
+      atrValue: evaluation.atrValue,
+      stopPrice: evaluation.stopPrice,
+      targetPrice: evaluation.targetPrice,
+      riskRewardRatio: evaluation.riskRewardRatio,
+      usedRiskModel: evaluation.usedRiskModel,
+      fallbackToPercent: evaluation.fallbackToPercent
     };
   });
 };
