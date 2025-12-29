@@ -1772,6 +1772,103 @@ async def admin_get_stocks_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/admin/stocks/update-names")
+async def admin_update_stock_names():
+    """
+    [Admin] Cập nhật tên công ty cho các mã cổ phiếu Việt Nam từ vnstock
+    
+    Hàm này sẽ:
+    1. Lấy tất cả stocks Việt Nam từ database
+    2. Gọi vnstock Listing API để lấy danh sách với tên công ty đầy đủ
+    3. Cập nhật trường 'name' cho từng stock
+    
+    Returns:
+        Số lượng stocks đã được cập nhật
+    """
+    try:
+        if Listing is None:
+            raise HTTPException(status_code=503, detail="Listing API not available")
+        
+        # Lấy tất cả stocks Việt Nam từ database (không bao gồm US)
+        vietnam_stocks = list(stocks_collection.find({"market": {"$ne": "US"}}))
+        
+        if not vietnam_stocks:
+            return {"updated": 0, "message": "No Vietnam stocks found in database"}
+        
+        # Khởi tạo Listing adapter
+        listing = Listing(source="vci")
+        
+        # Lấy tất cả symbols với thông tin đầy đủ
+        all_symbols_df = listing.all_symbols(to_df=True)
+        
+        if all_symbols_df is None or all_symbols_df.empty:
+            raise HTTPException(status_code=503, detail="Failed to fetch listing data from vnstock")
+        
+        # Chuẩn hóa tên cột
+        all_symbols_df.columns = [str(col).lower().replace(' ', '_') for col in all_symbols_df.columns]
+        
+        # Xác định cột symbol và name
+        symbol_col = 'symbol' if 'symbol' in all_symbols_df.columns else 'ticker'
+        name_col = 'organ_name' if 'organ_name' in all_symbols_df.columns else 'company_name' if 'company_name' in all_symbols_df.columns else None
+        
+        if name_col is None:
+            raise HTTPException(status_code=503, detail="Cannot find company name column in listing data")
+        
+        # Tạo mapping symbol -> name
+        symbol_to_name = {}
+        for _, row in all_symbols_df.iterrows():
+            symbol = str(row.get(symbol_col, '')).upper()
+            name = row.get(name_col, '')
+            if symbol and name:
+                symbol_to_name[symbol] = name
+        
+        logger.info(f"Loaded {len(symbol_to_name)} symbols from vnstock listing")
+        
+        # Cập nhật từng stock
+        updated_count = 0
+        skipped_count = 0
+        not_found_symbols = []
+        
+        for stock in vietnam_stocks:
+            symbol = stock.get('symbol', '').upper()
+            current_name = stock.get('name', '')
+            
+            # Nếu stock có trong mapping
+            if symbol in symbol_to_name:
+                new_name = symbol_to_name[symbol]
+                
+                # Chỉ cập nhật nếu tên khác (hoặc tên hiện tại là dạng "SYMBOL - MARKET")
+                if current_name != new_name:
+                    stocks_collection.update_one(
+                        {"_id": stock['_id']},
+                        {"$set": {"name": new_name, "updated_at": datetime.now()}}
+                    )
+                    updated_count += 1
+                    logger.info(f"Updated {symbol}: '{current_name}' → '{new_name}'")
+                else:
+                    skipped_count += 1
+            else:
+                not_found_symbols.append(symbol)
+                logger.warning(f"Symbol {symbol} not found in vnstock listing")
+        
+        result = {
+            "updated": updated_count,
+            "skipped": skipped_count,
+            "notFound": len(not_found_symbols),
+            "notFoundSymbols": not_found_symbols[:20],  # Giới hạn 20 symbols
+            "message": f"Updated {updated_count} stocks, skipped {skipped_count}, not found {len(not_found_symbols)}"
+        }
+        
+        logger.info(f"Stock names update completed: {result['message']}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating stock names: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     uvicorn.run(
         "server:app",

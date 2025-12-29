@@ -143,7 +143,9 @@ const StockSearchModal = ({ isOpen, onClose, onSelectStock, currentStock }) => {
                           onClick={() => handleStockClick(stock.symbol)}
                         >
                           <span className="stock-symbol">{stock.symbol}</span>
-                          <span className="stock-market-label">{marketLabels[stock.market] || stock.market || 'Unknown'}</span>
+                          <span className="stock-name" title={stock.name || ''}>
+                            {stock.name || `${stock.symbol} - ${stock.market || 'Unknown'}`}
+                          </span>
                           {currentStock === stock.symbol && (
                             <span className="stock-check">✓</span>
                           )}
