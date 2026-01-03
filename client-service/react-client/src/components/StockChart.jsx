@@ -54,6 +54,10 @@ const StockChart = ({
   const [comboAlerts, setComboAlerts] = useState([]); // Real-time combo alerts
   const [patternCounts, setPatternCounts] = useState({}); // Pattern counts for display
   const [isPatternListExpanded, setIsPatternListExpanded] = useState(false); // Expand/collapse pattern list
+  const [patternNavIndex, setPatternNavIndex] = useState({}); // Track current navigation index for each pattern
+  
+  // Store pattern positions (times) for navigation
+  const patternPositionsRef = useRef({});
 
   // Initialize chart
   useEffect(() => {
@@ -439,6 +443,31 @@ const StockChart = ({
 
       // Setup tooltips for all patterns
       setupMultiPatternTooltips(patternNames);
+
+      // Store pattern positions for navigation (sorted by time, newest first)
+      const patternPositions = {};
+      allMarkers.forEach(marker => {
+        if (marker.patternName) {
+          if (!patternPositions[marker.patternName]) {
+            patternPositions[marker.patternName] = [];
+          }
+          patternPositions[marker.patternName].push(marker.time);
+        }
+      });
+      
+      // Sort each pattern's positions by time (newest first for navigation)
+      Object.keys(patternPositions).forEach(patternName => {
+        patternPositions[patternName].sort((a, b) => {
+          const timeA = typeof a === 'string' ? new Date(a).getTime() : a;
+          const timeB = typeof b === 'string' ? new Date(b).getTime() : b;
+          return timeB - timeA; // Descending order (newest first)
+        });
+      });
+      
+      patternPositionsRef.current = patternPositions;
+      
+      // Reset navigation indices when patterns change
+      setPatternNavIndex({});
 
       // Update pattern counts state
       setPatternCounts(newPatternCounts);
@@ -2221,6 +2250,49 @@ const StockChart = ({
     }
   }, [activeComboSignals, dataLoadCounter]);
 
+  // Navigate to a specific pattern on the chart
+  const navigateToPattern = useCallback((patternName) => {
+    const positions = patternPositionsRef.current[patternName];
+    if (!positions || positions.length === 0 || !chartRef.current) return;
+    
+    // Get current navigation index for this pattern (default to 0 - most recent)
+    const currentIndex = patternNavIndex[patternName] ?? -1;
+    
+    // Calculate next index (cycle through patterns: 0 -> 1 -> 2 -> ... -> n-1 -> 0)
+    const nextIndex = (currentIndex + 1) % positions.length;
+    
+    // Update navigation index
+    setPatternNavIndex(prev => ({
+      ...prev,
+      [patternName]: nextIndex
+    }));
+    
+    // Get the time of the pattern to navigate to
+    const targetTime = positions[nextIndex];
+    
+    if (targetTime) {
+      // Calculate visible range to center on the target pattern
+      const timeScale = chartRef.current.timeScale();
+      const visibleRange = timeScale.getVisibleLogicalRange();
+      
+      if (visibleRange) {
+        const visibleBars = visibleRange.to - visibleRange.from;
+        const halfVisible = Math.floor(visibleBars / 2);
+        
+        // Find the index of the target time in original data
+        const targetIndex = originalDataRef.current.findIndex(d => d.time === targetTime);
+        
+        if (targetIndex >= 0) {
+          // Center the view on the target pattern
+          const from = Math.max(0, targetIndex - halfVisible);
+          const to = Math.min(originalDataRef.current.length - 1, targetIndex + halfVisible);
+          
+          timeScale.setVisibleLogicalRange({ from, to });
+        }
+      }
+    }
+  }, [patternNavIndex]);
+
   // Get pattern label from PATTERN_OPTIONS
   const getPatternLabel = (patternValue) => {
     for (const group of PATTERN_OPTIONS) {
@@ -2300,9 +2372,19 @@ const StockChart = ({
             <div className={`pattern-counts-list ${isPatternListExpanded ? 'expanded' : ''}`}>
               {Object.entries(patternCounts).map(([patternName, count]) => {
                 const sentiment = getPatternSentiment(patternName);
+                const currentNavIndex = patternNavIndex[patternName] ?? -1;
+                const displayIndex = currentNavIndex >= 0 ? count - currentNavIndex : count;
                 return (
-                  <div key={patternName} className={`pattern-count-item ${sentiment}`}>
+                  <div 
+                    key={patternName} 
+                    className={`pattern-count-item ${sentiment} clickable`}
+                    onClick={() => navigateToPattern(patternName)}
+                    title={`Nhấp để điều hướng đến mẫu hình (${displayIndex}/${count})`}
+                  >
                     <span className="pattern-count-name">{getPatternLabel(patternName)}</span>
+                    <span className="pattern-count-nav-indicator">
+                      {currentNavIndex >= 0 ? `${displayIndex}/` : ''}
+                    </span>
                     <span className="pattern-count-value">{count}</span>
                   </div>
                 );
