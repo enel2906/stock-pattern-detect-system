@@ -240,7 +240,7 @@ export const stockApi = {
   // Fetch all stocks from database (for stock search modal)
   getAllStocks: async () => {
     try {
-      const res = await fetch(`${PYTHON_API_URL}/api/stocks`, {
+      const res = await fetch(`${JAVA_API_URL}/stock/all`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -253,7 +253,7 @@ export const stockApi = {
 
       const response = await res.json();
       // Response can be array directly or {stocks: [...]}
-      return Array.isArray(response) ? response : (response.stocks || response);
+      return Array.isArray(response) ? response : (response.data || response);
     } catch (error) {
       console.error('Error fetching stocks:', error.message);
       throw error;

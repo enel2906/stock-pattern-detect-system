@@ -6,6 +6,8 @@ import com.example.alert.service.StockMarketService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @AllArgsConstructor 
 public class StockMarketServiceImpl implements StockMarketService {
@@ -14,5 +16,10 @@ public class StockMarketServiceImpl implements StockMarketService {
     @Override
     public StockMarket getStockBySymbol(String stockSymbol) {
         return stockMarketRepository.getStockBySymbol(stockSymbol);
+    }
+
+    @Override
+    public List<StockMarket> getALlStocks() {
+        return stockMarketRepository.findAll();
     }
 }

@@ -273,3 +273,200 @@ body.light .combo-alert.bearish {
     font-size: 11px;
   }
 }
+
+/* Pattern Counts Container */
+.pattern-counts-container {
+  position: absolute;
+  top: 50px;
+  left: 10px;
+  background: rgba(18, 21, 26, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 12;
+  min-width: 200px;
+  max-width: 320px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+body.light .pattern-counts-container {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.pattern-counts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+  transition: background 0.2s ease;
+}
+
+.pattern-counts-header:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.pattern-counts-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pattern-counts-toggle {
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform 0.3s ease;
+}
+
+.pattern-counts-toggle.expanded {
+  transform: rotate(180deg);
+}
+
+.pattern-counts-list {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  position: relative;
+}
+
+.pattern-counts-list.expanded {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* When collapsed, show first few items with gradient fade */
+.pattern-counts-container:not(.expanded) .pattern-counts-list {
+  max-height: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Fade out effect at bottom when collapsed */
+.pattern-counts-container:not(.expanded) .pattern-counts-list::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(transparent, rgba(18, 21, 26, 0.95));
+  pointer-events: none;
+}
+
+body.light .pattern-counts-container:not(.expanded) .pattern-counts-list::after {
+  background: linear-gradient(transparent, rgba(255, 255, 255, 0.98));
+}
+
+.pattern-counts-container:not(.expanded) .pattern-counts-header {
+  border-bottom: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.pattern-count-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.2s ease;
+}
+
+body.light .pattern-count-item {
+  border-bottom-color: rgba(0, 0, 0, 0.05);
+}
+
+.pattern-count-item:last-child {
+  border-bottom: none;
+}
+
+.pattern-count-item:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.pattern-count-name {
+  font-size: 12px;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 10px;
+}
+
+.pattern-count-value {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.pattern-count-item.bullish .pattern-count-value {
+  background: rgba(0, 227, 150, 0.2);
+  color: #00E396;
+}
+
+.pattern-count-item.bearish .pattern-count-value {
+  background: rgba(255, 69, 96, 0.2);
+  color: #FF4560;
+}
+
+.pattern-count-item.neutral .pattern-count-value,
+.pattern-count-item .pattern-count-value {
+  background: rgba(254, 176, 25, 0.2);
+  color: #FEB019;
+}
+
+/* Scrollbar for pattern list */
+.pattern-counts-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pattern-counts-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pattern-counts-list::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+}
+
+.pattern-counts-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+@media (max-width: 720px) {
+  .pattern-counts-container {
+    top: 60px;
+    left: 5px;
+    min-width: 180px;
+    max-width: 260px;
+  }
+
+  .pattern-counts-header {
+    padding: 8px 12px;
+  }
+
+  .pattern-counts-title {
+    font-size: 12px;
+  }
+
+  .pattern-count-item {
+    padding: 6px 12px;
+  }
+
+  .pattern-count-name {
+    font-size: 11px;
+  }
+
+  .pattern-count-value {
+    font-size: 11px;
+    padding: 2px 6px;
+    min-width: 24px;
+  }
+}

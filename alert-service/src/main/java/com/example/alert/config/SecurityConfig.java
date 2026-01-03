@@ -54,6 +54,7 @@ public class SecurityConfig {
                                 "/ws/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/stock").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/stock/all").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

@@ -31,4 +31,9 @@ public class StockChartController {
         List<CandleStick> data = candleStickService.getCandlesByStockId(stock.getId());
         return new Response(data);
     }
+
+    @GetMapping("/all")
+    public Response getAllStock() {
+        return new Response(stockMarketService.getALlStocks());
+    }
 }

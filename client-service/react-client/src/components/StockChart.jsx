@@ -3,6 +3,7 @@ import { createChart } from 'lightweight-charts';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { PATTERN_DEFINITIONS } from '../constants/patternDefinitions';
+import { PATTERN_OPTIONS } from '../constants/patternOptions';
 import { getPatternAbbreviation, getPatternSentiment, isValidData } from '../utils/patternUtils';
 import { stockApi } from '../services/api';
 import { getIndicatorConfig } from '../constants/indicatorOptions';
@@ -51,6 +52,8 @@ const StockChart = ({
   const [dataLoadCounter, setDataLoadCounter] = useState(0); // Track when new data is loaded
   const [ohlcvInfo, setOhlcvInfo] = useState(null); // Current OHLCV info
   const [comboAlerts, setComboAlerts] = useState([]); // Real-time combo alerts
+  const [patternCounts, setPatternCounts] = useState({}); // Pattern counts for display
+  const [isPatternListExpanded, setIsPatternListExpanded] = useState(false); // Expand/collapse pattern list
 
   // Initialize chart
   useEffect(() => {
@@ -335,6 +338,7 @@ const StockChart = ({
     // If no patterns selected, just reset
     if (!patternNames || patternNames.length === 0) {
       resetPatterns();
+      setPatternCounts({});
       onStatusChange('Sẵn sàng.');
       return;
     }
@@ -347,6 +351,7 @@ const StockChart = ({
       const allMarkers = [];
       const allPatternLines = [];
       let totalPatternsFound = 0;
+      const newPatternCounts = {};
 
       // Process each pattern
       for (const patternName of patternNames) {
@@ -360,6 +365,7 @@ const StockChart = ({
 
           if (patterns && patterns.length > 0) {
             totalPatternsFound += patterns.length;
+            newPatternCounts[patternName] = patterns.length;
 
             // Check if this is a complex pattern or simple pattern
             const isComplexPattern = patterns[0].candleIndex !== undefined && 
@@ -433,6 +439,9 @@ const StockChart = ({
 
       // Setup tooltips for all patterns
       setupMultiPatternTooltips(patternNames);
+
+      // Update pattern counts state
+      setPatternCounts(newPatternCounts);
 
       // onStatusChange(`Tìm thấy ${totalPatternsFound} mô hình từ ${patternNames.length} loại.`);
     } catch (error) {
@@ -2023,6 +2032,7 @@ const StockChart = ({
     } else {
       // Clear patterns if none selected
       resetPatterns();
+      setPatternCounts({});
     }
   }, [selectedPatterns, isChartReady, loadPatternsData, resetPatterns, dataLoadCounter]);
 
@@ -2211,6 +2221,24 @@ const StockChart = ({
     }
   }, [activeComboSignals, dataLoadCounter]);
 
+  // Get pattern label from PATTERN_OPTIONS
+  const getPatternLabel = (patternValue) => {
+    for (const group of PATTERN_OPTIONS) {
+      const option = group.options.find(opt => opt.value === patternValue);
+      if (option) {
+        // Extract just the name part without emoji and description
+        const label = option.label;
+        // Remove emoji at start and description after " - "
+        const withoutDescription = label.split(' - ')[0];
+        // Remove leading emoji (first character + space if emoji)
+        const cleanLabel = withoutDescription.replace(/^[\p{Emoji}\s]+/u, '').trim();
+        return cleanLabel || patternValue.replace(/_/g, ' ');
+      }
+    }
+    // Fallback: convert snake_case to Title Case
+    return patternValue.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   // Format number with comma separator
   const formatNumber = (num) => {
     if (!num) return '0';
@@ -2255,6 +2283,31 @@ const StockChart = ({
               C <span className="ohlcv-value">{formatNumber(ohlcvInfo.close)}</span>
             </span>
             <span className="ohlcv-item">Vol <span className="ohlcv-value">{formatVolume(ohlcvInfo.volume)}</span></span>
+          </div>
+        )}
+
+        {/* Pattern Counts Display */}
+        {Object.keys(patternCounts).length > 0 && (
+          <div className={`pattern-counts-container ${isPatternListExpanded ? 'expanded' : ''}`}>
+            <div className="pattern-counts-header" onClick={() => setIsPatternListExpanded(!isPatternListExpanded)}>
+              <span className="pattern-counts-title">
+                📊 Mẫu hình phát hiện ({Object.values(patternCounts).reduce((a, b) => a + b, 0)})
+              </span>
+              <span className={`pattern-counts-toggle ${isPatternListExpanded ? 'expanded' : ''}`}>
+                {isPatternListExpanded ? '▲' : '▼'}
+              </span>
+            </div>
+            <div className={`pattern-counts-list ${isPatternListExpanded ? 'expanded' : ''}`}>
+              {Object.entries(patternCounts).map(([patternName, count]) => {
+                const sentiment = getPatternSentiment(patternName);
+                return (
+                  <div key={patternName} className={`pattern-count-item ${sentiment}`}>
+                    <span className="pattern-count-name">{getPatternLabel(patternName)}</span>
+                    <span className="pattern-count-value">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
         

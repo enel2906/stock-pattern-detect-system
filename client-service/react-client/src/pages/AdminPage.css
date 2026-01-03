@@ -176,6 +176,44 @@
   padding: 14px 16px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  vertical-align: middle;
+}
+
+/* Fixed column widths for better alignment */
+.users-table th:nth-child(1),
+.users-table td:nth-child(1) {
+  width: 15%;
+  min-width: 120px;
+}
+
+.users-table th:nth-child(2),
+.users-table td:nth-child(2) {
+  width: 22%;
+  min-width: 180px;
+}
+
+.users-table th:nth-child(3),
+.users-table td:nth-child(3) {
+  width: 18%;
+  min-width: 140px;
+}
+
+.users-table th:nth-child(4),
+.users-table td:nth-child(4) {
+  width: 12%;
+  min-width: 100px;
+}
+
+.users-table th:nth-child(5),
+.users-table td:nth-child(5) {
+  width: 15%;
+  min-width: 120px;
+}
+
+.users-table th:nth-child(6),
+.users-table td:nth-child(6) {
+  width: 18%;
+  min-width: 140px;
 }
 
 .users-table th {
@@ -189,6 +227,7 @@
 
 .users-table tbody tr {
   transition: background 0.3s;
+  height: 60px;
 }
 
 .users-table tbody tr:hover {
@@ -200,10 +239,11 @@
 }
 
 .username-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   font-weight: 500;
+}
+
+.username-cell .you-badge {
+  margin-left: 10px;
 }
 
 .you-badge {
@@ -213,6 +253,8 @@
   border-radius: 10px;
   font-size: 11px;
   font-weight: normal;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* Badges */
@@ -222,6 +264,8 @@
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .role-badge.admin {
@@ -246,9 +290,11 @@
 
 /* Actions */
 .actions-cell {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  white-space: nowrap;
+}
+
+.actions-cell .role-select {
+  margin-right: 10px;
 }
 
 .role-select {
@@ -259,6 +305,8 @@
   color: #e4e4e4;
   font-size: 13px;
   cursor: pointer;
+  height: 32px;
+  line-height: 1.5;
 }
 
 .role-select:focus {
@@ -280,6 +328,11 @@
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s;
+  height: 32px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .delete-btn:hover:not(:disabled) {
@@ -389,9 +442,9 @@
     font-size: 13px;
   }
   
-  .actions-cell {
-    flex-direction: column;
-    gap: 5px;
+  .actions-cell .role-select {
+    margin-right: 5px;
+    margin-bottom: 5px;
   }
 
   .admin-tabs {
