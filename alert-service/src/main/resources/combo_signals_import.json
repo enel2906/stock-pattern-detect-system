@@ -1,0 +1,250 @@
+[
+  {
+    "combo_id": "hammer_rsi_oversold",
+    "name": "Hammer + RSI Oversold",
+    "description": "Kết hợp mô hình nến Hammer với RSI(14) < 30, báo hiệu khả năng đảo chiều tăng trong 3-7 phiên. Stop/Target tự động theo ATR.",
+    "pattern": "hammer",
+    "indicators": [
+      {
+        "type": "rsi",
+        "period": 14,
+        "condition": "lessThan",
+        "threshold": 30
+      }
+    ],
+    "prediction": {
+      "direction": "bullish",
+      "timeframe": 7,
+      "targetGain": 3.0,
+      "stopLoss": 2.0,
+      "atrStopMultiplier": 1.0,
+      "atrTargetMultiplier": 2.0
+    },
+    "sentiment": "bullish",
+    "reliability": "high",
+    "icon": "🔨📉",
+    "color": "#00E396",
+    "enabled": true,
+    "created_at": { "$date": "2026-01-11T00:00:00.000Z" },
+    "updated_at": { "$date": "2026-01-11T00:00:00.000Z" }
+  },
+  {
+    "combo_id": "bullish_engulfing_macd_crossover",
+    "name": "Bullish Engulfing + MACD Crossover",
+    "description": "Mô hình Bullish Engulfing kết hợp MACD cắt lên Signal, tín hiệu đảo chiều tăng trong 5-10 phiên. Stop/Target tự động theo ATR.",
+    "pattern": "bullish_engulfing",
+    "indicators": [
+      {
+        "type": "macd_crossover",
+        "fastPeriod": 12,
+        "slowPeriod": 26,
+        "signalPeriod": 9,
+        "condition": "crossUp"
+      }
+    ],
+    "prediction": {
+      "direction": "bullish",
+      "timeframe": 10,
+      "targetGain": 4.0,
+      "stopLoss": 2.5,
+      "atrStopMultiplier": 1.0,
+      "atrTargetMultiplier": 2.0
+    },
+    "sentiment": "bullish",
+    "reliability": "high",
+    "icon": "📈🔀",
+    "color": "#00E396",
+    "enabled": true,
+    "created_at": { "$date": "2026-01-11T00:00:00.000Z" },
+    "updated_at": { "$date": "2026-01-11T00:00:00.000Z" }
+  },
+  {
+    "combo_id": "shooting_star_rsi_macd",
+    "name": "Shooting Star + RSI Overbought + MACD Crossdown",
+    "description": "Mô hình Shooting Star kết hợp RSI > 70 và MACD cắt xuống Signal, tín hiệu đảo chiều giảm mạnh trong 3-6 phiên. Stop/Target tự động theo ATR.",
+    "pattern": "shooting_star",
+    "indicators": [
+      {
+        "type": "rsi",
+        "period": 14,
+        "condition": "greaterThan",
+        "threshold": 70
+      },
+      {
+        "type": "macd_crossover",
+        "fastPeriod": 12,
+        "slowPeriod": 26,
+        "signalPeriod": 9,
+        "condition": "crossDown"
+      }
+    ],
+    "prediction": {
+      "direction": "bearish",
+      "timeframe": 6,
+      "targetGain": 3.0,
+      "stopLoss": 2.0,
+      "atrStopMultiplier": 1.0,
+      "atrTargetMultiplier": 2.0
+    },
+    "sentiment": "bearish",
+    "reliability": "very_high",
+    "icon": "⭐📉🔻",
+    "color": "#FF4560",
+    "enabled": true,
+    "created_at": { "$date": "2026-01-11T00:00:00.000Z" },
+    "updated_at": { "$date": "2026-01-11T00:00:00.000Z" }
+  },
+  {
+    "combo_id": "doji_bollinger_squeeze",
+    "name": "Doji + Bollinger Squeeze",
+    "description": "Mô hình Doji kết hợp Bollinger Bands bó hẹp (độ rộng ≤ 5%), báo hiệu sắp có biến động mạnh (breakout) trong 5-10 phiên. Dùng % cố định do không xác định hướng.",
+    "pattern": "doji",
+    "indicators": [
+      {
+        "type": "bollinger_squeeze",
+        "period": 20,
+        "stdDev": 2,
+        "condition": "squeeze",
+        "threshold": 5
+      }
+    ],
+    "prediction": {
+      "direction": "neutral",
+      "timeframe": 10,
+      "targetGain": 3.0,
+      "stopLoss": 2.0,
+      "atrStopMultiplier": 1.0,
+      "atrTargetMultiplier": 2.0
+    },
+    "sentiment": "neutral",
+    "reliability": "high",
+    "icon": "⚪🎯",
+    "color": "#FEB019",
+    "enabled": true,
+    "created_at": { "$date": "2026-01-11T00:00:00.000Z" },
+    "updated_at": { "$date": "2026-01-11T00:00:00.000Z" }
+  },
+  {
+    "combo_id": "bullish_engulfing_rsi_filter",
+    "name": "Bullish Engulfing + RSI Filter",
+    "description": "Bullish Engulfing kết hợp RSI(14) < 40 để lọc bối cảnh quá bán nhẹ/đà giảm suy yếu, kỳ vọng đảo chiều tăng trong 5-10 phiên. Stop/Target tự động theo ATR.",
+    "pattern": "bullish_engulfing",
+    "indicators": [
+      {
+        "type": "rsi",
+        "period": 14,
+        "condition": "lessThan",
+        "threshold": 40
+      }
+    ],
+    "prediction": {
+      "direction": "bullish",
+      "timeframe": 10,
+      "targetGain": 4.0,
+      "stopLoss": 2.5,
+      "atrStopMultiplier": 1.0,
+      "atrTargetMultiplier": 2.0
+    },
+    "sentiment": "bullish",
+    "reliability": "high",
+    "icon": "📈🟣",
+    "color": "#00E396",
+    "enabled": true,
+    "created_at": { "$date": "2026-01-11T00:00:00.000Z" },
+    "updated_at": { "$date": "2026-01-11T00:00:00.000Z" }
+  },
+  {
+    "combo_id": "hammer_ma_uptrend_filter",
+    "name": "Hammer + MA Uptrend Filter",
+    "description": "Hammer xuất hiện khi giá chạm/ở ngay trên MA20 hoặc MA50 và MA đang dốc lên, báo hiệu kết thúc nhịp điều chỉnh trong xu hướng tăng (5-12 phiên). Stop/Target tự động theo ATR.",
+    "pattern": "hammer",
+    "indicators": [
+      {
+        "type": "ma_slope",
+        "maType": "sma",
+        "period": 50,
+        "condition": "slopeUp"
+      },
+      {
+        "type": "price_vs_ma",
+        "maType": "sma",
+        "period": 20,
+        "condition": "nearOrAbove",
+        "threshold": 1.0
+      }
+    ],
+    "prediction": {
+      "direction": "bullish",
+      "timeframe": 12,
+      "targetGain": 5.0,
+      "stopLoss": 2.5,
+      "atrStopMultiplier": 1.0,
+      "atrTargetMultiplier": 2.0
+    },
+    "sentiment": "bullish",
+    "reliability": "high",
+    "icon": "🔨📏",
+    "color": "#00E396",
+    "enabled": true,
+    "created_at": { "$date": "2026-01-11T00:00:00.000Z" },
+    "updated_at": { "$date": "2026-01-11T00:00:00.000Z" }
+  },
+  {
+    "combo_id": "hammer_volume_spike_reversal",
+    "name": "Hammer + Volume Spike Confirmation",
+    "description": "Hammer kèm Volume Spike (Vol hôm nay ≥ 2x SMA20 Vol) để xác nhận dòng tiền đảo chiều, kỳ vọng tăng trong 3-8 phiên. Stop/Target tự động theo ATR.",
+    "pattern": "hammer",
+    "indicators": [
+      {
+        "type": "volume_spike",
+        "period": 20,
+        "condition": "greaterThanMultiple",
+        "threshold": 2
+      }
+    ],
+    "prediction": {
+      "direction": "bullish",
+      "timeframe": 8,
+      "targetGain": 3.5,
+      "stopLoss": 2.0,
+      "atrStopMultiplier": 1.0,
+      "atrTargetMultiplier": 2.0
+    },
+    "sentiment": "bullish",
+    "reliability": "very_high",
+    "icon": "🔨📊",
+    "color": "#00E396",
+    "enabled": true,
+    "created_at": { "$date": "2026-01-11T00:00:00.000Z" },
+    "updated_at": { "$date": "2026-01-11T00:00:00.000Z" }
+  },
+  {
+    "combo_id": "three_white_soldiers_rsi_oversold",
+    "name": "Three White Soldiers + RSI Oversold",
+    "description": "Three White Soldiers xuất hiện sau khi RSI(14) < 35 (bối cảnh quá bán), báo hiệu lực mua quay lại mạnh, kỳ vọng tăng 7-15 phiên. Stop/Target tự động theo ATR.",
+    "pattern": "three_white_soldiers",
+    "indicators": [
+      {
+        "type": "rsi",
+        "period": 14,
+        "condition": "lessThan",
+        "threshold": 35
+      }
+    ],
+    "prediction": {
+      "direction": "bullish",
+      "timeframe": 15,
+      "targetGain": 6.0,
+      "stopLoss": 3.0,
+      "atrStopMultiplier": 1.0,
+      "atrTargetMultiplier": 2.0
+    },
+    "sentiment": "bullish",
+    "reliability": "high",
+    "icon": "🪖🪖🪖📈",
+    "color": "#00E396",
+    "enabled": true,
+    "created_at": { "$date": "2026-01-11T00:00:00.000Z" },
+    "updated_at": { "$date": "2026-01-11T00:00:00.000Z" }
+  }
+]

@@ -257,14 +257,25 @@ const checkIndicatorCondition = (value, condition, threshold) => {
 
 /**
  * Detect combo signals in candle data
- * @param {string} comboId - Combo signal ID
+ * @param {string|Object} comboIdOrObject - Combo signal ID or combo object
  * @param {Array} candles - Candle data array
  * @returns {Array} Array of detected combo signals with time, price, and indicator values
  */
-export const detectComboSignal = (comboId, candles) => {
-  const combo = getComboSignal(comboId);
+export const detectComboSignal = (comboIdOrObject, candles) => {
+  // Support both combo ID (string) and combo object
+  let combo;
+  let comboId;
+  
+  if (typeof comboIdOrObject === 'string') {
+    comboId = comboIdOrObject;
+    combo = getComboSignal(comboId);
+  } else if (typeof comboIdOrObject === 'object' && comboIdOrObject !== null) {
+    combo = comboIdOrObject;
+    comboId = combo.id || combo.comboId;
+  }
+  
   if (!combo) {
-    console.warn(`Combo signal not found: ${comboId}`);
+    console.warn(`Combo signal not found: ${comboIdOrObject}`);
     return [];
   }
 
@@ -600,8 +611,19 @@ const evaluateSignal = (signal, candles, prediction, atrData = null) => {
  * @param {number} lookbackMonths - Number of months to lookback (default 3)
  * @returns {Object} Backtest results
  */
-export const runBacktest = (comboId, candles, lookbackMonths = 3) => {
-  const combo = getComboSignal(comboId);
+export const runBacktest = (comboIdOrObject, candles, lookbackMonths = 3) => {
+  // Support both combo ID (string) and combo object
+  let combo;
+  let comboId;
+  
+  if (typeof comboIdOrObject === 'string') {
+    comboId = comboIdOrObject;
+    combo = getComboSignal(comboId);
+  } else if (typeof comboIdOrObject === 'object' && comboIdOrObject !== null) {
+    combo = comboIdOrObject;
+    comboId = combo.id || combo.comboId;
+  }
+  
   if (!combo) {
     return { error: 'Combo signal not found' };
   }
@@ -627,8 +649,8 @@ export const runBacktest = (comboId, candles, lookbackMonths = 3) => {
   // Pre-calculate ATR(14) for all candles (performance optimization)
   const atrData = calculateATR(candles, 14);
 
-  // Detect signals
-  const signals = detectComboSignal(comboId, candles);
+  // Detect signals - pass combo object directly for server-fetched combos
+  const signals = detectComboSignal(combo, candles);
   
   // Filter signals within lookback period
   const filteredSignals = signals.filter(s => s.time >= lookbackDateStr);

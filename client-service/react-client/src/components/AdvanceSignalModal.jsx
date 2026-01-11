@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getAllComboSignals, getComboSignal } from '../constants/comboSignalDefinitions';
+import { fetchAllComboSignals, convertAllToLocalFormat, convertToLocalFormat } from '../services/comboSignalApi';
 import { runBacktest } from '../services/advanceSignalService';
 import './AdvanceSignalModal.css';
 
@@ -19,8 +20,35 @@ const AdvanceSignalModal = ({
   const [lookbackMonths, setLookbackMonths] = useState(3);
   const [isRunningBacktest, setIsRunningBacktest] = useState(false);
   const [currentBacktestResult, setCurrentBacktestResult] = useState(null);
+  const [serverCombos, setServerCombos] = useState([]);
+  const [isLoadingCombos, setIsLoadingCombos] = useState(false);
 
-  const allCombos = useMemo(() => getAllComboSignals(), []);
+  // Fetch combo signals from server when modal opens
+  useEffect(() => {
+    const loadComboSignals = async () => {
+      if (!isOpen) return;
+      
+      setIsLoadingCombos(true);
+      try {
+        const apiCombos = await fetchAllComboSignals();
+        const localFormatCombos = convertAllToLocalFormat(apiCombos);
+        setServerCombos(localFormatCombos);
+      } catch (error) {
+        console.error('Failed to load combo signals from server, using local fallback:', error);
+        // Fallback to local definitions
+        setServerCombos(getAllComboSignals());
+      } finally {
+        setIsLoadingCombos(false);
+      }
+    };
+    
+    loadComboSignals();
+  }, [isOpen]);
+
+  // Use server combos if available, otherwise fallback to local
+  const allCombos = useMemo(() => {
+    return serverCombos.length > 0 ? serverCombos : getAllComboSignals();
+  }, [serverCombos]);
   
   const bullishCombos = useMemo(() => 
     allCombos.filter(c => c.sentiment === 'bullish'), [allCombos]);
@@ -30,6 +58,12 @@ const AdvanceSignalModal = ({
   
   const neutralCombos = useMemo(() => 
     allCombos.filter(c => c.sentiment === 'neutral'), [allCombos]);
+
+  // Helper to get combo by id (from server or local)
+  const getComboById = (comboId) => {
+    const fromServer = allCombos.find(c => c.id === comboId);
+    return fromServer || getComboSignal(comboId);
+  };
 
   // Reset state when modal opens
   useEffect(() => {
@@ -53,7 +87,13 @@ const AdvanceSignalModal = ({
     setIsRunningBacktest(true);
     
     try {
-      const result = runBacktest(selectedCombo, candleData, lookbackMonths);
+      // Get combo object to pass to runBacktest (supports server-fetched combos)
+      const comboObj = getComboById(selectedCombo);
+      if (!comboObj) {
+        throw new Error('Combo signal not found');
+      }
+      
+      const result = runBacktest(comboObj, candleData, lookbackMonths);
       setCurrentBacktestResult(result);
       
       if (onRunBacktest) {
@@ -318,7 +358,7 @@ const AdvanceSignalModal = ({
               {selectedCombo && (
                 <div className="selected-combo-info">
                   {(() => {
-                    const combo = getComboSignal(selectedCombo);
+                    const combo = getComboById(selectedCombo);
                     if (!combo) return null;
                     
                     // Helper function to format indicator display

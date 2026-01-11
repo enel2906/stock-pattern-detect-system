@@ -35,6 +35,10 @@ public class Response {
     public static Response error(int code, String message) {
         return new Response(code, message);
     }
+    
+    public static Response error(String message) {
+        return new Response(ResponseCode.UNKNOWN_ERROR, message);
+    }
 
     public int getCode() {
         return code;

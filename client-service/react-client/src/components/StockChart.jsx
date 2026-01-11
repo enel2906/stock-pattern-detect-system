@@ -55,9 +55,11 @@ const StockChart = ({
   const [patternCounts, setPatternCounts] = useState({}); // Pattern counts for display
   const [isPatternListExpanded, setIsPatternListExpanded] = useState(false); // Expand/collapse pattern list
   const [patternNavIndex, setPatternNavIndex] = useState({}); // Track current navigation index for each pattern
+  const [highlightedPattern, setHighlightedPattern] = useState(null); // Track currently highlighted pattern
   
   // Store pattern positions (times) for navigation
   const patternPositionsRef = useRef({});
+  const highlightMarkerRef = useRef(null); // Store the highlight marker
 
   // Initialize chart
   useEffect(() => {
@@ -1656,6 +1658,10 @@ const StockChart = ({
 
     // Clear markers only (don't touch candle data - it's already correct)
     candleSeriesRef.current.setMarkers([]);
+    
+    // Clear highlight marker
+    highlightMarkerRef.current = null;
+    setHighlightedPattern(null);
   }, []);
 
   // Load indicators
@@ -2225,14 +2231,23 @@ const StockChart = ({
       if (!combo) return;
 
       try {
-        const result = detectComboSignal(originalDataRef.current, combo);
-        if (result && result.triggered) {
-          detectedAlerts.push({
-            id: comboId,
-            combo: combo,
-            ...result,
-            time: new Date().toLocaleTimeString()
-          });
+        // detectComboSignal expects (comboIdOrObject, candles)
+        const signals = detectComboSignal(combo, originalDataRef.current);
+        // Check if there's a signal at the last candle (real-time)
+        if (signals && signals.length > 0) {
+          const lastSignal = signals[signals.length - 1];
+          const lastCandleTime = originalDataRef.current[originalDataRef.current.length - 1]?.time;
+          if (lastSignal.time === lastCandleTime) {
+            detectedAlerts.push({
+              id: comboId,
+              combo: combo,
+              triggered: true,
+              candleTime: lastSignal.time,
+              price: lastSignal.price,
+              indicators: lastSignal.indicators,
+              time: new Date().toLocaleTimeString()
+            });
+          }
         }
       } catch (e) {
         console.warn(`Error detecting combo signal ${comboId}:`, e);
@@ -2253,7 +2268,7 @@ const StockChart = ({
   // Navigate to a specific pattern on the chart
   const navigateToPattern = useCallback((patternName) => {
     const positions = patternPositionsRef.current[patternName];
-    if (!positions || positions.length === 0 || !chartRef.current) return;
+    if (!positions || positions.length === 0 || !chartRef.current || !candleSeriesRef.current) return;
     
     // Get current navigation index for this pattern (default to 0 - most recent)
     const currentIndex = patternNavIndex[patternName] ?? -1;
@@ -2271,6 +2286,37 @@ const StockChart = ({
     const targetTime = positions[nextIndex];
     
     if (targetTime) {
+      // Remove previous highlight marker if exists
+      if (highlightMarkerRef.current) {
+        const currentMarkers = candleSeriesRef.current.markers() || [];
+        const filteredMarkers = currentMarkers.filter(m => !m.isHighlight);
+        candleSeriesRef.current.setMarkers(filteredMarkers);
+        highlightMarkerRef.current = null;
+      }
+      
+      // Add new highlight marker
+      const currentMarkers = candleSeriesRef.current.markers() || [];
+      const highlightMarker = {
+        time: targetTime,
+        position: 'aboveBar',
+        color: '#FFD700', // Gold color for highlight
+        shape: 'arrowDown',
+        text: '✓',
+        size: 2.5,
+        isHighlight: true // Mark as highlight marker for easy removal
+      };
+      
+      // Add highlight marker and sort by time (required by LightweightCharts)
+      const updatedMarkers = [...currentMarkers, highlightMarker].sort((a, b) => {
+        const timeA = typeof a.time === 'string' ? new Date(a.time).getTime() / 1000 : a.time;
+        const timeB = typeof b.time === 'string' ? new Date(b.time).getTime() / 1000 : b.time;
+        return timeA - timeB;
+      });
+      
+      candleSeriesRef.current.setMarkers(updatedMarkers);
+      highlightMarkerRef.current = highlightMarker;
+      setHighlightedPattern({ pattern: patternName, time: targetTime });
+      
       // Calculate visible range to center on the target pattern
       const timeScale = chartRef.current.timeScale();
       const visibleRange = timeScale.getVisibleLogicalRange();
@@ -2374,14 +2420,18 @@ const StockChart = ({
                 const sentiment = getPatternSentiment(patternName);
                 const currentNavIndex = patternNavIndex[patternName] ?? -1;
                 const displayIndex = currentNavIndex >= 0 ? count - currentNavIndex : count;
+                const isActive = highlightedPattern && highlightedPattern.pattern === patternName;
                 return (
                   <div 
                     key={patternName} 
-                    className={`pattern-count-item ${sentiment} clickable`}
+                    className={`pattern-count-item ${sentiment} clickable ${isActive ? 'active' : ''}`}
                     onClick={() => navigateToPattern(patternName)}
                     title={`Nhấp để điều hướng đến mẫu hình (${displayIndex}/${count})`}
                   >
-                    <span className="pattern-count-name">{getPatternLabel(patternName)}</span>
+                    <span className="pattern-count-name">
+                      {isActive && <span className="active-indicator">➤ </span>}
+                      {getPatternLabel(patternName)}
+                    </span>
                     <span className="pattern-count-nav-indicator">
                       {currentNavIndex >= 0 ? `${displayIndex}/` : ''}
                     </span>

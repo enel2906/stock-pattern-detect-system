@@ -10,6 +10,7 @@ import AboutPage from './pages/AboutPage';
 import AdminPage from './pages/AdminPage';
 import NewsModal from './components/NewsModal';
 import FinancialReportModal from './components/FinancialReportModal';
+import { fetchActiveComboSignalIds, toggleComboSignal as apiToggleComboSignal } from './services/comboSignalApi';
 import './App.css';
 
 function MainApp() {
@@ -47,11 +48,33 @@ function MainApp() {
     const saved = localStorage.getItem('activeComboSignals');
     return saved ? JSON.parse(saved) : [];
   });
+  const [isLoadingComboSignals, setIsLoadingComboSignals] = useState(false);
   const [backtestResults, setBacktestResults] = useState(null);
   const [backtestMarkers, setBacktestMarkers] = useState(null);
   
   // Reference to candle data from StockChart
   const candleDataRef = useRef([]);
+
+  // Load active combo signals from server when authenticated
+  useEffect(() => {
+    const loadActiveComboSignals = async () => {
+      if (!isAuthenticated) return;
+      
+      setIsLoadingComboSignals(true);
+      try {
+        const serverActiveIds = await fetchActiveComboSignalIds();
+        setActiveComboSignals(serverActiveIds);
+        localStorage.setItem('activeComboSignals', JSON.stringify(serverActiveIds));
+      } catch (error) {
+        console.error('Failed to load active combo signals from server:', error);
+        // Keep local state if server fails
+      } finally {
+        setIsLoadingComboSignals(false);
+      }
+    };
+    
+    loadActiveComboSignals();
+  }, [isAuthenticated]);
 
   // Listen to URL parameter changes and update stockSymbol
   useEffect(() => {
@@ -186,21 +209,41 @@ function MainApp() {
   };
 
   // Advance Signal handlers
-  const handleToggleComboSignal = useCallback((comboId) => {
+  const handleToggleComboSignal = useCallback(async (comboId) => {
     if (!isAuthenticated) {
       setShowAuthWarning(true);
       setTimeout(() => setShowAuthWarning(false), 3000);
       return;
     }
     
+    // Optimistic update
+    const previousState = [...activeComboSignals];
+    const isCurrentlyActive = activeComboSignals.includes(comboId);
+    
     setActiveComboSignals(prev => {
-      if (prev.includes(comboId)) {
+      if (isCurrentlyActive) {
         return prev.filter(id => id !== comboId);
       } else {
         return [...prev, comboId];
       }
     });
-  }, [isAuthenticated]);
+    
+    // Sync with server
+    try {
+      const response = await apiToggleComboSignal(comboId);
+      console.log('Toggle combo signal response:', response);
+      // Server confirmed, update localStorage
+      localStorage.setItem('activeComboSignals', JSON.stringify(
+        isCurrentlyActive 
+          ? previousState.filter(id => id !== comboId) 
+          : [...previousState, comboId]
+      ));
+    } catch (error) {
+      console.error('Failed to toggle combo signal on server:', error);
+      // Rollback on error
+      setActiveComboSignals(previousState);
+    }
+  }, [isAuthenticated, activeComboSignals]);
 
   const handleRunBacktest = useCallback((result) => {
     setBacktestResults(result);
