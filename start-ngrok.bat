@@ -1,0 +1,3 @@
+@echo off
+echo Starting ngrok tunnels...
+powershell -ExecutionPolicy Bypass -File "%~dp0start-ngrok.ps1" %*
