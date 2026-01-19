@@ -42,19 +42,9 @@ const Header = ({
     <>
       <header className="app-header">
         <div className="header-left">
-          <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-            <div className="header-logo-icon">📡</div>
+          <div className="brand" onClick={() => navigate('/about')} style={{ cursor: 'pointer' }} title="About Us">
             <div className="header-brand-name">SignalScope</div>
           </div>
-          
-          <button 
-            className={`about-link ${isAboutPage ? 'active' : ''}`}
-            onClick={() => navigate('/about')}
-            title="About Us"
-          >
-            <span className="icon">ℹ️</span>
-            <span className="label">About Us</span>
-          </button>
           
           {!isWatchlistPage && !isAboutPage && <div className="status">{status}</div>}
         </div>

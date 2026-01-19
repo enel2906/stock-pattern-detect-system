@@ -1,11 +1,7 @@
 // API Service
 import { detectCandlePattern, isPatternSupported } from './patternDetectionService';
 import apiInterceptor from './apiInterceptor';
-
-// Java backend cho stock chart data
-const JAVA_API_URL = 'http://localhost:60';
-// Python backend cho news và financial reports
-const PYTHON_API_URL = 'http://localhost:8000';
+import { JAVA_API_URL, PYTHON_API_URL } from '../config/apiConfig';
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {

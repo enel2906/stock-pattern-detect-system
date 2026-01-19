@@ -4,8 +4,7 @@
  */
 
 import apiInterceptor from './apiInterceptor';
-
-const API_BASE_URL = 'http://localhost:60/api';
+import { API_BASE_URL } from '../config/apiConfig';
 
 // Cache cho combo signals (tránh gọi API nhiều lần)
 let comboSignalsCache = null;

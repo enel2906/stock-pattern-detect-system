@@ -1,5 +1,5 @@
 // Watchlist API Service
-const DATA_SERVICE_URL = 'http://localhost:8000';
+import { PYTHON_API_URL as DATA_SERVICE_URL, useProxy } from '../config/apiConfig';
 
 /**
  * Lấy bảng giá real-time từ data-service
@@ -8,9 +8,12 @@ const DATA_SERVICE_URL = 'http://localhost:8000';
  */
 export const getPriceBoard = async (symbols = null) => {
   try {
+    // When using proxy, DATA_SERVICE_URL already includes /data-api
+    // which gets rewritten to /api by Vite proxy
+    const apiPath = useProxy ? '/price-board' : '/api/price-board';
     const url = symbols 
-      ? `${DATA_SERVICE_URL}/api/price-board?symbols=${symbols.join(',')}` 
-      : `${DATA_SERVICE_URL}/api/price-board`;
+      ? `${DATA_SERVICE_URL}${apiPath}?symbols=${symbols.join(',')}` 
+      : `${DATA_SERVICE_URL}${apiPath}`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -38,7 +41,8 @@ export const getPriceBoard = async (symbols = null) => {
  */
 export const getStockInfo = async (symbol) => {
   try {
-    const response = await fetch(`${DATA_SERVICE_URL}/api/stocks?symbol=${symbol}`, {
+    const apiPath = useProxy ? '/stocks' : '/api/stocks';
+    const response = await fetch(`${DATA_SERVICE_URL}${apiPath}?symbol=${symbol}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'

@@ -3,10 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getPriceBoard } from '../services/watchlistApi';
+import { WS_URL } from '../config/apiConfig';
 import './WatchlistPage.css';
-
-// WebSocket server URL (alert-service)
-const WS_URL = 'http://localhost:60/ws';
 
 const WatchlistPage = () => {
   const navigate = useNavigate();

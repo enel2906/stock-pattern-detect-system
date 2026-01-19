@@ -1,7 +1,6 @@
 // Admin API Service
 import apiInterceptor from './apiInterceptor';
-
-const API_BASE_URL = 'http://localhost:60/api';
+import { API_BASE_URL } from '../config/apiConfig';
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {

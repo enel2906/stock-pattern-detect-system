@@ -1,7 +1,6 @@
 // Auth API Service
 import apiInterceptor from './apiInterceptor';
-
-const API_BASE_URL = 'http://localhost:60/api';
+import { API_BASE_URL, OAUTH2_URL, isNgrok, isPrivateIP, useProxy } from '../config/apiConfig';
 
 export const authApi = {
   // Register new user
@@ -125,7 +124,32 @@ export const authApi = {
   },
 
   // Google OAuth login
+  // Works on: localhost, ngrok (via proxy), public domains
+  // NOT on: private IPs without proxy
   googleLogin: () => {
-    window.location.href = `http://localhost:60/oauth2/authorization/google`;
+    // Check if accessing from private IP (LAN) without proxy
+    if (!useProxy && isPrivateIP) {
+      alert(
+        '⚠️ Google OAuth không hỗ trợ private IP!\n\n' +
+        'Để đăng nhập bằng Google, vui lòng:\n' +
+        '1. Truy cập từ máy chủ: http://localhost:5173\n' +
+        '2. Hoặc sử dụng ngrok tunnel (xem NGROK_SETUP.md)\n' +
+        '3. Hoặc sử dụng đăng nhập thường (username/password)\n\n' +
+        'Lý do: Google chặn OAuth redirect đến IP nội bộ (192.168.x.x) vì lý do bảo mật.'
+      );
+      return;
+    }
+    
+    window.location.href = OAUTH2_URL;
+  },
+
+  // Check if Google OAuth is available
+  // Available on: localhost, ngrok/external domains (via proxy)
+  // NOT available on: private IPs without proxy
+  isGoogleOAuthAvailable: () => {
+    if (useProxy) return true;  // Proxy mode always supports OAuth
+    const currentHost = window.location.hostname;
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') return true;
+    return !isPrivateIP;
   },
 };

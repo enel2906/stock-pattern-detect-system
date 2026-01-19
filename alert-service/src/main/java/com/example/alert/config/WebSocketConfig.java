@@ -22,8 +22,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
-                .setAllowedOrigins(allowedOrigins.split(","))
-                .withSockJS();
+        // Support wildcard CORS for LAN access
+        if ("*".equals(allowedOrigins)) {
+            registry.addEndpoint("/ws")
+                    .setAllowedOriginPatterns("*")
+                    .withSockJS();
+        } else {
+            registry.addEndpoint("/ws")
+                    .setAllowedOrigins(allowedOrigins.split(","))
+                    .withSockJS();
+        }
     }
 }

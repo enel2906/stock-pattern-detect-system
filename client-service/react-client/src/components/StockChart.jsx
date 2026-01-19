@@ -7,6 +7,7 @@ import { PATTERN_OPTIONS } from '../constants/patternOptions';
 import { getPatternAbbreviation, getPatternSentiment, isValidData } from '../utils/patternUtils';
 import { stockApi } from '../services/api';
 import { getIndicatorConfig } from '../constants/indicatorOptions';
+import { WS_URL } from '../config/apiConfig';
 import { 
   calculateSMA, 
   calculateEMA, 
@@ -1868,7 +1869,7 @@ const StockChart = ({
     const connectWebSocket = () => {
       try {
         const client = new Client({
-          webSocketFactory: () => new SockJS('http://localhost:60/ws'),
+          webSocketFactory: () => new SockJS(WS_URL),
           debug: (str) => {
             console.log('STOMP Debug:', str);
           },

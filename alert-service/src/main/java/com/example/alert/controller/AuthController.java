@@ -6,7 +6,10 @@ import com.example.alert.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -16,7 +19,16 @@ public class AuthController {
     private final AuthService authService;
     
     @PostMapping("/register")
-    public ResponseEntity<Response> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<Response> register(@Valid @RequestBody RegisterRequest request, BindingResult bindingResult) {
+        // Return validation errors if any
+        if (bindingResult.hasErrors()) {
+            String errors = bindingResult.getFieldErrors().stream()
+                    .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                    .collect(Collectors.joining("; "));
+            return ResponseEntity.badRequest()
+                    .body(Response.error(400, errors));
+        }
+        
         try {
             AuthResponse response = authService.register(request);
             return ResponseEntity.ok(Response.success(response));

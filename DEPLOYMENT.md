@@ -75,13 +75,15 @@ powershell -ExecutionPolicy Bypass -File .\deploy-local.ps1
 
 ## 🌐 Truy cập từ thiết bị khác (cùng WiFi)
 
+**Đã hỗ trợ tự động!** Hệ thống tự detect IP và cấu hình API URLs.
+
 ### Bước 1: Tìm IP của máy chủ
 ```powershell
 ipconfig
 # Tìm IPv4 Address, ví dụ: 192.168.1.100
 ```
 
-### Bước 2: Mở Windows Firewall
+### Bước 2: Mở Windows Firewall (nếu cần)
 ```powershell
 # Mở port cho các service
 netsh advfirewall firewall add rule name="Stock App" dir=in action=allow protocol=TCP localport=5173,60,8000
@@ -91,6 +93,22 @@ netsh advfirewall firewall add rule name="Stock App" dir=in action=allow protoco
 ```
 http://192.168.1.100:5173
 ```
+
+### Cách hoạt động
+- React client tự động detect hostname từ URL
+- Nếu truy cập qua `localhost` → gọi API `localhost:60`, `localhost:8000`
+- Nếu truy cập qua IP (ví dụ `192.168.1.100`) → gọi API `192.168.1.100:60`, `192.168.1.100:8000`
+- Nếu truy cập qua ngrok → tự động dùng ngrok URLs
+- CORS đã được cấu hình cho phép tất cả origins
+
+### Google OAuth trên LAN
+
+⚠️ **Google OAuth KHÔNG hoạt động** khi truy cập qua private IP (192.168.x.x).
+
+**Giải pháp**:
+1. Truy cập từ `localhost:5173` trên máy chủ
+2. Hoặc sử dụng **ngrok tunnel** → Xem [NGROK_SETUP.md](NGROK_SETUP.md)
+3. Hoặc dùng đăng nhập thường (username/password)
 
 ## ⚠️ Troubleshooting
 
