@@ -34,6 +34,15 @@ const Header = ({
   const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
   const [isStockSearchModalOpen, setIsStockSearchModalOpen] = useState(false);
   const [isAdvanceSignalModalOpen, setIsAdvanceSignalModalOpen] = useState(false);
+  const [showAuthWarning, setShowAuthWarning] = useState(false);
+
+  const handleAdvanceSignalClick = () => {
+    if (!user) {
+      setShowAuthWarning(true);
+    } else {
+      setIsAdvanceSignalModalOpen(true);
+    }
+  };
 
   const isWatchlistPage = location.pathname === '/watchlist';
   const isAboutPage = location.pathname === '/about';
@@ -55,7 +64,6 @@ const Header = ({
             onClick={() => navigate('/watchlist')}
             title="Real-time Price Board"
           >
-            <span className="icon">⚡</span>
             <span className="label">Price Board</span>
           </button>
           
@@ -75,7 +83,6 @@ const Header = ({
                 onClick={onShowNews}
                 title="Company News"
               >
-                <span className="icon">📰</span>
                 <span className="label">Tin tức</span>
               </button>
               
@@ -84,7 +91,6 @@ const Header = ({
                 onClick={onShowFinancial}
                 title="Financial Report"
               >
-                <span className="icon">📈</span>
                 <span className="label">BCTC</span>
               </button>
               
@@ -93,7 +99,6 @@ const Header = ({
                 onClick={() => setIsIndicatorsModalOpen(true)}
                 title="Open Indicators"
               >
-                <span className="icon">ƒₓ</span>
                 <span className="label">Indicators</span>
                 {(selectedPatterns.length + selectedIndicators.length) > 0 && (
                   <span className="badge">{selectedPatterns.length + selectedIndicators.length}</span>
@@ -102,10 +107,9 @@ const Header = ({
               
               <button 
                 className="advance-signal-button" 
-                onClick={() => setIsAdvanceSignalModalOpen(true)}
+                onClick={handleAdvanceSignalClick}
                 title="Advance Signal - Combo Patterns + Indicators"
               >
-                <span className="icon">🎯</span>
                 <span className="label">Advance Signal</span>
                 {activeComboSignals?.length > 0 && (
                   <span className="badge active-signal">{activeComboSignals.length}</span>
@@ -150,7 +154,7 @@ const Header = ({
               onClick={() => window.location.href = '/login'}
               title="Đăng nhập"
             >
-              🔑 Đăng nhập
+              Đăng nhập
             </button>
           )}
         </div>
@@ -184,6 +188,26 @@ const Header = ({
         backtestResults={backtestResults}
         onApplyBacktestMarkers={onApplyBacktestMarkers}
       />
+
+      {/* Auth Warning Modal */}
+      {showAuthWarning && (
+        <div className="modal-overlay" onClick={() => setShowAuthWarning(false)}>
+          <div className="auth-warning-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="auth-warning-header">
+              <h3>Yêu cầu đăng nhập</h3>
+              <button className="close-button" onClick={() => setShowAuthWarning(false)}>✕</button>
+            </div>
+            <div className="auth-warning-content">
+              <p>Bạn cần đăng nhập để sử dụng tính năng <strong>Advance Signal</strong>.</p>
+              <p>Tính năng này cho phép bạn theo dõi các tín hiệu kết hợp real-time và backtest chiến lược giao dịch.</p>
+            </div>
+            <div className="auth-warning-footer">
+              <button className="cancel-btn" onClick={() => setShowAuthWarning(false)}>Đóng</button>
+              <button className="login-btn" onClick={() => { setShowAuthWarning(false); navigate('/login'); }}>Đăng nhập</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

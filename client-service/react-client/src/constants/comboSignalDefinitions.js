@@ -42,7 +42,7 @@ export const COMBO_SIGNALS = {
     },
     sentiment: 'bullish',
     reliability: 'high',
-    icon: '🔨📉',
+    icon: '',
     color: '#00E396'
   },
 
@@ -71,7 +71,7 @@ export const COMBO_SIGNALS = {
     },
     sentiment: 'bullish',
     reliability: 'high',
-    icon: '📈🔀',
+    icon: '',
     color: '#00E396'
   },
 
@@ -106,7 +106,7 @@ export const COMBO_SIGNALS = {
     },
     sentiment: 'bearish',
     reliability: 'very_high',
-    icon: '⭐📉🔻',
+    icon: '',
     color: '#FF4560'
   },
 
@@ -135,7 +135,7 @@ export const COMBO_SIGNALS = {
     },
     sentiment: 'neutral',
     reliability: 'high',
-    icon: '⚪🎯',
+    icon: '',
     color: '#FEB019'
   },
 
@@ -164,7 +164,7 @@ export const COMBO_SIGNALS = {
     },
     sentiment: 'bullish',
     reliability: 'high',
-    icon: '📈🟣',
+    icon: '',
     color: '#00E396'
   },
 
@@ -200,7 +200,7 @@ export const COMBO_SIGNALS = {
     },
     sentiment: 'bullish',
     reliability: 'high',
-    icon: '🔨📏',
+    icon: '',
     color: '#00E396'
   },
 
@@ -229,7 +229,7 @@ export const COMBO_SIGNALS = {
     },
     sentiment: 'bullish',
     reliability: 'very_high',
-    icon: '🔨📊',
+    icon: '',
     color: '#00E396'
   },
 
@@ -258,7 +258,7 @@ export const COMBO_SIGNALS = {
     },
     sentiment: 'bullish',
     reliability: 'high',
-    icon: '🪖🪖🪖📈',
+    icon: '',
     color: '#00E396'
   }
 };

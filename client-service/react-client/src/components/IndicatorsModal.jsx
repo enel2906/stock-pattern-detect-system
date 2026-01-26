@@ -143,7 +143,7 @@ const IndicatorsModal = ({
       <div className="indicators-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="modal-header">
-          <h2>📊 Indicators</h2>
+          <h2>Indicators</h2>
           <button className="close-button" onClick={handleCancel} title="Close">
             ✕
           </button>
@@ -155,7 +155,7 @@ const IndicatorsModal = ({
             className={`tab-button ${activeTab === 'patterns' ? 'active' : ''}`}
             onClick={() => setActiveTab('patterns')}
           >
-            🕯️ Candle Patterns
+            Candle Patterns
             {tempSelectedPatterns.length > 0 && (
               <span className="badge">{tempSelectedPatterns.length}</span>
             )}
@@ -164,7 +164,7 @@ const IndicatorsModal = ({
             className={`tab-button ${activeTab === 'indicators' ? 'active' : ''}`}
             onClick={() => setActiveTab('indicators')}
           >
-            📈 Technical Indicators
+            Technical Indicators
             {tempSelectedIndicators.length > 0 && (
               <span className="badge">{tempSelectedIndicators.length}</span>
             )}
@@ -173,7 +173,7 @@ const IndicatorsModal = ({
 
         {/* Search Bar */}
         <div className="modal-search">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon"></span>
           <input
             type="text"
             placeholder="Search patterns..."
@@ -208,11 +208,10 @@ const IndicatorsModal = ({
                 </div>
               )}
 
-              {/* Patterns List */}
               <div className="patterns-list">
                 {Object.keys(groupedFilteredPatterns).length === 0 ? (
                   <div className="no-results">
-                    <span className="no-results-icon">🔍</span>
+                    <span className="no-results-icon"></span>
                     <p>No patterns found matching "{searchTerm}"</p>
                   </div>
                 ) : (
@@ -260,7 +259,7 @@ const IndicatorsModal = ({
               <div className="patterns-list">
                 {Object.keys(groupedFilteredIndicators).length === 0 ? (
                   <div className="no-results">
-                    <span className="no-results-icon">�</span>
+                    <span className="no-results-icon"></span>
                     <p>No indicators found matching "{searchTerm}"</p>
                   </div>
                 ) : (

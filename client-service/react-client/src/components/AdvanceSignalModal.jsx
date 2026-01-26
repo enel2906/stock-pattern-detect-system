@@ -143,7 +143,7 @@ const AdvanceSignalModal = ({
       <div className="advance-signal-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="modal-header">
-          <h2>🎯 Advance Signal</h2>
+          <h2>Advance Signal</h2>
           <span className="stock-badge">{stockSymbol}</span>
           <button className="close-button" onClick={onClose} title="Close">
             ✕
@@ -156,7 +156,7 @@ const AdvanceSignalModal = ({
             className={`tab-button ${activeTab === 'monitor' ? 'active' : ''}`}
             onClick={() => setActiveTab('monitor')}
           >
-            ⚡ Real-time Monitor
+            Real-time Monitor
             {activeComboSignals?.length > 0 && (
               <span className="badge">{activeComboSignals.length}</span>
             )}
@@ -165,7 +165,7 @@ const AdvanceSignalModal = ({
             className={`tab-button ${activeTab === 'backtest' ? 'active' : ''}`}
             onClick={() => setActiveTab('backtest')}
           >
-            🧪 Backtest Strategy
+            Backtest Strategy
           </button>
         </div>
 
@@ -180,7 +180,7 @@ const AdvanceSignalModal = ({
 
               {/* Bullish Combos */}
               <div className="combo-section">
-                <h3 className="section-title bullish">📈 Tín hiệu Tăng (Bullish)</h3>
+                <h3 className="section-title bullish">Tín hiệu Tăng (Bullish)</h3>
                 <div className="combo-list">
                   {bullishCombos.map(combo => (
                     <div 
@@ -188,17 +188,16 @@ const AdvanceSignalModal = ({
                       className={`combo-item ${activeComboSignals?.includes(combo.id) ? 'active' : ''}`}
                       onClick={() => handleToggleCombo(combo.id)}
                     >
-                      <div className="combo-icon">{combo.icon}</div>
                       <div className="combo-info">
                         <div className="combo-name">{combo.name}</div>
                         <div className="combo-desc">{combo.description}</div>
                         <div className="combo-meta">
                           <span className={`reliability ${combo.reliability}`}>
-                            {combo.reliability === 'very_high' ? '⭐⭐⭐' : 
-                             combo.reliability === 'high' ? '⭐⭐' : '⭐'}
+                            {combo.reliability === 'very_high' ? '★★★' : 
+                             combo.reliability === 'high' ? '★★' : '★'}
                           </span>
                           <span className="target">
-                            🎯 ATR-based R/R 1:2 | {combo.prediction.timeframe} phiên
+                            ATR-based R/R 1:2 | {combo.prediction.timeframe} phiên
                           </span>
                         </div>
                       </div>
@@ -214,7 +213,7 @@ const AdvanceSignalModal = ({
 
               {/* Bearish Combos */}
               <div className="combo-section">
-                <h3 className="section-title bearish">📉 Tín hiệu Giảm (Bearish)</h3>
+                <h3 className="section-title bearish">Tín hiệu Giảm (Bearish)</h3>
                 <div className="combo-list">
                   {bearishCombos.map(combo => (
                     <div 
@@ -222,17 +221,16 @@ const AdvanceSignalModal = ({
                       className={`combo-item ${activeComboSignals?.includes(combo.id) ? 'active' : ''}`}
                       onClick={() => handleToggleCombo(combo.id)}
                     >
-                      <div className="combo-icon">{combo.icon}</div>
                       <div className="combo-info">
                         <div className="combo-name">{combo.name}</div>
                         <div className="combo-desc">{combo.description}</div>
                         <div className="combo-meta">
                           <span className={`reliability ${combo.reliability}`}>
-                            {combo.reliability === 'very_high' ? '⭐⭐⭐' : 
-                             combo.reliability === 'high' ? '⭐⭐' : '⭐'}
+                            {combo.reliability === 'very_high' ? '★★★' : 
+                             combo.reliability === 'high' ? '★★' : '★'}
                           </span>
                           <span className="target">
-                            🎯 ATR-based R/R 1:2 | {combo.prediction.timeframe} phiên
+                            ATR-based R/R 1:2 | {combo.prediction.timeframe} phiên
                           </span>
                         </div>
                       </div>
@@ -249,7 +247,7 @@ const AdvanceSignalModal = ({
               {/* Neutral Combos (Breakout) */}
               {neutralCombos.length > 0 && (
                 <div className="combo-section">
-                  <h3 className="section-title neutral">⚡ Tín hiệu Breakout (Neutral)</h3>
+                  <h3 className="section-title neutral">Tín hiệu Breakout (Neutral)</h3>
                   <div className="combo-list">
                     {neutralCombos.map(combo => (
                       <div 
@@ -257,17 +255,16 @@ const AdvanceSignalModal = ({
                         className={`combo-item ${activeComboSignals?.includes(combo.id) ? 'active' : ''}`}
                         onClick={() => handleToggleCombo(combo.id)}
                       >
-                        <div className="combo-icon">{combo.icon}</div>
                         <div className="combo-info">
                           <div className="combo-name">{combo.name}</div>
                           <div className="combo-desc">{combo.description}</div>
                           <div className="combo-meta">
                             <span className={`reliability ${combo.reliability}`}>
-                              {combo.reliability === 'very_high' ? '⭐⭐⭐' : 
-                               combo.reliability === 'high' ? '⭐⭐' : '⭐'}
+                              {combo.reliability === 'very_high' ? '★★★' : 
+                               combo.reliability === 'high' ? '★★' : '★'}
                             </span>
                             <span className="target">
-                            ⚡ Breakout ±{combo.prediction.targetGain}% | {combo.prediction.timeframe} phiên
+                            Breakout ±{combo.prediction.targetGain}% | {combo.prediction.timeframe} phiên
                           </span>
                           </div>
                         </div>
@@ -300,25 +297,25 @@ const AdvanceSignalModal = ({
                     className="combo-select"
                   >
                     <option value="">-- Chọn combo tín hiệu --</option>
-                    <optgroup label="📈 Bullish">
+                    <optgroup label="Bullish">
                       {bullishCombos.map(combo => (
                         <option key={combo.id} value={combo.id}>
-                          {combo.icon} {combo.name}
+                          {combo.name}
                         </option>
                       ))}
                     </optgroup>
-                    <optgroup label="📉 Bearish">
+                    <optgroup label="Bearish">
                       {bearishCombos.map(combo => (
                         <option key={combo.id} value={combo.id}>
-                          {combo.icon} {combo.name}
+                          {combo.name}
                         </option>
                       ))}
                     </optgroup>
                     {neutralCombos.length > 0 && (
-                      <optgroup label="⚡ Breakout">
+                      <optgroup label="Breakout">
                         {neutralCombos.map(combo => (
                           <option key={combo.id} value={combo.id}>
-                            {combo.icon} {combo.name}
+                            {combo.name}
                           </option>
                         ))}
                       </optgroup>
@@ -350,7 +347,7 @@ const AdvanceSignalModal = ({
                   onClick={handleRunBacktest}
                   disabled={!selectedCombo || isRunningBacktest || !candleData?.length}
                 >
-                  {isRunningBacktest ? '⏳ Đang phân tích...' : '🚀 Chạy Backtest'}
+                  {isRunningBacktest ? 'Đang phân tích...' : 'Chạy Backtest'}
                 </button>
               </div>
 
@@ -393,9 +390,9 @@ const AdvanceSignalModal = ({
                       const direction = prediction.direction === 'bullish' ? 'TĂNG' : 'GIẢM';
                       return (
                         <>
-                          <div>📈 <strong>ATR-based Risk Management (R/R = 1:2)</strong></div>
+                          <div><strong>ATR-based Risk Management (R/R = 1:2)</strong></div>
                           <div>✓ ĐÚNGnếu đạt Target (Entry ± 2×ATR) | ✗ SAI nếu chạm Stop (Entry ± 1×ATR)</div>
-                          <div className="fallback-note">📌 Fallback: Target {prediction.direction === 'bullish' ? '+' : '-'}{prediction.targetGain}% / Stop {prediction.direction === 'bullish' ? '-' : '+'}{prediction.stopLoss}%</div>
+                          <div className="fallback-note">Fallback: Target {prediction.direction === 'bullish' ? '+' : '-'}{prediction.targetGain}% / Stop {prediction.direction === 'bullish' ? '-' : '+'}{prediction.stopLoss}%</div>
                         </>
                       );
                     };
@@ -403,7 +400,6 @@ const AdvanceSignalModal = ({
                     return (
                       <>
                         <div className="combo-header">
-                          <span className="combo-icon-large">{combo.icon}</span>
                           <div>
                             <h4>{combo.name}</h4>
                             <p>{combo.description}</p>
@@ -447,12 +443,12 @@ const AdvanceSignalModal = ({
               {/* Backtest Results */}
               {currentBacktestResult && !currentBacktestResult.error && (
                 <div className="backtest-results">
-                  <h3>📊 Kết quả Backtest</h3>
+                  <h3>Kết quả Backtest</h3>
                   
                   {/* Warning: No signals found */}
                   {currentBacktestResult.totalSignals === 0 && (
                     <div className="no-signals-warning">
-                      <span className="warning-icon">⚠️</span>
+                      <span className="warning-icon">!</span>
                       <div className="warning-content">
                         <strong>Không tìm thấy tín hiệu nào thỏa mãn điều kiện!</strong>
                         <p>
@@ -462,7 +458,7 @@ const AdvanceSignalModal = ({
                           không có thời điểm nào đồng thời xuất hiện mô hình nến và các điều kiện chỉ báo kỹ thuật được yêu cầu.
                         </p>
                         <p className="suggestion">
-                          💡 Gợi ý: Thử mở rộng khoảng thời gian hoặc chọn combo tín hiệu khác.
+                          Gợi ý: Thử mở rộng khoảng thời gian hoặc chọn combo tín hiệu khác.
                         </p>
                       </div>
                     </div>
@@ -497,7 +493,7 @@ const AdvanceSignalModal = ({
                         {currentBacktestResult.riskManagement && (
                           <>
                             <span className="atr-info">
-                              📈 ATR Model: <strong>{currentBacktestResult.riskManagement.atrUsedCount}</strong> signals
+                              ATR Model: <strong>{currentBacktestResult.riskManagement.atrUsedCount}</strong> signals
                             </span>
                             {currentBacktestResult.riskManagement.avgATR && (
                               <span className="atr-info">
@@ -555,7 +551,7 @@ const AdvanceSignalModal = ({
                                 {getResultIcon(eval_.result)} {eval_.result === 'success' ? 'Đúng' : eval_.result === 'failure' ? 'Sai' : 'Trung lập'}
                               </span>
                               <span className={`model-badge ${eval_.usedRiskModel?.toLowerCase()}`}>
-                                {eval_.usedRiskModel === 'ATR' ? '📈 ATR' : '📊 %'}
+                                {eval_.usedRiskModel === 'ATR' ? 'ATR' : '%'}
                               </span>
                             </div>
                           );
@@ -569,7 +565,7 @@ const AdvanceSignalModal = ({
                     className="apply-chart-btn"
                     onClick={handleApplyToChart}
                   >
-                    📌 Đánh dấu trên biểu đồ
+                    Đánh dấu trên biểu đồ
                   </button>
                 </div>
               )}
@@ -577,14 +573,14 @@ const AdvanceSignalModal = ({
               {/* Error Message */}
               {currentBacktestResult?.error && (
                 <div className="backtest-error">
-                  <span>⚠️ {currentBacktestResult.error}</span>
+                  <span>{currentBacktestResult.error}</span>
                 </div>
               )}
 
               {/* No Data Message */}
               {!candleData?.length && (
                 <div className="no-data-message">
-                  <span>⚠️ Không có dữ liệu nến để phân tích. Vui lòng tải dữ liệu trước.</span>
+                  <span>Không có dữ liệu nến để phân tích. Vui lòng tải dữ liệu trước.</span>
                 </div>
               )}
             </div>
