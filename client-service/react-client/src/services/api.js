@@ -222,13 +222,35 @@ export const stockApi = {
       });
       
       if (!res.ok) {
-        throw new Error('Failed to fetch financial report');
+        throw new Error('Không thể tải báo cáo tài chính');
       }
 
       const response = await res.json();
       return response;
     } catch (error) {
-      console.error('Error fetching financial report:', error.message);
+      console.error('Lỗi khi tải báo cáo tài chính:', error.message);
+      throw error;
+    }
+  },
+
+  // Fetch company information (overview, shareholders, officers, etc.) - using vnstock_data
+  getCompanyInfo: async (stockSymbol) => {
+    try {
+      const res = await fetch(`${PYTHON_API_URL}/api/company/info/${stockSymbol}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error('Không thể tải thông tin công ty');
+      }
+
+      const response = await res.json();
+      return response;
+    } catch (error) {
+      console.error('Lỗi khi tải thông tin công ty:', error.message);
       throw error;
     }
   },

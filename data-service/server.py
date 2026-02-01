@@ -22,17 +22,29 @@ import uvicorn
 import aio_pika
 from aio_pika import connect_robust, Message, DeliveryMode, ExchangeType
 
-# Import vnstock và yfinance
+# Import vnstock_data (thay thế vnstock cũ)
 try:
-    from vnstock import Vnstock, Trading, Company, Finance, Listing
-except ImportError:
-    print("Warning: vnstock not installed. Install with: pip install vnstock")
-    Vnstock = None
-    Trading = None
+    from vnstock_data import Company, Finance, Listing, Trading, Quote
+    VNSTOCK_DATA_AVAILABLE = True
+    print("✅ vnstock_data loaded successfully")
+except ImportError as e:
+    print(f"Warning: vnstock_data not installed - {e}")
+    print("  → Install with: pip install vnstock_data")
     Company = None
     Finance = None
     Listing = None
-    Crawler = None
+    Trading = None
+    Quote = None
+    VNSTOCK_DATA_AVAILABLE = False
+
+# Legacy vnstock support (fallback)
+try:
+    from vnstock import Vnstock
+    VNSTOCK_LEGACY_AVAILABLE = True
+except ImportError:
+    print("Warning: vnstock (legacy) not installed")
+    Vnstock = None
+    VNSTOCK_LEGACY_AVAILABLE = False
 
 try:
     import yfinance as yf
@@ -738,17 +750,27 @@ async def update_latest_data():
                     last_candle_date = get_last_candle_date(stock_id)
                     
                     if last_candle_date:
-                        # Nếu đã có dữ liệu, sync từ (last_date - lookback_days) để recover missing data
-                        start_date_dt = datetime.strptime(last_candle_date, '%Y-%m-%d') - timedelta(days=UPDATE_LOOKBACK_DAYS)
-                        start_date = start_date_dt.strftime('%Y-%m-%d')
-                        logger.info(f"Incremental sync for {symbol}: {start_date} to {end_date}")
+                        # Tính số ngày khoảng trống giữa last_candle_date và hiện tại
+                        last_date_dt = datetime.strptime(last_candle_date, '%Y-%m-%d')
+                        days_gap = (datetime.now() - last_date_dt).days
+                        
+                        # Nếu khoảng cách > UPDATE_LOOKBACK_DAYS, cần backfill toàn bộ khoảng trống
+                        if days_gap > UPDATE_LOOKBACK_DAYS:
+                            # Lấy từ ngày cuối cùng (không trừ lookback) để tránh bỏ sót
+                            start_date = last_candle_date
+                            logger.warning(f"Gap detected for {symbol}: {days_gap} days. Full backfill from {start_date} to {end_date}")
+                        else:
+                            # Nếu đã có dữ liệu gần đây, sync từ (last_date - lookback_days) để recover missing/revised data
+                            start_date_dt = last_date_dt - timedelta(days=UPDATE_LOOKBACK_DAYS)
+                            start_date = start_date_dt.strftime('%Y-%m-%d')
+                            logger.info(f"Incremental sync for {symbol}: {start_date} to {end_date}")
                     else:
                         # Nếu chưa có dữ liệu, lấy từ UPDATE_LOOKBACK_DAYS trước
                         start_date = (datetime.now() - timedelta(days=UPDATE_LOOKBACK_DAYS)).strftime('%Y-%m-%d')
                         logger.info(f"First sync for {symbol}: {start_date} to {end_date}")
                     
                     # Lấy dữ liệu từ start_date đến end_date
-                    df = get_stock_data_vnstock(symbol, market, start_date, end_date)
+                    df = get_stock_data_vnstock(symbol, market, start_date, end_date) 
                     
                     if df is not None and not df.empty:
                         # Lưu vào DB và nhận về list các candle mới được insert/update
@@ -1107,9 +1129,18 @@ async def update_latest_data_once():
             last_candle_date = get_last_candle_date(stock_id)
             
             if last_candle_date:
-                # Incremental sync từ (last_date - lookback_days)
-                start_date_dt = datetime.strptime(last_candle_date, '%Y-%m-%d') - timedelta(days=UPDATE_LOOKBACK_DAYS)
-                start_date = start_date_dt.strftime('%Y-%m-%d')
+                # Tính số ngày khoảng trống
+                last_date_dt = datetime.strptime(last_candle_date, '%Y-%m-%d')
+                days_gap = (datetime.now() - last_date_dt).days
+                
+                # Nếu khoảng cách > UPDATE_LOOKBACK_DAYS, backfill toàn bộ
+                if days_gap > UPDATE_LOOKBACK_DAYS:
+                    start_date = last_candle_date
+                    logger.warning(f"Force update: Gap detected for {symbol}: {days_gap} days. Backfilling from {start_date}")
+                else:
+                    # Incremental sync từ (last_date - lookback_days)
+                    start_date_dt = last_date_dt - timedelta(days=UPDATE_LOOKBACK_DAYS)
+                    start_date = start_date_dt.strftime('%Y-%m-%d')
             else:
                 # Nếu chưa có dữ liệu
                 start_date = (datetime.now() - timedelta(days=UPDATE_LOOKBACK_DAYS)).strftime('%Y-%m-%d')
@@ -1403,52 +1434,222 @@ async def get_available_news_sources():
     return {
         "sources": sources,
         "vnstock_news_available": VNSTOCK_NEWS_AVAILABLE,
+        "vnstock_data_available": VNSTOCK_DATA_AVAILABLE,
         "timestamp": datetime.now().isoformat()
     }
+
+
+@app.get("/api/company/info/{symbol}")
+async def get_company_info(symbol: str):
+    """
+    Lấy thông tin chi tiết về công ty sử dụng vnstock_data
+    
+    Args:
+        symbol: Mã cổ phiếu (VD: VCB, ACB, TCB)
+    
+    Returns:
+        Company information including overview, shareholders, officers, subsidiaries, events, trading_stats, ratio_summary
+    """
+    try:
+        if Company is None or not VNSTOCK_DATA_AVAILABLE:
+            raise HTTPException(status_code=503, detail="vnstock_data Company API không khả dụng")
+        
+        symbol = symbol.upper()
+        logger.info(f"Đang lấy thông tin công ty cho {symbol} sử dụng vnstock_data...")
+        
+        # Khởi tạo Company adapter từ vnstock_data
+        company = Company(source="vci", symbol=symbol)
+        
+        # Helper function để convert DataFrame sang JSON-safe
+        def df_to_json_safe(df, limit=None):
+            if df is None:
+                return []
+            try:
+                if hasattr(df, 'empty') and df.empty:
+                    return []
+                data = df.head(limit) if limit else df
+                
+                # Flatten multi-level columns if present
+                if hasattr(data, 'columns') and isinstance(data.columns, pd.MultiIndex):
+                    data.columns = ['_'.join(map(str, col)).strip() for col in data.columns.values]
+                
+                data = data.reset_index(drop=True)
+                data = data.fillna('')
+                result = data.to_dict(orient='records')
+                
+                import numpy as np
+                def clean_value(val):
+                    if isinstance(val, (float, np.floating)):
+                        if np.isnan(val) or np.isinf(val):
+                            return None
+                        return float(val)
+                    elif isinstance(val, (int, np.integer)):
+                        return int(val)
+                    elif isinstance(val, bool):
+                        return bool(val)
+                    elif val is None or val == '':
+                        return None
+                    return str(val)
+                
+                cleaned_result = []
+                for record in result:
+                    cleaned_record = {k: clean_value(v) for k, v in record.items()}
+                    cleaned_result.append(cleaned_record)
+                
+                return cleaned_result
+            except Exception as e:
+                logger.error(f"Lỗi convert DataFrame: {e}")
+                return []
+        
+        result = {
+            "symbol": symbol,
+            "overview": None,
+            "shareholders": [],
+            "officers": [],
+            "subsidiaries": [],
+            "events": [],
+            "tradingStats": None,
+            "ratioSummary": None,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # 1. Lấy thông tin tổng quan công ty
+        try:
+            logger.info(f"  → Đang lấy overview cho {symbol}...")
+            overview_df = company.overview()
+            if overview_df is not None and not overview_df.empty:
+                overview_data = df_to_json_safe(overview_df)
+                result["overview"] = overview_data[0] if overview_data else None
+                logger.info(f"     Overview: OK")
+        except Exception as e:
+            logger.warning(f"     Không thể lấy overview: {e}")
+        
+        # 2. Lấy danh sách cổ đông lớn
+        try:
+            logger.info(f"  → Đang lấy shareholders cho {symbol}...")
+            shareholders_df = company.shareholders()
+            result["shareholders"] = df_to_json_safe(shareholders_df, 20)
+            logger.info(f"     Shareholders: {len(result['shareholders'])} records")
+        except Exception as e:
+            logger.warning(f"     Không thể lấy shareholders: {e}")
+        
+        # 3. Lấy thông tin ban lãnh đạo
+        try:
+            logger.info(f"  → Đang lấy officers cho {symbol}...")
+            officers_df = company.officers(filter_by='working')
+            result["officers"] = df_to_json_safe(officers_df, 30)
+            logger.info(f"     Officers: {len(result['officers'])} records")
+        except Exception as e:
+            logger.warning(f"     Không thể lấy officers: {e}")
+        
+        # 4. Lấy công ty con/liên kết
+        try:
+            logger.info(f"  → Đang lấy subsidiaries cho {symbol}...")
+            subsidiaries_df = company.subsidiaries()
+            result["subsidiaries"] = df_to_json_safe(subsidiaries_df, 50)
+            logger.info(f"     Subsidiaries: {len(result['subsidiaries'])} records")
+        except Exception as e:
+            logger.warning(f"     Không thể lấy subsidiaries: {e}")
+        
+        # 5. Lấy sự kiện công ty
+        try:
+            logger.info(f"  → Đang lấy events cho {symbol}...")
+            events_df = company.events()
+            result["events"] = df_to_json_safe(events_df, 20)
+            logger.info(f"     Events: {len(result['events'])} records")
+        except Exception as e:
+            logger.warning(f"     Không thể lấy events: {e}")
+        
+        # 6. Lấy thống kê giao dịch
+        try:
+            logger.info(f"  → Đang lấy trading_stats cho {symbol}...")
+            trading_stats_df = company.trading_stats()
+            if trading_stats_df is not None and not trading_stats_df.empty:
+                trading_data = df_to_json_safe(trading_stats_df)
+                result["tradingStats"] = trading_data[0] if trading_data else None
+                logger.info(f"     Trading Stats: OK")
+        except Exception as e:
+            logger.warning(f"     Không thể lấy trading_stats: {e}")
+        
+        # 7. Lấy tóm tắt chỉ số tài chính (ratio_summary)
+        try:
+            logger.info(f"  → Đang lấy ratio_summary cho {symbol}...")
+            ratio_summary_df = company.ratio_summary()
+            if ratio_summary_df is not None and not ratio_summary_df.empty:
+                ratio_data = df_to_json_safe(ratio_summary_df)
+                result["ratioSummary"] = ratio_data[0] if ratio_data else None
+                logger.info(f"     Ratio Summary: OK")
+        except Exception as e:
+            logger.warning(f"     Không thể lấy ratio_summary: {e}")
+        
+        logger.info(f"Đã lấy xong thông tin công ty cho {symbol}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Lỗi khi lấy thông tin công ty {symbol}: {e}", exc_info=True)
+        return {
+            "symbol": symbol,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 @app.get("/api/company/financial/{symbol}")
 async def get_financial_report(symbol: str, period: str = "year"):
     """
-    Lấy báo cáo tài chính của công ty
+    Lấy báo cáo tài chính của công ty sử dụng vnstock_data
     
     Args:
         symbol: Mã cổ phiếu (VD: VCI, ACB, TCB)
         period: Chu kỳ báo cáo ("year" hoặc "quarter")
     
     Returns:
-        Financial reports including balance sheet, income statement, cash flow, and ratios
+        Financial reports including balance sheet, income statement, cash flow, and ratio_summary
     """
     try:
-        if Finance is None:
-            raise HTTPException(status_code=503, detail="Finance API not available")
+        if Finance is None or not VNSTOCK_DATA_AVAILABLE:
+            raise HTTPException(status_code=503, detail="vnstock_data Finance API không khả dụng")
         
         symbol = symbol.upper()
         # Validate period
         if period not in ["year", "quarter"]:
             period = "year"
         
-        logger.info(f"Fetching financial report for {symbol}, period: {period}")
+        logger.info(f"Đang lấy báo cáo tài chính cho {symbol}, period: {period}...")
         
-        # Khởi tạo Finance adapter
-        finance = Finance(source="vci", symbol=symbol)
+        # Khởi tạo Finance adapter từ vnstock_data
+        finance = Finance(source="vci", symbol=symbol, period=period)
         
         # Lấy các báo cáo tài chính
-        logger.info(f"  → Fetching balance_sheet for {symbol}...")
-        balance_sheet = finance.balance_sheet(period=period)
+        logger.info(f"  → Đang lấy balance_sheet cho {symbol}...")
+        balance_sheet = finance.balance_sheet(lang="vi")
         logger.info(f"     Balance Sheet: {len(balance_sheet) if balance_sheet is not None else 0} rows")
         
-        logger.info(f"  → Fetching income_statement for {symbol}...")
-        income_statement = finance.income_statement(period=period)
+        logger.info(f"  → Đang lấy income_statement cho {symbol}...")
+        income_statement = finance.income_statement(lang="vi")
         logger.info(f"     Income Statement: {len(income_statement) if income_statement is not None else 0} rows")
         
-        logger.info(f"  → Fetching cash_flow for {symbol}...")
-        cash_flow = finance.cash_flow(period=period)
+        logger.info(f"  → Đang lấy cash_flow cho {symbol}...")
+        cash_flow = finance.cash_flow(lang="vi")
         logger.info(f"     Cash Flow: {len(cash_flow) if cash_flow is not None else 0} rows")
         
-        logger.info(f"  → Fetching ratio for {symbol}...")
-        ratios = finance.ratio()
+        logger.info(f"  → Đang lấy ratio cho {symbol}...")
+        ratios = finance.ratio(lang="vi")
         logger.info(f"     Ratios: {len(ratios) if ratios is not None else 0} rows")
+        
+        # Lấy ratio_summary từ Company API (chỉ số tài chính tóm tắt)
+        ratio_summary = None
+        try:
+            logger.info(f"  → Đang lấy ratio_summary từ Company API cho {symbol}...")
+            company = Company(source="vci", symbol=symbol)
+            ratio_summary_df = company.ratio_summary()
+            if ratio_summary_df is not None and not ratio_summary_df.empty:
+                logger.info(f"     Ratio Summary: {len(ratio_summary_df)} rows")
+        except Exception as e:
+            logger.warning(f"     Không thể lấy ratio_summary: {e}")
+            ratio_summary_df = None
         
         # Helper function to safely convert DataFrame to JSON-serializable format
         def df_to_json_safe(df, limit=None):
@@ -1501,7 +1702,7 @@ async def get_financial_report(symbol: str, period: str = "year"):
                 return cleaned_result
                 
             except Exception as e:
-                logger.error(f"Error converting DataFrame: {e}", exc_info=True)
+                logger.error(f"Lỗi convert DataFrame: {e}", exc_info=True)
                 return []
         
         # Chuyển đổi sang dict (lấy 5 năm/quý gần nhất)
@@ -1509,6 +1710,7 @@ async def get_financial_report(symbol: str, period: str = "year"):
         income_statement_data = df_to_json_safe(income_statement, 5)
         cash_flow_data = df_to_json_safe(cash_flow, 5)
         ratios_data = df_to_json_safe(ratios, 20)
+        ratio_summary_data = df_to_json_safe(ratio_summary_df) if ratio_summary_df is not None else None
         
         result = {
             "symbol": symbol,
@@ -1517,19 +1719,23 @@ async def get_financial_report(symbol: str, period: str = "year"):
             "incomeStatement": income_statement_data,
             "cashFlow": cash_flow_data,
             "ratios": ratios_data,
+            "ratioSummary": ratio_summary_data[0] if ratio_summary_data else None,
             "timestamp": datetime.now().isoformat()
         }
         
-        logger.info(f"Successfully fetched financial report for {symbol}")
+        logger.info(f"Đã lấy xong báo cáo tài chính cho {symbol}")
         logger.info(f"  → Balance Sheet: {len(balance_sheet_data)} records")
         logger.info(f"  → Income Statement: {len(income_statement_data)} records")
         logger.info(f"  → Cash Flow: {len(cash_flow_data)} records")
         logger.info(f"  → Ratios: {len(ratios_data)} records")
+        logger.info(f"  → Ratio Summary: {'OK' if result['ratioSummary'] else 'N/A'}")
         
         return result
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error fetching financial report for {symbol}: {e}", exc_info=True)
+        logger.error(f"Lỗi khi lấy báo cáo tài chính cho {symbol}: {e}", exc_info=True)
         return {
             "symbol": symbol,
             "period": period,
@@ -1537,6 +1743,7 @@ async def get_financial_report(symbol: str, period: str = "year"):
             "incomeStatement": [],
             "cashFlow": [],
             "ratios": [],
+            "ratioSummary": None,
             "error": str(e)
         }
 

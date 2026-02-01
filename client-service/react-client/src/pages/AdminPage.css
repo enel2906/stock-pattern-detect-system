@@ -701,13 +701,28 @@
 /* Add Stock Modal */
 .add-stock-modal {
   max-width: 900px;
-  width: 95%;
-  max-height: 85vh;
+  width: 92%;
+  max-height: 80vh;
+  min-height: 500px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   text-align: left;
   padding: 24px 30px;
+}
+
+@media (min-width: 768px) {
+  .add-stock-modal {
+    min-width: 800px;
+  }
+}
+
+@media (max-width: 767px) {
+  .add-stock-modal {
+    width: 95%;
+    min-height: 400px;
+    padding: 16px 20px;
+  }
 }
 
 .admin-page .modal-header {
@@ -723,18 +738,24 @@
   margin: 0;
   color: #4a90d9;
   font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .close-modal-btn {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: #a0a0a0;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 18px;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-modal-btn:hover {
@@ -748,7 +769,7 @@
 
 .search-row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .exchange-select {
@@ -759,7 +780,8 @@
   color: #e4e4e4;
   font-size: 15px;
   cursor: pointer;
-  min-width: 120px;
+  min-width: 130px;
+  height: 48px;
 }
 
 .exchange-select:focus {
@@ -780,6 +802,7 @@
   border-radius: 8px;
   color: #e4e4e4;
   font-size: 15px;
+  height: 48px;
 }
 
 .search-input:focus {
@@ -815,7 +838,8 @@
 .available-stocks-list {
   flex: 1;
   overflow-y: auto;
-  max-height: 500px;
+  min-height: 300px;
+  max-height: calc(80vh - 180px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
 }
@@ -827,6 +851,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px;
+  min-height: 250px;
   color: #a0a0a0;
 }
 
@@ -850,6 +875,26 @@
   text-transform: uppercase;
   position: sticky;
   top: 0;
+  z-index: 1;
+}
+
+/* Fixed column widths for available stocks table */
+.available-stocks-table th:nth-child(1),
+.available-stocks-table td:nth-child(1) {
+  width: 100px;
+  min-width: 80px;
+}
+
+.available-stocks-table th:nth-child(2),
+.available-stocks-table td:nth-child(2) {
+  width: auto;
+}
+
+.available-stocks-table th:nth-child(3),
+.available-stocks-table td:nth-child(3) {
+  width: 120px;
+  min-width: 100px;
+  text-align: center;
 }
 
 .available-stocks-table td:first-child {
@@ -861,7 +906,7 @@
 .available-stocks-table td:nth-child(2) {
   color: #d0d0d0;
   font-size: 14px;
-  max-width: 450px;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -876,7 +921,7 @@
 }
 
 .add-btn {
-  padding: 6px 14px;
+  padding: 8px 16px;
   background: linear-gradient(135deg, #4a90d9, #67b26f);
   border: none;
   border-radius: 6px;
@@ -884,6 +929,7 @@
   font-size: 13px;
   cursor: pointer;
   transition: all 0.3s;
+  white-space: nowrap;
 }
 
 .add-btn:hover:not(:disabled) {
@@ -899,4 +945,5 @@
 .added-badge {
   color: #67b26f;
   font-size: 13px;
+  font-weight: 500;
 }

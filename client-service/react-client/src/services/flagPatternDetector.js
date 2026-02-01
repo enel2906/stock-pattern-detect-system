@@ -5,7 +5,7 @@
  * Algorithm:
  * 1. Find pivot highs and lows in lookback window
  * 2. Check if there are minimum required pivot points
- * 3. Verify pivot points are in ascending order (for both highs and lows)
+ * 3. Verify pivot points follow consistent trend (ascending for bullish, descending for bearish)
  * 4. Run linear regression on both highs and lows
  * 5. Check if lines are parallel (slope ratio between 0.9-1.05)
  * 6. Validate R-squared values meet thresholds
@@ -49,27 +49,50 @@ const linearRegression = (x, y) => {
 };
 
 /**
- * Check if pivot points are in ascending order (non-decreasing)
+ * Check if pivot points follow a consistent trend (either ascending or descending)
+ * For Bullish Flag: both minima and maxima should be non-decreasing (ascending/flat)
+ * For Bearish Flag: both minima and maxima should be non-increasing (descending/flat)
  * @param {Array} minima - Low pivot values
  * @param {Array} maxima - High pivot values
- * @returns {boolean}
+ * @returns {boolean} true if all pivots follow same trend direction
  */
 const isOrderConditionMet = (minima, maxima) => {
-  // Check minima are non-decreasing
+  // Check if both are non-decreasing (bullish flag)
+  let isNonDecreasing = true;
   for (let i = 1; i < minima.length; i++) {
     if (minima[i] < minima[i - 1]) {
-      return false;
+      isNonDecreasing = false;
+      break;
+    }
+  }
+  if (isNonDecreasing) {
+    for (let i = 1; i < maxima.length; i++) {
+      if (maxima[i] < maxima[i - 1]) {
+        isNonDecreasing = false;
+        break;
+      }
+    }
+  }
+  
+  // Check if both are non-increasing (bearish flag)
+  let isNonIncreasing = true;
+  for (let i = 1; i < minima.length; i++) {
+    if (minima[i] > minima[i - 1]) {
+      isNonIncreasing = false;
+      break;
+    }
+  }
+  if (isNonIncreasing) {
+    for (let i = 1; i < maxima.length; i++) {
+      if (maxima[i] > maxima[i - 1]) {
+        isNonIncreasing = false;
+        break;
+      }
     }
   }
 
-  // Check maxima are non-decreasing
-  for (let i = 1; i < maxima.length; i++) {
-    if (maxima[i] < maxima[i - 1]) {
-      return false;
-    }
-  }
-
-  return true;
+  // Pattern is valid if either consistently ascending or descending
+  return isNonDecreasing || isNonIncreasing;
 };
 
 /**
@@ -118,11 +141,11 @@ export const detectFlagPatterns = (data, options = {}) => {
     for (let i = candleIdx - lookback; i <= candleIdx; i++) {
       const candle = dataWithPivots[i];
       if (candle.pivot === -1) { // pivot low
-        minima.push(candle.low);
+        minima.push(candle.pivotPos); // Use pivotPos for consistency
         xxmin.push(i);
       }
       if (candle.pivot === 1) { // pivot high
-        maxima.push(candle.high);
+        maxima.push(candle.pivotPos); // Use pivotPos for consistency
         xxmax.push(i);
       }
     }

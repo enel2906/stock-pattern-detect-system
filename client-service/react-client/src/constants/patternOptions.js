@@ -78,13 +78,11 @@ export const PATTERN_OPTIONS = [
       { value: 'pennant', label: 'Pennant Pattern - Continuation Pattern' },
       { value: 'double_tops', label: 'Double Tops - Bearish Reversal' },
       { value: 'double_bottoms', label: 'Double Bottoms - Bullish Reversal' },
-      { value: 'double_pattern', label: 'All Double Patterns - Tops & Bottoms' },
       { value: 'head_and_shoulders', label: 'Head and Shoulders - Bearish Reversal' },
       { value: 'inverse_head_and_shoulders', label: 'Inverse Head and Shoulders - Bullish Reversal' },
       { value: 'triangle_ascending', label: 'Ascending Triangle - Bullish Breakout' },
       { value: 'triangle_descending', label: 'Descending Triangle - Bearish Breakout' },
       { value: 'triangle_symmetrical', label: 'Symmetrical Triangle - Breakout' },
-      { value: 'triangle_pattern', label: 'All Triangle Patterns' },
     ]
   }
 ];

@@ -10,7 +10,8 @@
  * 4. Check if lines are converging:
  *    - High trendline should have negative slope (descending)
  *    - Low trendline should have positive slope (ascending)
- *    - Lines converge towards apex
+ *    - Lines must intersect ahead (apex in the future)
+ *    - Apex must be within reasonable distance (< 3x lookback)
  * 5. Validate R-squared values meet thresholds
  * 6. Check slope ratio is within limits (0.95-1.0)
  */
@@ -49,6 +50,27 @@ const linearRegression = (x, y) => {
   const rValue = ssXY / Math.sqrt(ssXX * ssYY);
 
   return { slope, intercept, rValue };
+};
+
+/**
+ * Calculate the intersection point of two lines
+ * @param {number} slope1 - Slope of first line
+ * @param {number} intercept1 - Intercept of first line
+ * @param {number} slope2 - Slope of second line
+ * @param {number} intercept2 - Intercept of second line
+ * @returns {Object|null} {x, y} coordinates of intersection, or null if parallel
+ */
+const findIntersection = (slope1, intercept1, slope2, intercept2) => {
+  // Check if lines are parallel (slopes are equal)
+  if (Math.abs(slope1 - slope2) < 0.0000001) {
+    return null;
+  }
+  
+  // Calculate intersection point: y = slope1*x + intercept1 = slope2*x + intercept2
+  const x = (intercept2 - intercept1) / (slope1 - slope2);
+  const y = slope1 * x + intercept1;
+  
+  return { x, y };
 };
 
 /**
@@ -97,11 +119,11 @@ export const detectPennantPatterns = (data, options = {}) => {
     for (let i = candleIdx - lookback; i <= candleIdx; i++) {
       const candle = dataWithPivots[i];
       if (candle.pivot === -1) { // pivot low
-        minima.push(candle.low);
+        minima.push(candle.pivotPos); // Use pivotPos for consistency
         xxmin.push(i);
       }
       if (candle.pivot === 1) { // pivot high
-        maxima.push(candle.high);
+        maxima.push(candle.pivotPos); // Use pivotPos for consistency
         xxmax.push(i);
       }
     }
@@ -134,40 +156,55 @@ export const detectPennantPatterns = (data, options = {}) => {
     if (rmax >= rMax && rmin >= rMin &&
         slmin >= slopeMin && slmax <= slopeMax) {
 
-      const slopeRatio = Math.abs(slmax / slmin);
-      if (slopeRatio > lowerRatioSlope && slopeRatio < upperRatioSlope) {
-        
-        // Create pivot points data with time for accurate rendering
-        const pennantHighsData = xxmax.map((idx, i) => ({
-          index: idx,
-          time: data[idx].time,
-          value: maxima[i]
-        }));
+      // Calculate intersection point to verify convergence
+      const intersection = findIntersection(slmax, intercmax, slmin, intercmin);
+      
+      // Verify that lines converge ahead (apex should be in the future)
+      // and within reasonable distance (not too far away)
+      const lastPivotIdx = Math.max(...xxmax, ...xxmin);
+      const maxConvergenceDistance = lookback * 3; // Apex should be within 3x lookback
+      
+      if (intersection && 
+          intersection.x > lastPivotIdx && // Apex is ahead (converging forward)
+          intersection.x - lastPivotIdx < maxConvergenceDistance) { // Not too far away
 
-        const pennantLowsData = xxmin.map((idx, i) => ({
-          index: idx,
-          time: data[idx].time,
-          value: minima[i]
-        }));
+        const slopeRatio = Math.abs(slmax / slmin);
+        if (slopeRatio > lowerRatioSlope && slopeRatio < upperRatioSlope) {
+          
+          // Create pivot points data with time for accurate rendering
+          const pennantHighsData = xxmax.map((idx, i) => ({
+            index: idx,
+            time: data[idx].time,
+            value: maxima[i]
+          }));
 
-        patterns.push({
-          candleIndex: candleIdx,
-          pennantHighs: [...maxima],
-          pennantLows: [...minima],
-          pennantHighsIdx: [...xxmax],
-          pennantLowsIdx: [...xxmin],
-          pennantHighsData: pennantHighsData,
-          pennantLowsData: pennantLowsData,
-          slopeMax: slmax,
-          slopeMin: slmin,
-          interceptMin: intercmin,
-          interceptMax: intercmax,
-          rSquaredMax: rmax,
-          rSquaredMin: rmin,
-          patternType: 'pennant',
-          direction: 'converging', // Always converging for pennant
-          time: data[candleIdx].time
-        });
+          const pennantLowsData = xxmin.map((idx, i) => ({
+            index: idx,
+            time: data[idx].time,
+            value: minima[i]
+          }));
+
+          patterns.push({
+            candleIndex: candleIdx,
+            pennantHighs: [...maxima],
+            pennantLows: [...minima],
+            pennantHighsIdx: [...xxmax],
+            pennantLowsIdx: [...xxmin],
+            pennantHighsData: pennantHighsData,
+            pennantLowsData: pennantLowsData,
+            slopeMax: slmax,
+            slopeMin: slmin,
+            interceptMin: intercmin,
+            interceptMax: intercmax,
+            rSquaredMax: rmax,
+            rSquaredMin: rmin,
+            apexIndex: intersection.x, // Add apex position
+            apexPrice: intersection.y, // Add apex price
+            patternType: 'pennant',
+            direction: 'converging', // Always converging for pennant
+            time: data[candleIdx].time
+          });
+        }
       }
     }
   }

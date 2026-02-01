@@ -91,7 +91,7 @@ const Header = ({
                 onClick={onShowFinancial}
                 title="Financial Report"
               >
-                <span className="label">BCTC</span>
+                <span className="label">Hồ Sơ</span>
               </button>
               
               <button 
