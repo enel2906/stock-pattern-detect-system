@@ -302,6 +302,31 @@ async def publish_price_board_update(price_board_data: list):
         rabbitmq_price_board_exchange = None
 
 
+def validate_symbols(symbols_list):
+    """
+    Validate và clean danh sách symbols
+    
+    Args:
+        symbols_list: List of stock symbols
+    
+    Returns:
+        List of cleaned, valid symbols
+    """
+    valid_symbols = []
+    for symbol in symbols_list:
+        if not symbol:
+            continue
+        # Clean: strip whitespace, uppercase, remove special chars
+        cleaned = str(symbol).strip().upper()
+        # Validate: chỉ chấp nhận chữ cái và số (3-4 ký tự thường gặp)
+        if cleaned and cleaned.isalnum() and 1 <= len(cleaned) <= 10:
+            valid_symbols.append(cleaned)
+        else:
+            logger.warning(f"Invalid symbol filtered out: '{symbol}' (cleaned: '{cleaned}')")
+    
+    return valid_symbols
+
+
 async def update_price_board_realtime():
     """
     Background task: Cập nhật bảng giá realtime mỗi PRICE_BOARD_UPDATE_INTERVAL giây
@@ -323,16 +348,27 @@ async def update_price_board_realtime():
             ))
             symbols_list = [stock['symbol'] for stock in vietnam_stocks]
             
+            # Validate và clean symbols
+            symbols_list = validate_symbols(symbols_list)
+            
             if not symbols_list:
-                logger.debug("No stocks to fetch price board")
+                logger.debug("No valid stocks to fetch price board")
                 await asyncio.sleep(PRICE_BOARD_UPDATE_INTERVAL)
                 continue
+            
+            logger.debug(f"Fetching price board for {len(symbols_list)} valid symbols")
             
             # Khởi tạo Trading adapter
             trading = Trading(source="vci")
             
-            # Lấy bảng giá
-            df = trading.price_board(symbols_list=symbols_list)
+            # Lấy bảng giá với error handling
+            try:
+                df = trading.price_board(symbols_list=symbols_list)
+            except Exception as api_error:
+                logger.error(f"Trading API error: {api_error}")
+                logger.debug(f"Failed symbols list (first 10): {symbols_list[:10]}")
+                await asyncio.sleep(PRICE_BOARD_UPDATE_INTERVAL)
+                continue
             
             if df is None or df.empty:
                 logger.debug("Empty price board data received")
@@ -995,16 +1031,24 @@ async def get_price_board(symbols: str = None):
             ))
             symbols_list = [stock['symbol'] for stock in vietnam_stocks]
         
-        if not symbols_list:
-            return {"data": [], "total": 0}
+        # Validate và clean symbols
+        symbols_list = validate_symbols(symbols_list)
         
-        logger.info(f"Fetching price board for {len(symbols_list)} symbols")
+        if not symbols_list:
+            return {"data": [], "total": 0, "error": "No valid symbols provided"}
+        
+        logger.info(f"Fetching price board for {len(symbols_list)} valid symbols")
         
         # Khởi tạo Trading adapter
         trading = Trading(source="vci")
         
-        # Lấy bảng giá
-        df = trading.price_board(symbols_list=symbols_list)
+        # Lấy bảng giá với error handling
+        try:
+            df = trading.price_board(symbols_list=symbols_list)
+        except Exception as api_error:
+            logger.error(f"Trading API error: {api_error}")
+            logger.debug(f"Failed symbols list (first 10): {symbols_list[:10]}")
+            return {"data": [], "total": 0, "error": f"Trading API error: {str(api_error)}"}
         
         if df is None or df.empty:
             return {"data": [], "total": 0}

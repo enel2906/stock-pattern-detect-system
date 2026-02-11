@@ -10,6 +10,7 @@ import AboutPage from './pages/AboutPage';
 import AdminPage from './pages/AdminPage';
 import NewsModal from './components/NewsModal';
 import FinancialReportModal from './components/FinancialReportModal';
+import ToastNotification from './components/ToastNotification';
 import { fetchActiveComboSignalIds, toggleComboSignal as apiToggleComboSignal } from './services/comboSignalApi';
 import './App.css';
 
@@ -337,6 +338,9 @@ function MainApp() {
         onClose={() => setShowFinancialModal(false)}
         stockSymbol={stockSymbol}
       />
+
+      {/* Toast Notification for pattern alerts */}
+      <ToastNotification />
     </div>
   );
 }

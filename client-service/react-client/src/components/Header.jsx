@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import IndicatorsModal from './IndicatorsModal';
 import StockSearchModal from './StockSearchModal';
 import AdvanceSignalModal from './AdvanceSignalModal';
+import NotificationBell from './NotificationBell';
 import './Header.css';
 
 const Header = ({ 
@@ -129,6 +130,16 @@ const Header = ({
           >
             {isLight ? '☀️' : '🌙'}
           </button>
+
+          {/* Notification Bell - chỉ hiển thị khi đã đăng nhập */}
+          <NotificationBell 
+            onNotificationClick={(notification) => {
+              // Navigate to chart with the stock symbol if clicked
+              if (notification.stockSymbol && onStockChange) {
+                onStockChange(notification.stockSymbol);
+              }
+            }}
+          />
 
           {user ? (
             <div className="user-menu">

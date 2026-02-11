@@ -21,6 +21,8 @@ import {
   detectComboSignal 
 } from '../services/advanceSignalService';
 import { getComboSignal } from '../constants/comboSignalDefinitions';
+import { checkAndNotifyNewPatterns, clearNotificationCache } from '../services/patternNotificationHelper';
+import { useAuth } from '../context/AuthContext';
 import './StockChart.css';
 
 const RIGHT_OFFSET = 20;
@@ -36,6 +38,7 @@ const StockChart = ({
   backtestMarkers,
   onCandleDataUpdate
 }) => {
+  const { user } = useAuth(); // Get user info for notifications
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
@@ -48,6 +51,7 @@ const StockChart = ({
   const tooltipRef = useRef(null);
   const stompClientRef = useRef(null);
   const subscriptionRef = useRef(null);
+  const previousPatternCountsRef = useRef({}); // Track previous pattern counts for notification
   
   const [isChartReady, setIsChartReady] = useState(false);
   const [dataLoadCounter, setDataLoadCounter] = useState(0); // Track when new data is loaded
@@ -475,12 +479,29 @@ const StockChart = ({
       // Update pattern counts state
       setPatternCounts(newPatternCounts);
 
+      // Check for new patterns and send notifications
+      // Only notify when receiving realtime updates (not on initial load)
+      if (Object.keys(previousPatternCountsRef.current).length > 0) {
+        const updatedPrevCounts = await checkAndNotifyNewPatterns(
+          stockSymbol,
+          newPatternCounts,
+          previousPatternCountsRef.current,
+          patternPositions,
+          originalDataRef.current,
+          !!user
+        );
+        previousPatternCountsRef.current = updatedPrevCounts;
+      } else {
+        // First load - just store counts without notifying
+        previousPatternCountsRef.current = { ...newPatternCounts };
+      }
+
       // onStatusChange(`Tìm thấy ${totalPatternsFound} mô hình từ ${patternNames.length} loại.`);
     } catch (error) {
       console.error('Error loading patterns:', error);
       onStatusChange('Lỗi: ' + error.message);
     }
-  }, [stockSymbol, isChartReady, onStatusChange]);
+  }, [stockSymbol, isChartReady, onStatusChange, user]);
 
   // Collect simple pattern markers (don't render yet)
   const collectSimplePatternData = (patterns, patternName) => {
@@ -2055,6 +2076,9 @@ const StockChart = ({
   // Handle stock symbol change
   useEffect(() => {
     if (isChartReady && stockSymbol) {
+      // Clear previous pattern counts and notification cache when symbol changes
+      previousPatternCountsRef.current = {};
+      clearNotificationCache();
       loadStockData();
     }
   }, [stockSymbol, isChartReady, loadStockData]);
