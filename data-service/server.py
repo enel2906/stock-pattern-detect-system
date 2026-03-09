@@ -682,7 +682,7 @@ async def sync_all_stock_symbols():
                     symbol = str(row.get(symbol_col, '')).strip().upper()
                     name = str(row.get(name_col, '')) if name_col else f"{symbol} - {exchange}"
 
-                    if not symbol or not symbol.isalnum():
+                    if not symbol or not symbol.isalnum() or len(symbol) != 3:
                         continue
 
                     # Upsert: chỉ tạo mới nếu chưa tồn tại, không ghi đè nếu đã có

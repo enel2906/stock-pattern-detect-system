@@ -58,6 +58,8 @@ public class StockChartController {
 
     @GetMapping("/all")
     public Response getAllStock() {
-        return new Response(stockMarketService.getALlStocks());
+        List<StockMarket> stockMarketList = stockMarketService.getALlStocks();
+        System.out.println("================= Number Stock Code is: " + stockMarketList.size());
+        return new Response(stockMarketList);
     }
 }
