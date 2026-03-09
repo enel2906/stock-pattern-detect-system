@@ -18,7 +18,7 @@ aio-pika>=9.3.1
 pandas>=2.0.0
 
 # --- Stock Data Sources ---
-# VNStock - Dữ liệu chứng khoán Việt Nam (HOSE, HNX, UPCOM)
+# VNStock (free) - Dữ liệu chứng khoán Việt Nam (HOSE, HNX, UPCOM)
 vnstock>=3.3.0
 
 yfinance>=0.2.28

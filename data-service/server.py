@@ -22,29 +22,20 @@ import uvicorn
 import aio_pika
 from aio_pika import connect_robust, Message, DeliveryMode, ExchangeType
 
-# Import vnstock_data (thay thế vnstock cũ)
+# Import vnstock (gói free)
 try:
-    from vnstock_data import Company, Finance, Listing, Trading, Quote
-    VNSTOCK_DATA_AVAILABLE = True
-    print("✅ vnstock_data loaded successfully")
+    from vnstock import Listing, Quote, Company, Finance, Trading
+    VNSTOCK_AVAILABLE = True
+    print("✅ vnstock (free) loaded successfully")
 except ImportError as e:
-    print(f"Warning: vnstock_data not installed - {e}")
-    print("  → Install with: pip install vnstock_data")
+    print(f"Warning: vnstock not installed - {e}")
+    print("  → Install with: pip install vnstock")
     Company = None
     Finance = None
     Listing = None
     Trading = None
     Quote = None
-    VNSTOCK_DATA_AVAILABLE = False
-
-# Legacy vnstock support (fallback)
-try:
-    from vnstock import Vnstock
-    VNSTOCK_LEGACY_AVAILABLE = True
-except ImportError:
-    print("Warning: vnstock (legacy) not installed")
-    Vnstock = None
-    VNSTOCK_LEGACY_AVAILABLE = False
+    VNSTOCK_AVAILABLE = False
 
 try:
     import yfinance as yf
@@ -52,24 +43,8 @@ except ImportError:
     print("Warning: yfinance not installed. Install with: pip install yfinance")
     yf = None
 
-# Import vnstock_news cho gói Silver
-try:
-    from vnstock_news import Crawler as NewsCrawler
-    from vnstock_news import News as NewsParser
-    VNSTOCK_NEWS_AVAILABLE = True
-    print("✅ vnstock_news loaded successfully")
-except (ImportError, SyntaxError) as e:
-    print(f"Warning: vnstock_news not available - {type(e).__name__}: {e}")
-    print("  → News feature will use VCI Company API as fallback")
-    print("  → To fix: Try 'pip install vnstock_news --upgrade' or check Python version compatibility")
-    NewsCrawler = None
-    NewsParser = None
-    VNSTOCK_NEWS_AVAILABLE = False
-except Exception as e:
-    print(f"Warning: vnstock_news failed to load - {type(e).__name__}: {e}")
-    NewsCrawler = None
-    NewsParser = None
-    VNSTOCK_NEWS_AVAILABLE = False
+# vnstock_news không khả dụng trong gói free
+VNSTOCK_NEWS_AVAILABLE = False
 
 # Cấu hình logging
 logging.basicConfig(
@@ -132,9 +107,6 @@ mongo_client = None
 db = None
 stocks_collection = None
 candlesticks_collection = None
-
-# Vnstock instance
-vnstock = None
 
 # RabbitMQ connection
 rabbitmq_connection = None
@@ -359,7 +331,7 @@ async def update_price_board_realtime():
             logger.debug(f"Fetching price board for {len(symbols_list)} valid symbols")
             
             # Khởi tạo Trading adapter
-            trading = Trading(source="vci")
+            trading = Trading(source="VCI", symbol="VCI")
             
             # Lấy bảng giá với error handling
             try:
@@ -509,8 +481,8 @@ def get_stock_data_yfinance(symbol: str, period: str = "5y"):
 
 def get_stock_data_vnstock(symbol: str, market: str, start_date: str = None, end_date: str = None):
     """
-    Lấy dữ liệu lịch sử từ vnstock
-    
+    Lấy dữ liệu lịch sử từ vnstock (gói free)
+
     Args:
         symbol: Mã cổ phiếu
         market: Sàn giao dịch
@@ -518,46 +490,31 @@ def get_stock_data_vnstock(symbol: str, market: str, start_date: str = None, end
         end_date: Ngày kết thúc (YYYY-MM-DD)
     """
     try:
-        if Vnstock is None:
-            logger.error("vnstock is not installed")
+        if Quote is None:
+            logger.error("vnstock Quote is not available")
             return None
-        
+
         # Nếu không có ngày, lấy tất cả dữ liệu có thể (từ INITIAL_BACKFILL_DAYS trước)
         if start_date is None:
             start_date = (datetime.now() - timedelta(days=INITIAL_BACKFILL_DAYS)).strftime('%Y-%m-%d')
         if end_date is None:
             end_date = datetime.now().strftime('%Y-%m-%d')
-        
-        # Nếu là thị trường US, dùng MSN source
+
+        # Nếu là thị trường US, dùng yfinance thay vì vnstock
         if market == 'US':
-            # 1. Tìm symbol_id qua search
-            search = Vnstock().stock(source='MSN').listing.search_symbol_id(symbol)
-            
-            if search is None or len(search) == 0:
-                logger.error(f"Không tìm thấy symbol_id cho {symbol}")
-                return None
-            
-            symbol_id = search.iloc[0]["symbol_id"]
-            logger.info(f"Found symbol_id for {symbol}: {symbol_id}")
-            
-            # 2. Lấy lịch sử giá
-            df = Vnstock().stock(symbol=symbol_id, source='MSN').quote.history(
-                start=start_date,
-                end=end_date,
-                interval="1D"
-            )
-        else:
-            # Thị trường Việt Nam dùng VCI source
-            stock = Vnstock().stock(symbol=symbol, source='VCI')
-            df = stock.quote.history(start=start_date, end=end_date, interval="1D")
-        
+            return get_stock_data_yfinance(symbol, period="10y")
+
+        # Thị trường Việt Nam: dùng vnstock free Quote API
+        quote = Quote(symbol=symbol, source='VCI')
+        df = quote.history(start=start_date, end=end_date, interval="1D")
+
         if df is not None and not df.empty:
             logger.info(f"Fetched {len(df)} records for {symbol}")
             return df
         else:
             logger.warning(f"No data returned for {symbol}")
             return None
-            
+
     except Exception as e:
         logger.error(f"Error fetching data for {symbol}: {e}")
         return None
@@ -695,73 +652,131 @@ def save_candlesticks_to_db(stock_id: str, df):
         return []
 
 
+async def sync_all_stock_symbols():
+    """
+    Đồng bộ tất cả mã cổ phiếu Việt Nam từ vnstock Listing API vào database.
+    Sử dụng upsert để không ghi trùng mã.
+    """
+    if Listing is None:
+        logger.warning("Listing API not available, skipping stock symbol sync")
+        return 0
+
+    try:
+        listing = Listing(source="VCI")
+        synced_count = 0
+
+        for exchange in ['HOSE', 'HNX', 'UPCOM']:
+            try:
+                df = listing.symbols_by_exchange(exchange=exchange, to_df=True)
+
+                if df is None or df.empty:
+                    logger.warning(f"No symbols returned for {exchange}")
+                    continue
+
+                # Chuẩn hóa tên cột
+                df.columns = [str(col).lower().replace(' ', '_') for col in df.columns]
+                symbol_col = 'symbol' if 'symbol' in df.columns else 'ticker'
+                name_col = 'organ_name' if 'organ_name' in df.columns else 'company_name' if 'company_name' in df.columns else None
+
+                for _, row in df.iterrows():
+                    symbol = str(row.get(symbol_col, '')).strip().upper()
+                    name = str(row.get(name_col, '')) if name_col else f"{symbol} - {exchange}"
+
+                    if not symbol or not symbol.isalnum():
+                        continue
+
+                    # Upsert: chỉ tạo mới nếu chưa tồn tại, không ghi đè nếu đã có
+                    stocks_collection.update_one(
+                        {"symbol": symbol},
+                        {
+                            "$setOnInsert": {
+                                "symbol": symbol,
+                                "name": name,
+                                "market": exchange,
+                                "country": "Vietnam",
+                                "data_source": "vnstock",
+                                "created_at": datetime.now(),
+                            },
+                            "$set": {
+                                "updated_at": datetime.now()
+                            }
+                        },
+                        upsert=True
+                    )
+                    synced_count += 1
+
+                logger.info(f"Synced {len(df)} symbols from {exchange}")
+
+            except Exception as e:
+                logger.error(f"Error syncing symbols for {exchange}: {e}")
+                continue
+
+        logger.info(f"Stock symbol sync completed: {synced_count} symbols processed")
+        return synced_count
+
+    except Exception as e:
+        logger.error(f"Error in sync_all_stock_symbols: {e}")
+        return 0
+
+
 async def initialize_data():
-    """Khởi tạo dữ liệu ban đầu (chỉ khi DB trống hoặc RESET_DB=True)
-    
-    Lưu ý: Không sử dụng STOCK_SYMBOLS cứng nữa.
-    - Nếu DB trống: Chỉ init dữ liệu US stocks (hardcoded vì không có admin để thêm)
-    - Nếu DB có data: Lấy danh sách từ database để update
-    - Admin sẽ quản lý danh sách VN stocks qua API
+    """Khởi tạo dữ liệu ban đầu
+
+    Mỗi lần startup:
+    - Đồng bộ danh sách mã cổ phiếu VN từ vnstock Listing (upsert, không trùng)
+    - Nếu DB trống hoặc RESET_DB=True: init thêm US stocks
+    - Dữ liệu candlestick sẽ được lấy on-demand khi user chọn mã cổ phiếu
     """
     logger.info("Starting data initialization...")
-    
-    # Kiểm tra xem DB đã có dữ liệu hay không
-    db_empty = is_database_empty()
-    
-    # Nếu DB đã có dữ liệu và RESET_DB=False, bỏ qua initialization
-    if not db_empty and not RESET_DB:
-        logger.info("Database already has data. Skipping initialization.")
-        logger.info("Admin can manage Vietnam stocks via /api/admin/stocks endpoints.")
-        return
-    
-    # Nếu cần reset, xóa dữ liệu cũ
-    if not db_empty and RESET_DB:
-        logger.info("RESET_DB=True. Clearing existing data...")
-        clear_database()
-    
-    total_stocks = 0
-    total_candles = 0
-    start_time = time.time()
-    
-    # === Không còn init VN stocks từ STOCK_SYMBOLS ===
-    # Admin sẽ thêm VN stocks qua trang quản lý
-    logger.info("=== Vietnam stocks will be managed by Admin via web interface ===")
-    logger.info("Use /api/admin/stocks endpoints to add stocks")
-    
-    # === Chỉ init dữ liệu cổ phiếu quốc tế (US stocks - hardcoded) ===
-    logger.info("=== Initializing international stock data (US - hardcoded) ===")
-    
-    for symbol in INTERNATIONAL_SYMBOLS:
-        try:
-            # Lưu thông tin stock trước
-            stock_id = save_stock_to_db(
-                symbol=symbol,
-                name=f"{symbol} - US",
-                market="US",
-                country="United States"
-            )
-            
-            if stock_id:
-                total_stocks += 1
-                
-                # Lấy dữ liệu lịch sử bằng yfinance
-                logger.info(f"Fetching historical data for {symbol} (US) using yfinance")
-                df = get_stock_data_yfinance(symbol, period="10y")
-                
-                if df is not None:
-                    # Lưu candlesticks (trả về list candles)
-                    new_candles = save_candlesticks_to_db(stock_id, df)
-                    total_candles += len(new_candles)
-                
-                # Delay để tránh rate limit
-                await asyncio.sleep(2)
-            
-        except Exception as e:
-            logger.error(f"Error processing international stock {symbol}: {e}")
-            continue
-    
-    elapsed = time.time() - start_time
-    logger.info(f"=== Total initialization completed: {total_stocks} stocks, {total_candles} candlesticks (took {elapsed:.2f}s) ===")
+
+    # === Luôn đồng bộ danh sách mã cổ phiếu VN từ vnstock ===
+    logger.info("=== Syncing Vietnam stock symbols from vnstock Listing API ===")
+    synced = await sync_all_stock_symbols()
+    logger.info(f"Synced {synced} Vietnam stock symbols to database")
+
+    # Kiểm tra xem DB đã có dữ liệu US stocks hay không
+    us_stocks_count = stocks_collection.count_documents({"market": "US"})
+
+    # Nếu cần reset, xóa dữ liệu cũ (chỉ US stocks và candlesticks)
+    if RESET_DB:
+        logger.info("RESET_DB=True. Clearing US stocks data for re-initialization...")
+        us_stocks_count = 0  # Force re-init US stocks
+
+    # === Init dữ liệu cổ phiếu quốc tế (US stocks) nếu chưa có ===
+    if us_stocks_count == 0:
+        logger.info("=== Initializing international stock data (US) ===")
+        total_stocks = 0
+        total_candles = 0
+
+        for symbol in INTERNATIONAL_SYMBOLS:
+            try:
+                stock_id = save_stock_to_db(
+                    symbol=symbol,
+                    name=f"{symbol} - US",
+                    market="US",
+                    country="United States"
+                )
+
+                if stock_id:
+                    total_stocks += 1
+                    logger.info(f"Fetching historical data for {symbol} (US) using yfinance")
+                    df = get_stock_data_yfinance(symbol, period="10y")
+
+                    if df is not None:
+                        new_candles = save_candlesticks_to_db(stock_id, df)
+                        total_candles += len(new_candles)
+
+                    await asyncio.sleep(2)
+
+            except Exception as e:
+                logger.error(f"Error processing international stock {symbol}: {e}")
+                continue
+
+        logger.info(f"US stocks initialization: {total_stocks} stocks, {total_candles} candlesticks")
+    else:
+        logger.info(f"US stocks already exist ({us_stocks_count} stocks). Skipping US init.")
+
+    logger.info("=== Data initialization completed ===")
 
 
 async def update_latest_data():
@@ -1004,6 +1019,77 @@ async def force_update():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/stocks/{symbol}/ensure-data")
+async def ensure_stock_data(symbol: str):
+    """
+    Đảm bảo dữ liệu candlestick tồn tại cho một mã cổ phiếu.
+    Nếu chưa có dữ liệu, sẽ lấy từ vnstock và lưu vào database.
+
+    Được gọi bởi alert-service khi user chọn một mã cổ phiếu mà chưa có dữ liệu.
+
+    Args:
+        symbol: Mã cổ phiếu
+
+    Returns:
+        Thông tin về dữ liệu đã có hoặc mới lấy
+    """
+    try:
+        symbol = symbol.upper()
+
+        # Tìm stock trong database
+        stock = stocks_collection.find_one({"symbol": symbol})
+        if not stock:
+            raise HTTPException(status_code=404, detail=f"Stock {symbol} not found in database")
+
+        stock_id = str(stock['_id'])
+        market = stock.get('market', 'HOSE')
+
+        # Kiểm tra xem đã có candlestick data chưa
+        candle_count = candlesticks_collection.count_documents({"stock_id": stock_id})
+
+        if candle_count > 0:
+            return {
+                "symbol": symbol,
+                "status": "exists",
+                "candleCount": candle_count,
+                "message": f"Data already exists: {candle_count} candlesticks"
+            }
+
+        # Chưa có dữ liệu -> lấy từ vnstock
+        logger.info(f"No candlestick data for {symbol}. Fetching from vnstock...")
+
+        df = get_stock_data_vnstock(symbol, market)
+
+        if df is not None and not df.empty:
+            new_candles = save_candlesticks_to_db(stock_id, df)
+
+            # Cập nhật timestamp
+            stocks_collection.update_one(
+                {"_id": stock['_id']},
+                {"$set": {"updated_at": datetime.now()}}
+            )
+
+            return {
+                "symbol": symbol,
+                "status": "fetched",
+                "candleCount": len(new_candles),
+                "message": f"Fetched and saved {len(new_candles)} candlesticks"
+            }
+        else:
+            return {
+                "symbol": symbol,
+                "status": "no_data",
+                "candleCount": 0,
+                "message": f"No historical data available for {symbol}"
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error ensuring data for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/price-board")
 async def get_price_board(symbols: str = None):
     """
@@ -1040,7 +1126,7 @@ async def get_price_board(symbols: str = None):
         logger.info(f"Fetching price board for {len(symbols_list)} valid symbols")
         
         # Khởi tạo Trading adapter
-        trading = Trading(source="vci")
+        trading = Trading(source="VCI", symbol="VCI")
         
         # Lấy bảng giá với error handling
         try:
@@ -1235,7 +1321,7 @@ async def get_company_news(symbol: str, limit: int = 20, source: str = "vci"):
         # Nếu source là "vci" hoặc "all", lấy tin từ Company API trước
         if source in ["vci", "all"] and Company is not None:
             try:
-                company = Company(source="vci", symbol=symbol)
+                company = Company(source="VCI", symbol=symbol)
                 news_df = company.news()
                 
                 if news_df is not None and not news_df.empty:
@@ -1478,7 +1564,7 @@ async def get_available_news_sources():
     return {
         "sources": sources,
         "vnstock_news_available": VNSTOCK_NEWS_AVAILABLE,
-        "vnstock_data_available": VNSTOCK_DATA_AVAILABLE,
+        "vnstock_available": VNSTOCK_AVAILABLE,
         "timestamp": datetime.now().isoformat()
     }
 
@@ -1486,7 +1572,7 @@ async def get_available_news_sources():
 @app.get("/api/company/info/{symbol}")
 async def get_company_info(symbol: str):
     """
-    Lấy thông tin chi tiết về công ty sử dụng vnstock_data
+    Lấy thông tin chi tiết về công ty sử dụng vnstock
     
     Args:
         symbol: Mã cổ phiếu (VD: VCB, ACB, TCB)
@@ -1495,14 +1581,14 @@ async def get_company_info(symbol: str):
         Company information including overview, shareholders, officers, subsidiaries, events, trading_stats, ratio_summary
     """
     try:
-        if Company is None or not VNSTOCK_DATA_AVAILABLE:
-            raise HTTPException(status_code=503, detail="vnstock_data Company API không khả dụng")
+        if Company is None or not VNSTOCK_AVAILABLE:
+            raise HTTPException(status_code=503, detail="vnstock Company API không khả dụng")
         
         symbol = symbol.upper()
-        logger.info(f"Đang lấy thông tin công ty cho {symbol} sử dụng vnstock_data...")
+        logger.info(f"Đang lấy thông tin công ty cho {symbol} sử dụng vnstock...")
         
-        # Khởi tạo Company adapter từ vnstock_data
-        company = Company(source="vci", symbol=symbol)
+        # Khởi tạo Company adapter từ vnstock
+        company = Company(source="VCI", symbol=symbol)
         
         # Helper function để convert DataFrame sang JSON-safe
         def df_to_json_safe(df, limit=None):
@@ -1580,7 +1666,7 @@ async def get_company_info(symbol: str):
         # 3. Lấy thông tin ban lãnh đạo
         try:
             logger.info(f"  → Đang lấy officers cho {symbol}...")
-            officers_df = company.officers(filter_by='working')
+            officers_df = company.officers()
             result["officers"] = df_to_json_safe(officers_df, 30)
             logger.info(f"     Officers: {len(result['officers'])} records")
         except Exception as e:
@@ -1643,7 +1729,7 @@ async def get_company_info(symbol: str):
 @app.get("/api/company/financial/{symbol}")
 async def get_financial_report(symbol: str, period: str = "year"):
     """
-    Lấy báo cáo tài chính của công ty sử dụng vnstock_data
+    Lấy báo cáo tài chính của công ty sử dụng vnstock
     
     Args:
         symbol: Mã cổ phiếu (VD: VCI, ACB, TCB)
@@ -1653,8 +1739,8 @@ async def get_financial_report(symbol: str, period: str = "year"):
         Financial reports including balance sheet, income statement, cash flow, and ratio_summary
     """
     try:
-        if Finance is None or not VNSTOCK_DATA_AVAILABLE:
-            raise HTTPException(status_code=503, detail="vnstock_data Finance API không khả dụng")
+        if Finance is None or not VNSTOCK_AVAILABLE:
+            raise HTTPException(status_code=503, detail="vnstock Finance API không khả dụng")
         
         symbol = symbol.upper()
         # Validate period
@@ -1663,31 +1749,31 @@ async def get_financial_report(symbol: str, period: str = "year"):
         
         logger.info(f"Đang lấy báo cáo tài chính cho {symbol}, period: {period}...")
         
-        # Khởi tạo Finance adapter từ vnstock_data
-        finance = Finance(source="vci", symbol=symbol, period=period)
+        # Khởi tạo Finance adapter từ vnstock
+        finance = Finance(source="VCI", symbol=symbol, period=period)
         
         # Lấy các báo cáo tài chính
         logger.info(f"  → Đang lấy balance_sheet cho {symbol}...")
-        balance_sheet = finance.balance_sheet(lang="vi")
+        balance_sheet = finance.balance_sheet()
         logger.info(f"     Balance Sheet: {len(balance_sheet) if balance_sheet is not None else 0} rows")
         
         logger.info(f"  → Đang lấy income_statement cho {symbol}...")
-        income_statement = finance.income_statement(lang="vi")
+        income_statement = finance.income_statement()
         logger.info(f"     Income Statement: {len(income_statement) if income_statement is not None else 0} rows")
         
         logger.info(f"  → Đang lấy cash_flow cho {symbol}...")
-        cash_flow = finance.cash_flow(lang="vi")
+        cash_flow = finance.cash_flow()
         logger.info(f"     Cash Flow: {len(cash_flow) if cash_flow is not None else 0} rows")
         
         logger.info(f"  → Đang lấy ratio cho {symbol}...")
-        ratios = finance.ratio(lang="vi")
+        ratios = finance.ratio()
         logger.info(f"     Ratios: {len(ratios) if ratios is not None else 0} rows")
         
         # Lấy ratio_summary từ Company API (chỉ số tài chính tóm tắt)
         ratio_summary = None
         try:
             logger.info(f"  → Đang lấy ratio_summary từ Company API cho {symbol}...")
-            company = Company(source="vci", symbol=symbol)
+            company = Company(source="VCI", symbol=symbol)
             ratio_summary_df = company.ratio_summary()
             if ratio_summary_df is not None and not ratio_summary_df.empty:
                 logger.info(f"     Ratio Summary: {len(ratio_summary_df)} rows")
@@ -1931,7 +2017,7 @@ async def admin_get_available_stocks(exchange: str = None, search: str = None):
             raise HTTPException(status_code=503, detail="Listing API not available")
         
         # Khởi tạo Listing adapter
-        listing = Listing(source="vci")
+        listing = Listing(source="VCI")
         
         # Lấy tất cả symbols
         all_symbols_df = listing.all_symbols(to_df=True)
@@ -2047,7 +2133,7 @@ async def admin_update_stock_names():
             return {"updated": 0, "message": "No Vietnam stocks found in database"}
         
         # Khởi tạo Listing adapter
-        listing = Listing(source="vci")
+        listing = Listing(source="VCI")
         
         # Lấy tất cả symbols với thông tin đầy đủ
         all_symbols_df = listing.all_symbols(to_df=True)
